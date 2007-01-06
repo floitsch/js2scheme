@@ -1,5 +1,6 @@
 (module jsre-natives
-   (import jsre-object)
+   (import jsre-object
+	   jsre-exceptions)
    (export
     *js-Undefined*::Js-Object
     *js-Null*::Js-Object
@@ -13,14 +14,14 @@
    (co-instantiate ((undefined (instantiate::Js-Undefined
 				  (props (make-props-hashtable))
 				  (proto undefined)
-				  (fun error-fun)
-				  (new error-fun))))
+				  (fun (error-fun "no exec"))
+				  (new (error-fun "no new")))))
       undefined))
 
 (define (null-primitive)
    (co-instantiate ((null (instantiate::Js-Null
 			     (props (make-props-hashtable))
 			     (proto null)
-			     (fun error-fun)
-			     (new error-fun))))
+			     (fun (error-fun "no exec"))
+			     (new (error-fun "no new")))))
       null))

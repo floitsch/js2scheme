@@ -22,11 +22,15 @@
 					     *nb-named-params*)))))
       `(let ((,fun ,f))
 	  (let* ,arg-bindings
-	     (,fun ,(or this '*global-this*)
+	     (,fun ,(or this '*js-global-this*)
 		   ,fun
 		   ,nb-params
 		   ,@named-params
 		   ,(list 'quasiquote rest-vec))))))
+
+(define-macro (make-arguments . L)
+   ;; TODO
+   ''TODO)
 
 (define-macro (js-fun formals body)
    (define *nb-named-params* 3)

@@ -12,8 +12,8 @@
     (class Js-Object
        (props read-only) ;; hashtable
        (proto::Js-Object read-only) ;; prototype
-       fun::proc   ;; when called as a function. by default raises an error.
-       new::proc)  ;; when called as constructor. Usually same as 'fun'.
+       fun::procedure   ;; when called as a function. by default raises an error.
+       new::procedure)  ;; when called as constructor. Usually same as 'fun'.
     (generic js-property-one-level-contains o::Js-Object prop::bstring)
     (generic js-property-contains o::Js-Object prop::bstring)
     (generic js-property-generic-set! o::Js-Object prop::bstring new-val)
@@ -21,10 +21,10 @@
 	     o::Js-Object
 	     prop::bstring
 	     new-entry::Property-entry)
-    (generic js-object->primitive o::Js-Object)
+    (generic js-object->primitive o::Js-Object hint::symbol)
     (generic js-object->string::bstring o::Js-Object)
 
-    (inline safe-new-fun::proc o::Js-Object)
+    (inline safe-new-fun::procedure o::Js-Object)
     (inline make-props-hashtable)
     (default-attribute)    ;; default attributes for common properties.
     (length-attribute)     ;; default attributes for "length" properties.
@@ -42,6 +42,8 @@
 (define-inline (safe-new-fun o::Js-Object)
    (Js-Object-new o))
 
+(define-inline (make-string-hashtable)
+   (make-hashtable))
 (define-inline (make-props-hashtable)
    (make-hashtable))
 
@@ -77,7 +79,7 @@
 (define-generic (js-property-contains o::Js-Object prop::bstring)
    (with-access::Js-Object o (props proto)
       (let* ((ht-entry (hashtable-get props prop))
-	     (entry (and entry (Property-entry-val entry))))
+	     (entry (and ht-entry (Property-entry-val ht-entry))))
 	 (or entry
 	     (js-property-contains proto prop)))))
 
@@ -90,7 +92,7 @@
 
 ;; non-generic. but js-property-generic-set! is.
 (define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)
-      (js-property-generic-set! o prop (mangle-false new-value))
+      (js-property-generic-set! o prop (mangle-false new-value)))
 
 (define-generic (js-property-generic-set! o::Js-Object prop::bstring new-value)
    ;(print "set!: " prop " <- " new-value)
@@ -112,7 +114,7 @@
 					 prop::bstring
 					 new-entry::Property-entry)
    (with-access::Js-Object o (props)
-      (hashtable-put! prop new-entry)))
+      (hashtable-put! props prop new-entry)))
 
 (define-generic (js-property-safe-delete!::bool o::Js-Object prop::bstring)
    (with-access::Js-Object o (props)
@@ -145,7 +147,7 @@
 				(if enumerable
 				    (hashtable-put! ht key #t)))))
       (unless (eq? proto 'null)
-	 (add-enumerables proto hashtable))))
+	 (add-enumerables proto ht))))
 
 (define-inline (js-properties-list::pair-nil o::Js-Object)
    (let ((ht (make-string-hashtable)))
