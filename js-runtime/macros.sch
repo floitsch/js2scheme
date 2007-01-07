@@ -21,7 +21,7 @@
 				       (drop arg-bindings-good-nb
 					     *nb-named-params*)))))
       `(let ((,fun ,f))
-	  (let* ,arg-bindings
+	  (let* ,arg-bindings-good-nb
 	     (,fun ,(or this '*js-global-this*)
 		   ,fun
 		   ,nb-params
@@ -32,7 +32,7 @@
    ;; TODO
    ''TODO)
 
-(define-macro (js-fun formals body)
+(define-macro (js-fun-lambda formals body)
    (define *nb-named-params* 3)
    (let* ((named-params (map (lambda (i)
 				(string->symbol
@@ -91,6 +91,18 @@
 							,par-vec)))
 			 ,body)
 		     body))))))
+
+(define-macro (js-fun formals body)
+   (let ((tmp-f (gensym 'f)))
+      `(let* ((,tmp-f (js-fun-lambda ,formals ,body))
+	     ;; may fail, as Object can be modified by user
+	      (fun-prototype (js-new *js-Object*)))
+	  (register-function-object! ,tmp-f ;; lambda
+				     ,tmp-f ;; new
+				     fun-prototype ;; prototype
+				     ,(length formals) ;; nb args
+				     "TODO") ;; text-representation
+	  ,tmp-f)))
 
 (define-macro (js-new o . Largs)
    (let ((c (gensym 'class))

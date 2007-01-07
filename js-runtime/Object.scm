@@ -15,24 +15,30 @@
        (let ((proto (instantiate::Js-Object
 		       (props (make-props-hashtable))
 		       (proto *js-Null*)
-		       (fun error-fun)
-		       (new error-fun))))
+		       (fun (error-fun "can't be invoked"))
+		       (new (error-fun "can't be instantiated")))))
 	  (set! *js-Object-prototype* proto)
 	  (set! *object-prototype-initialized?* #t)))
    *js-Object-prototype*)
 
 (define (Object-init)
-   (set! *js-Object* (instantiate::Js-Object
-			(props (make-props-hashtable))
-			(proto (js-function-prototype))
-			(fun Object-fun)
-			(new Object-new))))
+   (set! *js-Object* Object-lambda)
+   (register-function-object! Object-lambda
+			      Object-new
+			      (js-function-prototype)
+			      1 ;; TODO
+			      "TODO [native]")
+   ;; TODO: add other attributes?
+   )
 
-(define (Object-fun)
+(define (Object-lambda)
    ;; TODO
    'TODO
    )
-(define (Object-new)
+(define (Object-new . L)
    ;; TODO
-   'TODO
-   )
+   (instantiate::Js-Object
+      (props (make-props-hashtable))
+      (proto *js-Object-prototype*)
+      (fun (error-fun "can't be invoked"))
+      (new (error-fun "can't be instantiated"))))

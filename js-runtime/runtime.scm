@@ -25,3 +25,4 @@
 (String-init)
 (Date-init)
 (Math-init)
+(init-js-print)

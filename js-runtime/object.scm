@@ -29,7 +29,6 @@
     (default-attribute)    ;; default attributes for common properties.
     (length-attribute)     ;; default attributes for "length" properties.
     (built-in-attribute)   ;; default attributes for "built-in" properties.
-    (inline js-property-safe-get o::Js-Object prop::bstring)
     (inline js-property-safe-set! o::Js-Object prop::bstring new-val)))
    
 (define-inline (mangle-false val)
@@ -82,13 +81,6 @@
 	     (entry (and ht-entry (Property-entry-val ht-entry))))
 	 (or entry
 	     (js-property-contains proto prop)))))
-
-;; non-generic. but js-property-contains is.
-(define-inline (js-property-safe-get o::Js-Object prop::bstring)
-   (let ((res (js-property-contains o prop)))
-      (if res
-	  (unmangle-false res)
-	  'undefined)))
 
 ;; non-generic. but js-property-generic-set! is.
 (define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)

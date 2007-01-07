@@ -3,7 +3,8 @@
    (import jsre-object
 	   jsre-natives ;; undefined, null, ...
 	   jsre-exceptions)
-   (export *js-global-this*::Js-Object
+   (export *js-function-objects-ht*
+	   *js-global-this*::Js-Object
 	   *js-Object* ;; can be modified by user -> can't be ::Js-Object
 	   *js-Object-prototype*::Js-Object
 	   *js-Function* ;; can be modified by user -> can't be ::Js-Object
@@ -29,6 +30,8 @@
 	   (inline any->uint16 any)
 	   (inline any->string::bstring any)
 	   (inline any->object::Js-Object any)
+	   (inline js-property-get o prop)
+	   (inline js-property-set! o prop new-val)
 	   *+infinity* ;; TODO type it
 	   *-infinity* ;; TODO type it
 	   *NaN*))
@@ -64,6 +67,8 @@
 (define *+infinity* (/fl 1.0 0.0))
 (define *-infinity* (/fl -1.0 0.0))
 (define *NaN* 0.0) ;; TODO
+
+(define *js-function-objects-ht* (make-hashtable #unspecified #unspecified eq?))
 
 (define-inline (js-boolify::bool any)
    (cond
@@ -158,13 +163,7 @@
 
 (define-inline (any->object::Js-Object any)
    (define (procedure-object p)
-      ;; TODO
-      (co-instantiate ((tmp (instantiate::Js-Object
-			       (props (make-props-hashtable))
-			       (proto tmp)
-			       (fun (error-fun "must not invoke"))
-			       (new (error-fun "must not new")))))
-	 tmp))
+      (hashtable-get *js-function-objects-ht* p))
    (cond
       ((or (eq? any *js-Null*)
 	   (eq? any *js-Undefined*))
@@ -178,6 +177,13 @@
        (type-error any))))
 
 (define-inline (js-property-get o prop)
+   ;; non-generic. but js-property-contains is.
+   (define (js-property-safe-get o::Js-Object prop::bstring)
+      (let ((res (js-property-contains o prop)))
+	 (if res
+	     (unmangle-false res)
+	     *js-Undefined*)))
+
    (let ((o-typed (any->object o))
 	 (prop-typed (any->string prop)))
       (js-property-safe-get o-typed prop-typed)))
