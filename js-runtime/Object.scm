@@ -2,21 +2,28 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-Function ;; recursive dependency :(
+	   jsre-String
+	   jsre-Number
+	   jsre-Bool
 	   jsre-natives
 	   jsre-exceptions
 	   jsre-primitives
+	   jsre-conversion
 	   )
-   (export (js-object-prototype)
+   (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
+	   *js-Object-prototype*::Js-Object
+	   (js-object-prototype)
 	   (Object-init)))
+
+(define *js-Object* (tmp-js-object))
+(define *js-Object-prototype* (tmp-js-object))
 
 (define *object-prototype-initialized?* #f)
 (define (js-object-prototype)
    (if (not *object-prototype-initialized?*)
        (let ((proto (instantiate::Js-Object
 		       (props (make-props-hashtable))
-		       (proto *js-Null*)
-		       (fun (error-fun "can't be invoked"))
-		       (new (error-fun "can't be instantiated")))))
+		       (proto *js-Null*))))
 	  (set! *js-Object-prototype* proto)
 	  (set! *object-prototype-initialized?* #t)))
    *js-Object-prototype*)
@@ -25,6 +32,7 @@
    (set! *js-Object* Object-lambda)
    (register-function-object! Object-lambda
 			      Object-new
+			      Object-construct
 			      (js-function-prototype)
 			      1 ;; TODO
 			      "TODO [native]")
@@ -32,13 +40,11 @@
    )
 
 (define (Object-lambda)
-   ;; TODO
    'TODO
    )
-(define (Object-new . L)
+(define (Object-new this f . L)
+   'TODO)
+
+(define (Object-construct c . L)
    ;; TODO
-   (instantiate::Js-Object
-      (props (make-props-hashtable))
-      (proto *js-Object-prototype*)
-      (fun (error-fun "can't be invoked"))
-      (new (error-fun "can't be instantiated"))))
+   (create-empty-object-lambda c))

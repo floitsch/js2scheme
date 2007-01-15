@@ -13,17 +13,13 @@
 (define (undefined-primitive)
    (co-instantiate ((undefined (instantiate::Js-Undefined
 				  (props (make-props-hashtable))
-				  (proto undefined)
-				  (fun (error-fun "no exec"))
-				  (new (error-fun "no new")))))
+				  (proto undefined))))
       undefined))
 
 (define (null-primitive)
    (co-instantiate ((null (instantiate::Js-Null
 			     (props (make-props-hashtable))
-			     (proto null)
-			     (fun (error-fun "no exec"))
-			     (new (error-fun "no new")))))
+			     (proto null))))
       null))
 
 (define-method (js-property-one-level-contains o::Js-Undefined prop::bstring)

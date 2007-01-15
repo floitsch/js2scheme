@@ -11,9 +11,7 @@
        attr::Attributes)
     (class Js-Object
        (props read-only) ;; hashtable
-       (proto::Js-Object read-only) ;; prototype
-       fun::procedure   ;; when called as a function. by default raises an error.
-       new::procedure)  ;; when called as constructor. Usually same as 'fun'.
+       (proto::Js-Object read-only)) ;; prototype
     (generic js-property-one-level-contains o::Js-Object prop::bstring)
     (generic js-property-contains o::Js-Object prop::bstring)
     (generic js-property-generic-set! o::Js-Object prop::bstring new-val)
@@ -24,7 +22,6 @@
     (generic js-object->primitive o::Js-Object hint::symbol)
     (generic js-object->string::bstring o::Js-Object)
 
-    (inline safe-new-fun::procedure o::Js-Object)
     (inline make-props-hashtable)
     (default-attribute)    ;; default attributes for common properties.
     (length-attribute)     ;; default attributes for "length" properties.
@@ -37,9 +34,6 @@
    (if (eq? val 'false)
        #f
        val))
-
-(define-inline (safe-new-fun o::Js-Object)
-   (Js-Object-new o))
 
 (define-inline (make-string-hashtable)
    (make-hashtable))

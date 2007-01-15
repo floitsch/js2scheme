@@ -99,14 +99,27 @@
 	      (fun-prototype (js-new *js-Object*)))
 	  (register-function-object! ,tmp-f ;; lambda
 				     ,tmp-f ;; new
+				     create-empty-object-lambda
 				     fun-prototype ;; prototype
 				     ,(length formals) ;; nb args
 				     "TODO") ;; text-representation
 	  ,tmp-f)))
 
-(define-macro (js-new o . Largs)
+(define-macro (js-new f . Largs)
    (let ((c (gensym 'class))
-	 (new-fun (gensym 'new-fun)))
-      `(let* ((,c (any->object ,o))
-	      (,new-fun (safe-new-fun ,c)))
-	  (js-call ,new-fun 'ignored ,@Largs))))
+	 (f-eval (gensym 'f-eval))
+	 (construct (gensym 'construct))
+	 (new (gensym 'new))
+	 (o (gensym 'o))
+	 (o-res (gensym 'o-res)))
+      `(let ((,f-eval ,f))
+	  (if (not (procedure? ,f-eval))
+	      (type-error ,f-eval)
+	      (let* ((,(symbol-append c '::Js-Function) (procedure-object ,f-eval))
+		     (,construct (Js-Function-construct ,c))
+		     (,new (Js-Function-new ,c))
+		     (,o (,construct ,c))
+		     (,o-res (js-call ,new ,o ,@Largs)))
+		 (if (js-object ,o-res)
+		     ,o-res
+		     ,o))))))

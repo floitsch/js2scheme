@@ -4,11 +4,18 @@
 	   jsre-natives ;; undefined, null, ...
 	   jsre-exceptions
 	   jsre-primitives
-	   jsre-Function)
+	   jsre-Object
+	   jsre-Function
+	   jsre-String
+	   jsre-Number
+	   jsre-Bool
+	   jsre-conversion)
    (export js-print
 	   (init-js-print)))
 
 (define js-print #f)
 
 (define (init-js-print)
-   (set! js-print (js-fun (#f #f to-print) (print to-print))))
+   (print "initting")
+   (set! js-print (js-fun (#f #f to-print) (print to-print)))
+   (print "done"))

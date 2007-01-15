@@ -2,14 +2,24 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-Object
+	   jsre-Function
+	   jsre-String
+	   jsre-Number
+	   jsre-Bool
 	   jsre-natives
 	   jsre-primitives
 	   jsre-exceptions
+	   jsre-conversion
 	   )
    (export
+    *js-Array* ;; can be modified by user -> can't be ::Js-Object
+    *js-Array-prototype*::Js-Object
     (class Js-Array::Js-Object
        length::bint) ;; TODO: bint is too small.
     (Array-init)))
+
+(define *js-Array* (tmp-js-object))
+(define *js-Array-prototype* (tmp-js-object))
 
 (define-method (js-property-one-level-contains o::Js-Array prop::bstring)
    (if (string=? prop "length")
@@ -52,14 +62,13 @@
    ;; TODO not yet correct
    (set! *js-Array-prototype* (instantiate::Js-Object
 				 (props (make-props-hashtable))
-				 (proto (js-object-prototype))
-				 (fun (error-fun "can't be invoked"))
-				 (new (error-fun "can't be newed"))))
-   (set! *js-Array* (instantiate::Js-Object
+				 (proto (js-object-prototype))))
+   (set! *js-Array* (instantiate::Js-Function
 			(props (make-props-hashtable))
 			(proto *js-Array-prototype*)
-			(fun Array-fun)
-			(new Array-new))))
+			(new Array-new)
+			(construct (lambda () 'ignored))
+			(text-repr "TODO [native]"))))
 
 (define (Array-fun)
    ;; TODO
