@@ -1,5 +1,6 @@
 BIGLOO = bigloo
-TARGETNAMES	= test repl
+#TARGETNAMES	= test repl
+TARGETNAMES	= repl
 
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String conversion exceptions\
 			natives object global-object globals globals-tmp primitives runtime operators
