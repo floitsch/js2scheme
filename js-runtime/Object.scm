@@ -9,6 +9,8 @@
 	   jsre-exceptions
 	   jsre-primitives
 	   jsre-conversion
+	   jsre-global-object
+	   jsre-globals-tmp
 	   )
    (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
 	   *js-Object-prototype*::Js-Object
@@ -36,15 +38,22 @@
 			      (js-function-prototype)
 			      1 ;; TODO
 			      "TODO [native]")
+   (globals-tmp-add! (lambda () (global-add! 'Object *js-Object*)))
    ;; TODO: add other attributes?
    )
 
-(define (Object-lambda)
-   'TODO
-   )
+(define Object-lambda
+   (js-fun-lambda #f
+		  this-callee
+		  #f
+		  (first-arg)
+		  (if (or (eq? first-arg *js-Undefined*)
+			  (eq? first-arg *js-Null*))
+		      (js-new this-callee)
+		      (any->object first-arg))))
+
 (define (Object-new this f . L)
-   'TODO)
+   'do-nothing)
 
 (define (Object-construct c . L)
-   ;; TODO
    (create-empty-object-lambda c))

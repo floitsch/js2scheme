@@ -98,7 +98,7 @@
       (cond
 	 (var.escapes?
 	  'do-nothing)
-	 (var.imported?
+	 (var.external?
 	  'do-nothing)
 	 ((not live-begin-stack)
 	  (begin

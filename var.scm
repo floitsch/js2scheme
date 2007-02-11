@@ -19,13 +19,19 @@
    (set! this.intercepted intercepted-var))
 (set! With-var.proto (empty-pobject Var))
 
-(define-pclass (Runtime-var id)
-   (set! this.id id))
+(define-pclass (Runtime-var id scm-id)
+   (set! this.external? #t)
+   (set! this.runtime? #t)
+   (set! this.id id)
+   (set! this.scm-id scm-id))
 (set! Runtime-var.proto (empty-pobject Var))
 (set! Runtime-var.proto.runtime? #t)
 
-(define-pclass (Imported-var id)
-   (set! this.id id))
+(define-pclass (Imported-var id scm-id)
+   (set! this.external? #t)
+   (set! this.imported? #t)
+   (set! this.id id)
+   (set! this.scm-id scm-id))
 (set! Imported-var.proto (empty-pobject Var))
 (set! Imported-var.proto.runtime? #t)
 

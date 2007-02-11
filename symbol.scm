@@ -1,7 +1,7 @@
 (module symbol
    (include "protobject.sch")
    (include "nodes.sch")
-   (include "runtime-variables.sch")
+   (include "js-runtime/runtime-variables.sch")
    (option (loadq "protobject-eval.sch"))
    (import protobject
 	   verbose
@@ -9,19 +9,6 @@
 	   var)
    (export (symbol-resolution tree::pobject)
 	   *imported-vars*))
-
-(define *runtime-vars* '(Object
-			 Function
-			 Array
-			 String
-			 Boolean
-			 Number
-			 Math
-			 Date
-			 RegExp
-			 Error
-			 OR && BIT_OR ^ & == != === !== < > <= >= instanceof in
-			 << >> >>> + - * / % ++ --))
 
 (define *imported-vars* '())
 
@@ -81,18 +68,25 @@
    (let* ((runtime-table (make-scope-table))
 	  (imported-table (make-scope-table))
 	  (globals-table (make-scope-table)))
-      (for-each (lambda (runtime-var)
-		   (let ((v (new Runtime-var runtime-var)))
+      (for-each (lambda (runtime-var-binding)
+		   (let* ((id (car runtime-var-binding))
+			  (scm-id (cadr runtime-var-binding))
+			  (v (new Runtime-var id scm-id)))
+		      (if (and (not (null? (cddr runtime-var-binding)))
+			       (eq? (caddr runtime-var-binding) 'operator))
+			  (set! v.operator? #t))
 		      (set! v.global? #t)
 		      (hashtable-put! runtime-table
-				      runtime-var
+				      id
 				      v)))
-		*runtime-vars*)
-      (for-each (lambda (imported-var)
-		   (let ((v (new Imported-var imported-var)))
+		*runtime-variables*)
+      (for-each (lambda (imported-var-binding)
+		   (let* ((id (car imported-var-binding))
+			  (scm-id (cadr imported-var-binding))
+			  (v (new Imported-var id scm-id)))
 		      (set! v.global? #t)
 		      (hashtable-put! imported-table
-				      imported-var
+				      id
 				      v)))
 		*imported-vars*)
 					
@@ -189,8 +183,12 @@
 	     (var
 	      (set! this.var var)
 	      (set! this.var.scope-level scope-level))
-	     ((memq this.id *runtime-variables*)
-	      (set! this.var (new Runtime-var this.id)))
+; 	     ((assq this.id *runtime-variables*)
+; 	      =>
+; 	      (lambda (binding)
+; 		 (set! this.var (new Runtime-var
+; 				     (car binding)
+; 				     (cdr binding)))))
 	     (else
 	      ;; a new global...
 	      (let* ((id this.id)

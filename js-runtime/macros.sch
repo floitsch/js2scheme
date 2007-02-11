@@ -32,7 +32,7 @@
    ;; TODO
    ''TODO)
 
-(define-macro (js-fun-lambda formals body)
+(define-macro (js-fun-lambda maybe-this maybe-this-callee arguments formals body)
    (define *nb-named-params* 3)
    (let* ((named-params (map (lambda (i)
 				(string->symbol
@@ -43,8 +43,8 @@
 	  (par-vec 'par-vec)
 	  (vec-size 'vec-size)
 	  (par-nb 'par-nb)
-	  (par-callee 'this-callee)
-	  (params (cddr formals))
+	  (par-callee (or maybe-this-callee 'this-callee))
+	  (params formals)
 	  (bindings (let loop ((params params)
 			       (named-params named-params)
 			       (counter 0)
@@ -79,8 +79,7 @@
 				       rev-res))))))
 	  (param-vars (map car bindings))
 
-	  (arguments (cadr formals))
-	  (this (or (car formals) (gensym 'ignored-this))))
+	  (this (or maybe-this (gensym 'ignored-this))))
       `(lambda (,this ,par-callee ,par-nb ,@named-params ,par-vec)
 	  (let ((,vec-size (-fx ,par-nb ,(length named-params))))
 	     (let* ,bindings
@@ -92,10 +91,10 @@
 			 ,body)
 		     body))))))
 
-(define-macro (js-fun formals body)
+(define-macro (js-fun this this-callee arguments formals body)
    (let ((tmp-f (gensym 'f)))
-      `(let* ((,tmp-f (js-fun-lambda ,formals ,body))
-	     ;; may fail, as Object can be modified by user
+      `(let* ((,tmp-f (js-fun-lambda ,this ,this-callee ,arguments ,formals ,body))
+	      ;; may fail, as Object can be modified by user
 	      (fun-prototype (js-new *js-Object*)))
 	  (register-function-object! ,tmp-f ;; lambda
 				     ,tmp-f ;; new
@@ -123,3 +122,34 @@
 		 (if (js-object ,o-res)
 		     ,o-res
 		     ,o))))))
+
+(define-macro (define-globals . L)
+   (let* ((ids (map (lambda (def)
+		       (if (pair? (cadr def))
+			   (caadr def)
+			   (cadr def)))
+		    L))
+	  (exported-ids (map (lambda (id)
+				(symbol-append 'jsg- id))
+			     ids))
+	  (vals (map (lambda (def)
+			(if (pair? (cadr def))
+			    `(js-fun #f #f #f ,(cdr (cadr def)) ,@(cddr def))
+			    (caddr def)))
+			L))
+	  (defines (map (lambda (id)
+			   `(define ,id #f))
+			exported-ids))
+	  (global-adds (map (lambda (id exported-id)
+			       ;; TODO: should probably become closures
+			       `(global-add! ',id ,exported-id))
+			    ids
+			    exported-ids))
+	  (sets (map (lambda (id val)
+			`(set! ,id ,val))
+		     exported-ids vals)))
+      `(begin
+	  ,@defines
+	  (globals-tmp-add! (lambda ()
+			       ,@sets
+			       ,@global-adds)))))

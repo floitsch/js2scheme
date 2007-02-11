@@ -55,7 +55,8 @@
       ((eq? (peek-token-type) 'SEMICOLON)
        (consume-any!))
       ((or (eq? (peek-token-type) 'RBRACE)
-	   (at-new-line-token?))
+	   (at-new-line-token?)
+	   (eq? (peek-token-type) 'EOF))
        'do-nothing)
       (else
        (error #f "unexpected token: " (peek-token)))))
@@ -623,7 +624,9 @@
    
    (consume! 'LBRACE)
    (if (eq? (peek-token-type) 'RBRACE)
-       (new Obj-init '())
+       (begin
+	  (consume-any!)
+	  (new Obj-init '()))
        (let loop ((rev-props (list (property-init))))
 	  (if (eq? (peek-token-type) 'RBRACE)
 	      (begin

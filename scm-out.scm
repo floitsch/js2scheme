@@ -49,7 +49,7 @@
 			   Let
 			   Bind-exit
 			   Bind-exit-invoc)
-	     (overload traverse out (Var)
+	     (overload traverse out (Var Runtime-var Imported-var)
 		       (overload traverse out (Label)
 				 (tree.traverse)))))
 
@@ -60,6 +60,10 @@
 
 (define-pmethod (Var-out)
    this.id)
+(define-pmethod (Runtime-var-out)
+   this.scm-id)
+(define-pmethod (Imported-var-out)
+   this.scm-id)
 
 (define-pmethod (Label-out)
    (if (not this.generated)
@@ -202,9 +206,10 @@
 (define-pmethod (Fun-out)
    (let ((compiled-arguments (this.arguments-decl.traverse))
 	 (compiled-this (this.this-decl.traverse)))
-      `(js-fun (,compiled-this
-		,compiled-arguments
-		,@(map-node-compile this.params))
+      `(js-fun ,compiled-this
+	       #f ;; no this-fun (only accessible through arguments)
+	       ,compiled-arguments
+	       (,@(map-node-compile this.params))
 	       ,(this.body.traverse))))
 
 (define-pmethod (Vassig-out)
@@ -224,9 +229,18 @@
 	  ,tmp-val)))
 
 (define-pmethod (Call-out)
-   `(js-call ,(this.op.traverse)
-	     #f
-	     ,@(map-node-compile this.args)))
+   (if (and (inherits-from? this.op Var-ref)
+	    (inherits-from? this.op.var Runtime-var)
+	    this.op.var.operator?)
+       `(,(this.op.traverse)
+	 ,@(map-node-compile this.args))
+       `(js-call ,(this.op.traverse)
+		 #f
+		 ,@(map-node-compile this.args))))
+
+; (define-pmethod (Binary-out)
+;    `(,(this.op.traverse)
+;      ,@(map-node-compile this.args)))
 
 (define-pmethod (Method-call-out)
    `(js-call ,(this.op.traverse)

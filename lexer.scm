@@ -4,7 +4,25 @@
 	   *Reg-exp-grammar*))
 
 (define (string-without-quotes s)
-   (substring s 1 (-fx (string-length s) 1)))
+   (define (unescape str)
+      (let ((char-l (string->list str)))
+	 (let loop ((char-l char-l)
+		    (rev-res '()))
+	    (if (null? char-l)
+		(list->string (reverse rev-res))
+		(cond
+		   ((eq? (car char-l) #\\)
+		    (loop (cddr char-l)
+			  (cons (case (cadr char-l)
+				   ((#\t) #\tab)
+				   ((#\n) #\newline)
+				   ((#\r) #\return)
+				   (else (cadr char-l)))
+				rev-res)))
+		   (else
+		    (loop (cdr char-l)
+			  (cons (car char-l) rev-res))))))))
+   (unescape (substring s 1 (-fx (string-length s) 1))))
 
 (define-struct coord
    fname  ;; string  : the file of the coord
@@ -147,11 +165,11 @@
 
       ;; TODO: probably not spec-conform
       ((: #\" (* (or (out #\" #\\ #\Newline) (: #\\ all))) #\")
-       ;(token 'STRING (string-without-quotes (the-string))))
-       (token 'STRING (the-string)))
+       (token 'STRING (string-without-quotes (the-string))))
+       ;(token 'STRING (the-string)))
       ((: #\' (* (or (out #\' #\\ #\Newline) (: #\\ all))) #\')
-       ;(token 'STRING (string-without-quotes (the-string))))
-       (token 'STRING (the-string)))
+       (token 'STRING (string-without-quotes (the-string))))
+       ;(token 'STRING (the-string)))
 
       ;; Identifiers and Keywords
       ((: id_start (* id_part))

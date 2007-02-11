@@ -36,9 +36,17 @@
    (let* ((continue-labelled (new Labelled
 				  *default-continue-label-id*
 				  (this.body.traverse!)))
-	  (while-body (new Block (list continue-labelled (this.incr.traverse!))))
-	  (while (new While (this.test.traverse!) while-body))
-	  (block (new Block (list (this.init.traverse!) while)))
+	  (while-body (if this.incr
+			  (new Block (list continue-labelled
+					   (this.incr.traverse!)))
+			  continue-labelled))
+	  (while (new While (if this.test
+				(this.test.traverse!)
+				(new Bool #t))
+		      while-body))
+	  (block (if this.init
+		     (new Block (list (this.init.traverse!) while))
+		     while))
 	  (break-labelled (new Labelled *default-break-label-id* block))
 	  (new-this break-labelled))
       (set! continue-labelled.label this.continue-label)

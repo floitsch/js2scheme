@@ -170,28 +170,22 @@
 	  cloned-this)))
 
 (define-method (object-display po::pobject . port)
-   (cond
-      ((eq? po *no-proto*)
-       (display "NO-PROTO"))
-      ((pfield po '___already-displayed?)
-       (display "<cycle>"))
-      (else
-       (pfield-set! po '___already-displayed? #t)
-       (display "{Object ")
-       (with-access::pobject po (props proto type)
-	  (with-access::pclass type (name)
-	     (display name)
-	     (display ": [")
-	     (hashtable-for-each
-	      props
-	      (lambda (key val)
-		 (when (not (eq? key '___already-displayed?))
+   (if (eq? po *no-proto*)
+       (display "NO-PROTO")
+       (begin
+	  (display "{Object ")
+	  (with-access::pobject po (props proto type)
+	     (with-access::pclass type (name)
+		(display name)
+		(display ": [")
+		(hashtable-for-each
+		 props
+		 (lambda (key val)
 		    (display key)
 		    (display " : ")
 		    (display val)
-		    (display ", "))))
-	     (display "]}")))
-       (pfield-delete! po '___already-displayed?))))
+		    (display ", ")))
+		(display "]}"))))))
 
 (define-method (object-print po::pobject out::output-port
 			     p::procedure)
@@ -262,7 +256,7 @@
 				   
 		  (let ((str (with-output-to-string (lambda ()
 						       (display x)))))
-		     (string-escape str #\\ #\< #\> #\| #\{ #\})))
+		     (string-escape str #\" #\\ #\< #\> #\| #\{ #\})))
 	       
 	       (define (tostring x obj-id field-id)
 		  (with-output-to-string
