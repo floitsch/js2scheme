@@ -126,7 +126,7 @@
 	  (rhs-binary (new Binary
 			   access-rhs
 			   this.op
-			   this.rhs))
+			   this.val))
 	  (accsig (new Accsig access-lhs rhs-binary))
 	  (sequence (new Sequence (list init-o
 					init-field
