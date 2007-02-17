@@ -113,16 +113,21 @@
    (this.traverse0!)
    (let* ((o this.lhs.obj)
 	  (field this.lhs.field)
-	  (tmp-o (gensym 'tmp-o))
-	  (tmp-field (gensym 'tmp-field))
-	  (init-o (new Init (new Decl tmp-o) o))
-	  (init-field (new Init (new Decl tmp-field) field))
+	  (tmp-o-id (gensym 'tmp-o))
+	  (tmp-field-id (gensym 'tmp-field))
+	  (tmp-o-decl (Decl-of-new-Var tmp-o-id))
+	  (tmp-field-decl (Decl-of-new-Var tmp-field-id))
+	  (init-o (new Init tmp-o-decl o))
+	  (tmp-o-var tmp-o-decl.var)
+	  (init-field (new Init tmp-field-decl field))
+	  (tmp-field-var tmp-field-decl.var)
+
 	  (access-lhs (new Access
-			   (new Var-ref tmp-o)
-			   (new Var-ref tmp-field)))
+			   (tmp-o-var.reference)
+			   (tmp-field-var.reference)))
 	  (access-rhs (new Access
-			   (new Var-ref tmp-o)
-			   (new Var-ref tmp-field)))
+			   (tmp-o-var.reference)
+			   (tmp-field-var.reference)))
 	  (rhs-binary (new Binary
 			   access-rhs
 			   this.op
