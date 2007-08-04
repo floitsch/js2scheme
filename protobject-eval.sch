@@ -12,7 +12,8 @@
 ;; but not at start.
 (define (dotted-symbol? id)
    (and (symbol? id)
-	(>fx (string-index (symbol->string id) #\.) 0)))
+	(let ((i (string-index (symbol->string id) #\.)))
+	   (and (fixnum? i) (>fx i 0)))))
 
 (define (starts-with-dot? id)
    (and (symbol? id)
@@ -104,6 +105,14 @@
        x)
       ;(quasiquote ...)
       (((kwote quasiquote) ???-)
+       x)
+      ;(let ...)
+      (((or let let* letrec) (and ?bindings (? pair?)) . ?body)
+       (for-each expand-indirect-accesses! bindings)
+       x)
+      ;(let loop ...)
+      (((or let let* letrec) ?loop-name (and ?bindings (? pair?)) . ?body)
+       (for-each expand-indirect-accesses! bindings)
        x)
       (else
        (expand-indirect-accesses! x)
