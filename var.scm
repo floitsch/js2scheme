@@ -5,6 +5,7 @@
    (import protobject
            nodes)
    (export Var
+	   This-var
 	   With-var
 	   Runtime-var
 	   Imported-var
@@ -12,6 +13,9 @@
 
 (define-pclass (Var id)
    (set! this.id id))
+
+(define-pclass (This-var)
+   (set! this.id 'this))
 
 (define-pclass (With-var id with intercepted-var)
    (set! this.id id)

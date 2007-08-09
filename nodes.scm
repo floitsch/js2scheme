@@ -68,7 +68,7 @@
 	   Obj-init
 	   Property-init
 	   Reg-exp
-	   Let))
+	   Let*))
 
 (define (deprecate! C)
    (define-pmethod (deprecated-use . L)
@@ -550,8 +550,8 @@
 ;; Scheme nodes
 ;;
 
-(define-pclass (Let vassig body)
-   (set! this.vassig vassig)
+(define-pclass (Let* vassigs body)
+   (set! this.vassigs vassigs)
    (set! this.body body))
-(set! Let.proto (empty-pobject Node))
-(proto-traverses Let vassig body)
+(set! Let*.proto (empty-pobject Node))
+(proto-traverses Let* (vassigs) body)

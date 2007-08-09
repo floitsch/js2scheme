@@ -505,8 +505,10 @@
 
 (define (unary)
    (case (peek-token-type)
-      ((delete void typeof ++ -- + - ~ !)
+      ((delete void typeof ~ ! ++ --)
        (new Unary (new Var-ref (car (consume-any!))) (unary)))
+      ((+ -)
+       (new Unary (new Var-ref (symbol-append 'unary- (car (consume-any!)))) (unary)))
       (else
        (postfix))))
 

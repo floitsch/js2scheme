@@ -100,7 +100,7 @@
       (if *obfuscation-mapping-file*
 	  (set! *obfuscation-mapping-p* (open-output-file *obfuscation-mapping-file*)))
       (fun-bindings! ast)
-      (symbol-resolution ast)
+      (symbol-resolution! ast)
       (set! *integrate-Var-decl-lists* #f)
       (simplify! ast)
       (statements ast)

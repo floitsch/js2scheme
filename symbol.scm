@@ -7,14 +7,14 @@
 	   verbose
 	   nodes
 	   var)
-   (export (symbol-resolution tree::pobject)
+   (export (symbol-resolution! tree::pobject)
 	   *imported-vars*))
 
 (define *imported-vars* '())
 
-(define (symbol-resolution tree)
+(define (symbol-resolution! tree)
    (verbose "symbol-resolution")
-   (collect tree)
+   (collect! tree)
    (resolve tree))
 
 
@@ -50,21 +50,22 @@
 ;; param, or other 'var') nothing happens.
 ;; Function declarations win over 'var'-statements. This is only important when
 ;; initializing (setting local vars to 'undefined')
-(define (collect tree)
-   (verbose "collect")
-   (overload traverse collect (Node
-			       Program
-			       Scope
-			       Catch
-			       Param
-			       Decl)
-	     (tree.traverse #f)))
+(define (collect! tree)
+   (verbose "collect!")
+   (overload traverse! collect! (Node
+				 Program
+				 Scope
+				 Catch
+				 Param
+				 This-decl
+				 Decl)
+	     (tree.traverse! #f)))
 
 
-(define-pmethod (Node-collect scope-table)
-   (this.traverse1 scope-table))
+(define-pmethod (Node-collect! scope-table)
+   (this.traverse1! scope-table))
 
-(define-pmethod (Program-collect scope-table)
+(define-pmethod (Program-collect! scope-table)
    (let* ((runtime-table (make-scope-table))
 	  (imported-table (make-scope-table))
 	  (globals-table (make-scope-table)))
@@ -93,37 +94,47 @@
       (set! this.imported-table imported-table)
       (set! this.runtime-table runtime-table)
       (set! this.globals globals-table)
-      (this.traverse1 globals-table)
+      (this.traverse1! globals-table)
       (hashtable-for-each globals-table
 			  (lambda (var-id var)
-			     (set! var.global? #t)))))
+			     (set! var.global? #t))))
+   this)
 
-(define-pmethod (Scope-collect scope-table)
+(define-pmethod (Scope-collect! scope-table)
    (let* ((scope-table (make-scope-table)))
       (set! this.locals scope-table)
-      (this.traverse1 scope-table)))
+      (this.traverse1! scope-table)))
    
 
 ;; some words for the Function:
 ;; it is important, that the arguments are parsed first and in order. This way
 ;; the last argument takes precedence over previous same-named arguments. If a
 ;; local fun has the same var, the arg is going to be shadowed by the fun-decl.
-;; all these properties are met by a default traverse1, and the Scope-collect
+;; all these properties are met by a default traverse, and the Scope-collect
 ;; is hence sufficient.
 
-(define-pmethod (Catch-collect scope-table)
+(define-pmethod (Catch-collect! scope-table)
    (let* ((catch-scope-table (make-scope-table)))
       (set! this.locals catch-scope-table)
-      (this.exception.traverse1 catch-scope-table)
+      (set! this.expection (this.exception.traverse! catch-scope-table))
       ;; the catch's body is not a scope.
-      (this.body.traverse1 scope-table)))
+      (set! this.body (this.body.traverse! scope-table))
+      this))
 
 ;; Params always have their proper vars (for the 'arguments-object')
-(define-pmethod (Param-collect scope-table)
+(define-pmethod (Param-collect! scope-table)
    (let* ((id this.id)
 	  (var (new Var id)))
       (set! this.var var)
-      (scope-symbol-var-set! scope-table id var)))
+      (scope-symbol-var-set! scope-table id var))
+   this)
+
+;; This-param
+(define-pmethod (This-decl-collect! scope-table)
+   (let* ((var (new This-var)))
+      (set! this.var var)
+      (scope-symbol-var-set! scope-table 'this var))
+   this)
 
 ;; all other decls reuse vars of previously declared vars of the same name.
 ;; function-declarations are not treated differently (they are only initialized
@@ -134,55 +145,58 @@
 ;;                                share the same var.
 ;;     fun f() { var arguments; } => the implicite arguments and 'var
 ;;                                   arguments' share the same var.
-(define-pmethod (Decl-collect scope-table)
+(define-pmethod (Decl-collect! scope-table)
    (let* ((id this.id)
 	  (var (scope-symbol-var scope-table id)))
       (if var
-	  (set! this.var var)
+	  ;; there exists already a decl. -> remove this one.
+	  (let ((ref (new Var-ref this.id)))
+	     (set! ref.var var)
+	     ref)
 	  (let ((new-var (new Var id)))
 	     (set! this.var new-var)
-	     (scope-symbol-var-set! scope-table id new-var)))))
+	     (scope-symbol-var-set! scope-table id new-var)
+	     this))))
 
 (define (resolve tree)
    (verbose " resolve")
    (overload traverse resolve (Node
 			       Program
 			       Scope
+			       Catch
 			       Var-ref)
-	     (tree.traverse #f #f))
-   (overload traverse clean-data (Node
-				  Var-ref)
-	     (tree.traverse)))
+	     (tree.traverse #f)))
 
 (define *program* #f)
 
-(define-pmethod (Node-resolve symbol-table scope-level)
-   (this.traverse2 symbol-table scope-level))
+(define-pmethod (Node-resolve symbol-table)
+   (this.traverse1 symbol-table))
 
-(define-pmethod (Program-resolve symbol-table scope-level)
+(define-pmethod (Program-resolve symbol-table)
    (let ((symbol-table (add-scope (add-scope (add-scope (make-symbol-table)
 							this.runtime-table)
 					     this.imported-table)
 				  this.globals)))
       (set! *program* this)
-      (this.traverse2 symbol-table 0)
+      (this.traverse1 symbol-table)
       (for-each (lambda (decl)
 		   (set! decl.var.global? #t))
 		this.implicit-globals)))
 					     
-(define-pmethod (Scope-resolve symbol-table scope-level)
+(define-pmethod (Scope-resolve symbol-table)
    (let ((extended-symbol-table (add-scope symbol-table this.locals)))
-      (this.traverse2 extended-symbol-table (+ scope-level 1))))
+      (this.traverse1 extended-symbol-table)))
 
-(define-pmethod (Var-ref-resolve symbol-table scope-level)
-   (if this.var ;; already has var
-       (if (not (eq? this.var.scope-level scope-level))
-	   (set! this.escapes #t))
+(define-pmethod (Catch-resolve symbol-table)
+   (let ((extended-symbol-table (add-scope symbol-table this.locals)))
+      (this.traverse1 extended-symbol-table)))
+
+(define-pmethod (Var-ref-resolve symbol-table)
+   (unless this.var ;; already has var
        (let ((var (symbol-var symbol-table this.id)))
 	  (cond
 	     (var
-	      (set! this.var var)
-	      (set! this.var.scope-level scope-level))
+	      (set! this.var var))
 ; 	     ((assq this.id *runtime-variables*)
 ; 	      =>
 ; 	      (lambda (binding)
@@ -198,15 +212,7 @@
 		 (set! prog.implicit-globals (cons decl prog.implicit-globals))
 		 (scope-symbol-var-set! prog.globals id decl.var)
 		 (set! decl.var.implicit-global? #t)
-		 (set! this.var decl.var)
-		 (if (not (=fx scope-level 0))
-		     (set! this.var.escapes #t))))))))
-
-(define-pmethod (Node-clean-data)
-   (this.traverse0))
-
-(define-pmethod (Var-ref-clean-data)
-   (delete! this.scope-level))
+		 (set! this.var decl.var)))))))
 
 ;; for now another pass.
 ;;   whenever we encounter a 'with', we "clear" the current

@@ -9,7 +9,7 @@
 	   var)
    (export (let-intro! tree::pobject)))
 
-;; adds let-nodes. each let-node is responsible for one variable.
+;; adds let*-nodes.
 
 (define (let-intro! tree)
    (verbose "let-intro!")
@@ -67,6 +67,8 @@
 	 (var.escapes?
 	  (mark-live-begin surrounding-fun.body var)
 	  (mark-live-end surrounding-fun.body var))
+	 (var.implicit-global? ;; we are printing those directly in Program-out.
+	  'do-nothing)
 	 ((not begin-stack) ;; imported, runtime or whatever...
 	  'do-nothing)
 	 ((inherits-from? (cadr begin-stack) Begin)
@@ -91,7 +93,8 @@
 (define (add-nodes! tree)
    (verbose " add-let-nodes")
    (overload traverse! intro! (Node
-			       Begin)
+			       Begin
+			       Let*)
 	     (tree.traverse!)))
 
 (define (intro! n)
@@ -102,12 +105,19 @@
 	     (if (null? (cdr lives))
 		 (delete! n.live-begins)
 		 (set! n.live-begins (cdr lives)))
-	     ((new Let (v.assig (new Undefined)) n).traverse!))
+	     ((new Let* (list (v.assig (new Undefined))) n).traverse!))
 	  (n.traverse0!))))
    
 (define-pmethod (Node-intro!)
    (intro! this))
 
+(define-pmethod (Let*-intro!)
+   (this.traverse0!)
+   (when (inherits-from? this.body Let*)
+      (set! this.assigs (append! this.vassigs this.body.vassigs))
+      (set! this.body this.body.body))
+   this)
+       
 (define-pmethod (Begin-intro!)
    (delete! this.live-ends)
    (if this.live-begins
@@ -133,14 +143,14 @@
 		    ((and long-v
 			  (inherits-from? el Vassig)
 			  (eq? el.lhs.var long-v))
-		     (let ((let-n (new Let
-				       el
+		     (let ((let-n (new Let*
+				       (list el)
 				       (new Sequence (cdr els)))))
 			(set-car! els (let-n.traverse!))
 			(set-cdr! els '())))
 		    (long-v
-		     (let ((let-n (new Let
-				       (long-v.assig (new Undefined))
+		     (let ((let-n (new Let*
+				       `(,(long-v.assig (new Undefined)))
 				       (new Sequence
 					    (cons (car els) (cdr els))))))
 			(set-car! els (let-n.traverse!))

@@ -32,8 +32,10 @@
 	   liveness
 	   let
 	   statements
+	   expand4
 	   scm-out)
-   (export (js2scheme::pair-nil in-p)))
+   (export (js2scheme in-p))
+   (from verbose))
 
 (define (dot-out tree)
    (pobject-dot-out tree (lambda (id)
@@ -54,10 +56,10 @@
 (define (js2scheme in-p)
    (let ((ast (parse in-p)))
       (fun-bindings! ast)
-      (symbol-resolution ast)
+      (expand4! ast)
+      (symbol-resolution! ast)
       (expand2! ast)
       (label-resolution ast)
-      ;(dot-out ast)
       (expand1! ast)
       ;	 (expand3! ast)
       (simplify-labels! ast)
@@ -67,7 +69,8 @@
       ;; nice optimization would split the vars, and remove unnecessary
       ;; undefined var-inits.
       (liveness ast)
+      ;(dot-out ast)
       (let-intro! ast)
-      ;	 (dot-out ast)
+      ;(dot-out ast)
       (scm-out ast)
       ))

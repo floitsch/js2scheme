@@ -44,12 +44,14 @@
 			   Number
 			   String
 			   Array
+			   Array-element
 			   Obj-init
+			   Property-init
 			   Reg-exp
-			   Let
+			   Let*
 			   Bind-exit
 			   Bind-exit-invoc)
-	     (overload traverse out (Var Runtime-var Imported-var)
+	     (overload traverse out (Var This-var Runtime-var Imported-var)
 		       (overload traverse out (Label)
 				 (tree.traverse)))))
 
@@ -59,7 +61,9 @@
 	l))
 
 (define-pmethod (Var-out)
-   this.id)
+   (symbol-append 'js- this.id))
+(define-pmethod (This-var-out)
+   'this)
 (define-pmethod (Runtime-var-out)
    this.scm-id)
 (define-pmethod (Imported-var-out)
@@ -76,18 +80,30 @@
 	  (pobject-name this)))
 
 (define-pmethod (Program-out)
-   (this.body.traverse))
+   (if (null? this.implicit-globals)
+       (this.body.traverse)
+       `(let (,@(map (lambda (decl)
+			`(,(decl.var.traverse) *js-Undeclared*))
+		     this.implicit-globals))
+	   ,(this.body.traverse))))
+   
 
 (define-pmethod (Begin-out)
    `(begin
        ,@(map-node-compile this.els)))
 
-(define-pmethod (Let-out)
-   `(let ((,(this.vassig.lhs.var.traverse) ,(this.vassig.val.traverse)))
+(define-pmethod (Let*-out)
+   `(let* (,@(map (lambda (vassig)
+		     `(,(vassig.lhs.var.traverse) ,(vassig.val.traverse)))
+		  this.vassigs))
        ,(this.body.traverse)))
 
 (define-pmethod (Var-ref-out)
-   (this.var.traverse))
+   ;; TODO: handle with-variables
+   (let ((var this.var))
+      (if var.global?
+	  `(check-undeclared ,(this.var.traverse) ',this.var.id)
+	  (this.var.traverse))))
 
 (define-pmethod (NOP-out)
    '*js-Undefined*)
@@ -99,7 +115,7 @@
 
 (define-pmethod (While-out)
    (let ((loop (gensym 'loop)))
-      `(let ,loop (())
+      `(let ,loop ()
 	    (if (js-boolify ,(this.test.traverse))
 		(begin
 		   ,(this.body.traverse)
@@ -117,7 +133,7 @@
 	      (object-for-in-attributes ,(this.obj.traverse))))
 
 (define-pmethod (With-out)
-   '(TODO TODO TODO With TODO TODO TODO))
+   ''(TODO TODO TODO With TODO TODO TODO))
 
 (define (make-clause default-clause? body-id expr body)
    (list default-clause? body-id expr body))
@@ -164,7 +180,7 @@
 	     ,@(map (lambda (clause)
 		       (if (clause-default-clause? clause)
 			   `(#f 'default-clause-was-here)
-			   `((=== ,(clause-expr clause) ,key)
+			   `((jsop-=== ,(clause-expr clause) ,key)
 			     (,(clause-body-id clause)))))
 		    compiled-clauses)
 	     ,@(if default-body-id
@@ -187,13 +203,22 @@
 		(this.body.traverse)))
 
 (define-pmethod (Throw-out)
-   '(TODO TODO TODO throw TODO TODO TODO))
+   `(raise ,(this.expr.traverse)))
 
 (define-pmethod (Try-out)
-   '(TODO TODO TODO throw TODO TODO TODO))
+   (let ((inner (if this.catch
+		    `(with-handler
+			,(this.catch.traverse)
+			,(this.body.traverse))
+		    (this.body.traverse))))
+      (if this.finally
+	  `(unwind-protect
+	      ,inner
+	      ,(this.finally.traverse)))))
 
 (define-pmethod (Catch-out)
-   '(TODO TODO TODO catch TODO TODO TODO))
+   `(lambda (,(this.exception.traverse))
+       ,(this.body.traverse)))
 
 (define-pmethod (Bind-exit-out)
    `(bind-exit (,(this.label.traverse))
@@ -213,10 +238,10 @@
 	       ,(this.body.traverse))))
 
 (define-pmethod (Vassig-out)
-   (let ((tmp (gensym 'tmp)))
-      `(let ((,tmp ,(this.val.traverse)))
-	  (set! ,(this.lhs.traverse) ,tmp)
-	  ,tmp)))
+   `(begin
+       ;; don't do undeclared-check (-> take directly the var)
+       (set! ,(this.lhs.var.traverse) ,(this.val.traverse))
+       ,(this.lhs.var.traverse)))
 
 (define-pmethod (Accsig-out)
    (let ((tmp-o (gensym 'tmp-o))
@@ -232,8 +257,16 @@
    (if (and (inherits-from? this.op Var-ref)
 	    (inherits-from? this.op.var Runtime-var)
 	    this.op.var.operator?)
-       `(,(this.op.traverse)
-	 ,@(map-node-compile this.args))
+       (cond
+	  ((and (eq? this.op.var.id 'typeof)
+		(not (null? this.args))
+		(null? (cdr this.args))
+		(inherits-from? (car this.args) Var-ref))
+	   ;; avoid both undeclared checks (the second must not be here)
+	   `(,(this.op.var.traverse) ,((car this.args).var.traverse)))
+	  (else
+	   `(,(this.op.var.traverse) ;; avoid undeclared-check
+	     ,@(map-node-compile this.args))))
        `(js-call ,(this.op.traverse)
 		 #f
 		 ,@(map-node-compile this.args))))
@@ -281,10 +314,20 @@
    this.val)
 
 (define-pmethod (Array-out)
-   '(TODO TODO TODO array TODO TODO TODO))
+   `(js-array-literal
+     ,this.length
+     ,(list 'quasiquote (map-node-compile this.els))))
+
+(define-pmethod (Array-element-out)
+   (list this.index
+	 (list 'unquote (this.expr.traverse))))
 
 (define-pmethod (Obj-init-out)
-   '(TODO TODO TODO obj-init TODO TODO TODO))
+   `(js-object-literal
+     ,(list 'quasiquote (map-node-compile this.props))))
+
+(define-pmethod (Property-init-out)
+   `(,(this.name.traverse) ,(list 'unquote (this.val.traverse))))
 
 (define-pmethod (Reg-exp-out)
-   '(TODO TODO TODO reg-exp TODO TODO TODO))
+   ''(TODO TODO TODO reg-exp TODO TODO TODO))
