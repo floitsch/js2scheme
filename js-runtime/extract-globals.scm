@@ -10,10 +10,19 @@
 	(cdr expr)))
 
 (define (extract-operator expr)
+   (define (starts-with? str prefix)
+      (string=? prefix (substring str 0 (string-length prefix))))
+
    (let* ((formals (cadr expr))
 	  (id (car formals))
-	  (exported-id (symbol-append 'jsop- id)))
-      (list (list id exported-id 'operator))))
+	  (id-str (symbol->string id)))
+      (if (starts-with? id-str "jsop-")
+	  (let* ((id-w/o-prefix-str (substring id-str
+					       (string-length "jsop-")
+					       (string-length id-str)))
+		 (id-w/o-prefix (string->symbol id-w/o-prefix-str)))
+	     (list (list id-w/o-prefix id 'operator)))
+	  '())))
 
 (define (search-for-global-adds expr)
    (define (global-add!-binding expr)
@@ -59,7 +68,7 @@
 			(cond
 			   ((eq? (car expr) 'define-globals)
 			    (extract-define-globals expr))
-			   ((eq? (car expr) 'define-operator)
+			   ((eq? (car expr) 'define-inline)
 			    (extract-operator expr))
 			   (else
 			    (search-for-global-adds expr)))

@@ -2,6 +2,7 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-Function ;; recursive dependency :(
+	   jsre-Date
 	   jsre-String
 	   jsre-Number
 	   jsre-Bool
@@ -15,7 +16,9 @@
    (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
 	   *js-Object-prototype*::Js-Object
 	   (js-object-prototype)
-	   (Object-init)))
+	   (Object-init)
+	   (js-object-literal properties::pair-nil)
+	   (object-for-in-attributes o)))
 
 (define *js-Object* (tmp-js-object))
 (define *js-Object-prototype* (tmp-js-object))
@@ -39,7 +42,11 @@
 			      1 ;; TODO
 			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-add! 'Object *js-Object*)))
-   ;; TODO: add other attributes?
+
+   ;; TODO: add other properties (like prototype) ?
+   (js-property-safe-set! *js-Object-prototype*
+			 "valueOf"
+			 valueOf)
    )
 
 (define Object-lambda
@@ -57,3 +64,23 @@
 
 (define (Object-construct c . L)
    (create-empty-object-lambda c))
+
+(define (js-object-literal properties)
+   (let ((o (js-new *js-Object*)))
+      (for-each (lambda (prop)
+		   (let ((name (car prop))
+			 (val (cadr prop)))
+		      ;; TODO: js-object-literal can be optimized
+		      (js-property-set! o name val)))
+		properties)
+      o))
+
+(define (object-for-in-attributes o)
+   ;: TODO: completely wrong object-for-in
+   (let ((real-o (any->object o)))
+      (hashtable-key-list (Js-Object-props real-o))))
+
+;; Properties
+;; ===================================
+(define valueOf (js-fun this #f #f ()
+			 this))

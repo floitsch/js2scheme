@@ -32,17 +32,18 @@
    ;; TODO
    ''TODO)
 
-(define-macro (js-fun-lambda maybe-this maybe-this-callee arguments formals body)
+(define-macro (js-fun-lambda maybe-this maybe-this-callee arguments formals . Lbody)
    (define *nb-named-params* 3)
+
    (let* ((named-params (map (lambda (i)
 				(string->symbol
 				 (string-append
-				  "par-"
+				  "js-par-"
 				  (number->string i))))
 			     (iota *nb-named-params*)))
-	  (par-vec 'par-vec)
-	  (vec-size 'vec-size)
-	  (par-nb 'par-nb)
+	  (par-vec (gensym 'param-vec))
+	  (vec-size (gensym 'vec-size))
+	  (par-nb (gensym 'param-size))
 	  (par-callee (or maybe-this-callee 'this-callee))
 	  (params formals)
 	  (bindings (let loop ((params params)
@@ -57,6 +58,7 @@
 			   (loop params
 				 (cdr named-params)
 				 counter
+				 ;; add binding to avoid empty bindings-list
 				 (cons (list (car named-params)
 					     (car named-params))
 				       rev-res)))
@@ -68,7 +70,7 @@
 					     `(if (< ,counter ,vec-size)
 						  (vector-ref ,par-vec
 							      ,counter)
-						  '*js-Undefined*))
+						  *js-Undefined*))
 				       rev-res)))
 			  (else
 			   (loop (cdr params)
@@ -81,19 +83,34 @@
 
 	  (this (or maybe-this (gensym 'ignored-this))))
       `(lambda (,this ,par-callee ,par-nb ,@named-params ,par-vec)
-	  (let ((,vec-size (-fx ,par-nb ,(length named-params))))
-	     (let* ,bindings
-		,(if arguments
+	  (let ((,vec-size (-fx ,par-nb ,*nb-named-params*)))
+	     (let ,bindings
+		,(cond
+		    ((pair? arguments)
+		     `(let ((,(car arguments) ,par-nb)
+			    (,(cadr arguments)
+			     (lambda (i)
+				(cond
+				   ,@(map (lambda (var j)
+					     `((=fx i ,j) ,var))
+					  named-params
+					  (iota *nb-named-params*))
+				   (else
+				    (vector-ref ,par-vec
+						(-fx i ,*nb-named-params*)))))))
+			 ,@Lbody))
+		    (arguments
 		     `(let ((,arguments (make-arguments ,par-callee
 							,par-nb
 							,param-vars
 							,par-vec)))
-			 ,body)
-		     body))))))
+			 ,@Lbody))
+		    (else
+		     `(begin ,@Lbody))))))))
 
-(define-macro (js-fun this this-callee arguments formals body)
+(define-macro (js-fun this this-callee arguments formals . Lbody)
    (let ((tmp-f (gensym 'f)))
-      `(let* ((,tmp-f (js-fun-lambda ,this ,this-callee ,arguments ,formals ,body))
+      `(let* ((,tmp-f (js-fun-lambda ,this ,this-callee ,arguments ,formals ,@Lbody))
 	      ;; may fail, as Object can be modified by user
 	      (fun-prototype (js-new *js-Object*)))
 	  (register-function-object! ,tmp-f ;; lambda

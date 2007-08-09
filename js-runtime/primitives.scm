@@ -4,18 +4,23 @@
 	   jsre-natives ;; undefined, null, ...
 	   jsre-exceptions
 	   jsre-Object
+	   jsre-Date
 	   jsre-Function
 	   jsre-String
 	   jsre-Number
 	   jsre-Bool
 	   jsre-conversion)
    (export *js-global-this*::Js-Object
+	   (inline primitive? v)
 	   (inline js-property-get o prop)
 	   (inline js-property-set! o prop new-val)
 	   *+infinity* ;; TODO type it
 	   *-infinity* ;; TODO type it
 	   *NaN*
 	   (tmp-js-object)))
+
+(define-inline (primitive? v)
+   (not (Js-Object? v)))
 
 (define *tmp-object* #f)
 (define (tmp-js-object)
@@ -34,7 +39,10 @@
 (define-inline (js-property-get o prop)
    ;; non-generic. but js-property-contains is.
    (define (js-property-safe-get o::Js-Object prop::bstring)
+      ;(write-circle o)(print)
+      ;(write-circle prop)(print)
       (let ((res (js-property-contains o prop)))
+	 ;(write-circle res)(print)
 	 (if res
 	     (unmangle-false res)
 	     *js-Undefined*)))

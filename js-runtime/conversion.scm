@@ -5,6 +5,7 @@
 	   jsre-exceptions
 	   jsre-primitives
 	   jsre-Object
+	   jsre-Date
 	   jsre-Function
 	   jsre-String
 	   jsre-Number
@@ -19,7 +20,8 @@
 	   (inline any->uint16 any)
 	   (inline any->string::bstring any)
 	   (inline any->object::Js-Object any)
-	   (js-object any))) ;; TODO we really need a better name...
+	   (js-object any) ;; TODO we really need a better name...
+	   (js-object->primitive o::Js-Object hint::symbol)))
 
 ;; return #f if any is not a javascript object.
 ;; otherwise the Js-Object
@@ -49,16 +51,50 @@
 
 (define-inline (any->number any)
    (cond
-      ((number? any) any)
+      ((number? any) (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
       ((eq? any *js-Undefined*) *NaN*)
       ((eq? any *js-Null*) 0.0)
       ((string? any) (string->number any)) ;; TODO
       (else (any->number (any->primitive any 'number)))))
 
+(define (js-object->primitive o::Js-Object hint::symbol)
+   (define (toString)
+      (let ((toString-prop (js-property-contains o "toString")))
+	 (if (procedure? toString-prop)
+	     (js-call toString-prop o))))
+   (define (valueOf)
+      (let ((valueOf-prop (js-property-contains o "valueOf")))
+	 (if (procedure? valueOf-prop)
+	     (js-call valueOf-prop o))))
+   (case hint
+      ((number)
+       (let ((valueOf-prim (valueOf)))
+	  (if (primitive? valueOf-prim)
+	      valueOf-prim
+	      (let ((toString-prim (toString)))
+		 (if (primitive? toString-prim)
+		     toString-prim
+		     (type-error "TODO"))))))
+      ((string)
+       (let ((toString-prim (toString)))
+	  (if (primitive? toString-prim)
+	      toString-prim
+	      (let ((valueOf-prim (valueOf)))
+		 (if (primitive? valueOf-prim)
+		     valueOf-prim
+		     (type-error "TODO"))))))))
+
+;; hint may be either #f, 'string or 'number
 (define-inline (any->primitive any hint)
    (cond
-      ((Js-Object? any) (js-object->primitive any hint))
+      ((js-object any)
+       =>
+       (lambda (o)
+	  (if (and (not hint)
+		   (Js-Date? o))
+	      (js-object->primitive o 'string)
+	      (js-object->primitive o (or hint 'number)))))
       (else any)))
 
 (define-inline (any->integer any)
@@ -87,7 +123,7 @@
 	  0)
 	 (else
 	  ;; TODO
-	  0))))
+	  (inexact->exact nb)))))
 
 (define-inline (any->uint32 any)
    (let ((nb (any->number any)))
@@ -99,7 +135,7 @@
 	  0)
 	 (else
 	  ;; TODO
-	  0))))
+	  (inexact->exact nb)))))
    
 (define-inline (any->uint16 any)
    (let ((nb (any->number any)))
@@ -121,6 +157,9 @@
       ((boolean? any) (if any
 		       "true"
 		       "false"))
+
+      ;; TODO: not correct!
+      ((number? any) (number->string any))
       ;; any->primitive is supposed to call o.toString or o.toValue
       (else
        (any->string (any->primitive any 'string)))))

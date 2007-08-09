@@ -2,6 +2,7 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-Object
+	   jsre-Date
 	   jsre-Function
 	   jsre-String
 	   jsre-Number

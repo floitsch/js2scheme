@@ -6,6 +6,7 @@
 	   jsre-primitives
 	   jsre-exceptions
 	   jsre-Object
+	   jsre-Date
 	   jsre-Function
 	   jsre-String
 	   jsre-Number
@@ -16,13 +17,17 @@
 	   ;js2scheme-comp
 	   )
    (export jsg-print
+	   jsg-scmprint
 	   jsg-eval))
 
 (define js-print #unspecified)
 
 (define-globals
    (define (print to-print)
-      (print to-print))
+      (print (any->string to-print)))
+   (define (scmprint to-print)
+      (write-circle to-print)
+      (print))
    (define (eval prog)
       ;(print prog)
       (let ((scm-prog (js2scheme (open-input-string prog))))

@@ -2,6 +2,7 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-Object ;; recursive dependency :(
+	   jsre-Date
 	   jsre-String
 	   jsre-Number
 	   jsre-Bool
@@ -34,9 +35,6 @@
 
 (define *js-Function* (tmp-js-object))
 (define *js-Function-prototype* (tmp-js-object))
-
-(define-method (js-object->primitive o::Js-Function hint::symbol)
-   (error "js-object->primitive" "function-object must not be asked to get primitive" #f))
 
 (define-method (js-object->string::bstring o::Js-Function)
    (Js-Function-text-repr o))

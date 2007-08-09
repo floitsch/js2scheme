@@ -1,4 +1,5 @@
-BIGLOO = bigloo
+CC = /usr/local/bin/gcc
+BIGLOO = bigloo -cc $(CC)
 #TARGETNAMES	= test repl
 TARGETNAMES	= repl
 
@@ -24,6 +25,7 @@ AFILE		= bglafile
 
 all: .afile o
 	$(MAKE) targets
+	$(MAKE) runtime-variables.sch
 
 targets: $(TARGETNAMES) #j$(TARGETNAME)
 
@@ -43,6 +45,9 @@ test: $(RUNTIME_OBJECTS) $(TEST_OBJECTS)
 
 repl: $(RUNTIME_OBJECTS) $(REPL_OBJECTS)
 	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
+
+o/runtime.o: $(RUNTIME_SOURCES)
+o/repl.o: $(RUNTIME_SOURCES)
 
 o:
 	mkdir o

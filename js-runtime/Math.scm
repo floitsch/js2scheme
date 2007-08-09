@@ -3,6 +3,7 @@
    (import jsre-object
 	   jsre-exceptions
 	   jsre-Object
+	   jsre-Date
 	   jsre-Function
 	   jsre-String
 	   jsre-Number
@@ -10,14 +11,30 @@
 	   jsre-natives
 	   jsre-primitives
 	   jsre-conversion
+	   jsre-global-object
+	   jsre-globals-tmp
 	   )
-   (export *js-Math* ;; can be modified by user -> can't be ::Js-Object
+   (export (class Js-Math::Js-Object)
+	   *js-Math* ;; can be modified by user -> can't be ::Js-Object
 	   (Math-init)))
 
 (define *js-Math* (tmp-js-object))
-(define *js-Math-prototype* (tmp-js-object))
 
 (define (Math-init)
-   ;; TODO
-   'TODO
-   )
+   (set! *js-Math* (instantiate::Js-Math
+		      (props (make-props-hashtable))
+		      (proto *js-Object-prototype*)))
+
+   (globals-tmp-add! (lambda () (global-add! 'Math *js-Math*)))
+   (js-property-safe-set! *js-Math*
+			  "abs"
+			  (js-fun #f #f #f (val)
+				  (abs val)))
+   (js-property-safe-set! *js-Math*
+			  "floor"
+			  (js-fun #f #f #f (val)
+				  (floor val)))
+   (js-property-safe-set! *js-Math*
+			  "pow"
+			  (js-fun #f #f #f (x power)
+				  (expt x power))))

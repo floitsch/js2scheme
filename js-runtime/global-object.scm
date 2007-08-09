@@ -5,6 +5,7 @@
 	   jsre-exceptions
 	   jsre-primitives
 	   jsre-Object
+	   jsre-Date
 	   jsre-String
 	   jsre-Bool
 	   jsre-Number

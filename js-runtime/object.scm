@@ -19,7 +19,6 @@
 	     o::Js-Object
 	     prop::bstring
 	     new-entry::Property-entry)
-    (generic js-object->primitive o::Js-Object hint::symbol)
     (generic js-object->string::bstring o::Js-Object)
 
     (inline make-props-hashtable)
@@ -96,6 +95,7 @@
 	  (val new-value)
 	  (attr *default-attributes*)))))
 
+;; direct-set! allows to use different attributes than the default-attributes
 (define-generic (js-property-direct-set! o::Js-Object
 					 prop::bstring
 					 new-entry::Property-entry)
@@ -114,9 +114,6 @@
 			  (hashtable-remove! props prop)
 			  #t)
 		       #f)))))))
-
-(define-generic (js-object->primitive o::Js-Object hint::symbol)
-   "Object")
 
 (define-generic (js-class-name::bstring o::Js-Object)
    "Object")

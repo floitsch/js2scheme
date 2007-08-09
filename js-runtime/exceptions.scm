@@ -2,7 +2,8 @@
    (include "macros.sch")
    (export (error-fun msg)
 	   (range-error val)
-	   (type-error val)))
+	   (type-error val)
+	   (undeclared-error id)))
 
 (define (error-fun msg)
    (lambda L (error #f msg #f)))
@@ -12,3 +13,6 @@
 
 (define (type-error val)
    (error #f "type-error" val))
+
+(define (undeclared-error id)
+   (error #f "variable undeclared" id))
