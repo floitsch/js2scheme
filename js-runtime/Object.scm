@@ -46,7 +46,7 @@
    ;; TODO: add other properties (like prototype) ?
    (js-property-safe-set! *js-Object-prototype*
 			 "valueOf"
-			 valueOf)
+			 (valueOf))
    )
 
 (define Object-lambda
@@ -82,5 +82,5 @@
 
 ;; Properties
 ;; ===================================
-(define valueOf (js-fun this #f #f ()
-			 this))
+(define (valueOf) (js-fun this #f #f ()
+			  this))

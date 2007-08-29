@@ -9,28 +9,36 @@
 	   var)
    (export (expand1! tree::pobject)))
 
+;; - replace Named-Fun with Vassig
 ;; - add implicit "Labelled"-nodes for Loops, Funs and Case
 ;; - replace For with While
 ;; - add implicit "Fall-through"-node.
 ;; - add implicit "return undefined".
 ;; - replace x += exp with x = x + exp ...
 ;; - replace Calls that are actually method calls with Method-call
+;; - replace void x; with (begin x, undefined)
 (define (expand1! tree)
    (verbose " expand")
    (overload traverse! expand! (Node
-			       For
-			       While
-			       (Do While-expand!) ; same as for While
-			       (For-in While-expand!) ; same as for While
-			       Switch-clause
-			       Fun
-			       Call
-			       Vassig-op
-			       Accsig-op)
+				Named-fun
+				For
+				While
+				(Do While-expand!) ; same as for While
+				(For-in While-expand!) ; same as for While
+				Switch-clause
+				Fun
+				Call
+				Vassig-op
+				Accsig-op
+				Unary)
 	     (tree.traverse!)))
 
 (define-pmethod (Node-expand!)
    (this.traverse0!))
+
+(define-pmethod (Named-fun-expand!)
+   (this.traverse0!)
+   (new Vassig this.decl this.fun))
 
 (define-pmethod (For-expand!)
    (let* ((continue-labelled (new Labelled
@@ -137,3 +145,14 @@
 					init-field
 					accsig))))
       sequence))
+
+(define-pmethod (Unary-expand!)
+   (this.traverse0!)
+   (let ((op this.op.id)
+	 (expr (car this.args)))
+      (cond
+	 ((eq? op 'void)
+	  (new Sequence
+	       `(,expr ,(new Undefined))))
+	 (else
+	  this))))

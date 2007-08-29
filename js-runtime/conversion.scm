@@ -55,7 +55,7 @@
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
       ((eq? any *js-Undefined*) *NaN*)
       ((eq? any *js-Null*) 0.0)
-      ((string? any) (string->number any)) ;; TODO
+      ((string? any) (any->number (string->number any))) ;; TODO
       (else (any->number (any->primitive any 'number)))))
 
 (define (js-object->primitive o::Js-Object hint::symbol)

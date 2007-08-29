@@ -21,10 +21,10 @@
 	   expand1
 	   fun-bindings
 	   symbol
-	   expand2
 	   label
 	   label-resolution
 	   expand3
+	   expand4
 	   simplify-labels
 	   bind-exit
 	   escape
@@ -32,7 +32,6 @@
 	   liveness
 	   let
 	   statements
-	   expand4
 	   scm-out)
    (export (js2scheme in-p))
    (from verbose))
@@ -58,7 +57,6 @@
       (fun-bindings! ast)
       (expand4! ast)
       (symbol-resolution! ast)
-      (expand2! ast)
       (label-resolution ast)
       (expand1! ast)
       ;	 (expand3! ast)

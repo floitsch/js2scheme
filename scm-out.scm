@@ -82,10 +82,13 @@
 (define-pmethod (Program-out)
    (if (null? this.implicit-globals)
        (this.body.traverse)
-       `(let (,@(map (lambda (decl)
-			`(,(decl.var.traverse) *js-Undeclared*))
-		     this.implicit-globals))
-	   ,(this.body.traverse))))
+       (begin
+	  (for-each (lambda (var) (set! var.check-undeclared? #t))
+		    this.implicit-globals)
+	  `(let (,@(map (lambda (decl)
+			   `(,(decl.var.traverse) *js-Undeclared*))
+			this.implicit-globals))
+	      ,(this.body.traverse)))))
    
 
 (define-pmethod (Begin-out)
@@ -101,7 +104,7 @@
 (define-pmethod (Var-ref-out)
    ;; TODO: handle with-variables
    (let ((var this.var))
-      (if var.global?
+      (if var.check-undeclared?
 	  `(check-undeclared ,(this.var.traverse) ',this.var.id)
 	  (this.var.traverse))))
 

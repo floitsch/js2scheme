@@ -48,7 +48,7 @@
 				  0.0))
    (js-property-safe-set! *js-Date-prototype*
 			  "valueOf"
-			  valueOf))
+			  (valueOf)))
 
 (define Date-lambda
    (js-fun-lambda
@@ -80,19 +80,19 @@
 	       (month (any->number (get-arg 1)))
 	       (day (if (> nb-args 2)
 			(any->number (get-arg 2))
-			1))
+			1.0))
 	       (hours (if (> nb-args 3)
 			  (any->number (get-arg 3))
-			  0))
+			  0.0))
 	       (minutes (if (> nb-args 4)
 			    (any->number (get-arg 4))
-			    0))
+			    0.0))
 	       (seconds (if (> nb-args 5)
 			    (any->number (get-arg 5))
-			    0))
+			    0.0))
 	       (ms (if (> nb-args 6)
 		       (any->number (get-arg 6))
-		       0))
+		       0.0))
 	       (normalized-year (if (and (not (eq? *NaN* year))
 					 (<=fl year 99.0))
 				    (+fl 1900.0 year)
@@ -101,8 +101,12 @@
 	   ;; If not possible bdate-set! #f
 	   ;; TODO: make-date should be #f if the date is not possible...
 	   (Js-Date-bdate-set! this
-			    (make-date seconds minutes hours
-				       day month normalized-year)))))
+			    (make-date :sec (flonum->fixnum seconds)
+				       :min (flonum->fixnum minutes)
+				       :hour (flonum->fixnum hours)
+				       :day (flonum->fixnum day)
+				       :month (flonum->fixnum month)
+				       :year (flonum->fixnum normalized-year))))))
     this))
 
 (define (Date-construct c . L)
@@ -126,12 +130,12 @@
    ;; TODO
    (current-date))
 
-(define valueOf
+(define (valueOf)
    (js-fun this #f #f ()
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "TODO"))
-	      ((not (date? this))
+	      ((not (date? (Js-Date-bdate this)))
 	       *NaN*)
 	      (else
 	       (* 1000
