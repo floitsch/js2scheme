@@ -11,7 +11,9 @@
 
 (define (extract-operator expr)
    (define (starts-with? str prefix)
-      (string=? prefix (substring str 0 (string-length prefix))))
+      (let ((prefix-length (string-length prefix)))
+	 (and (>= (string-length str) prefix-length)
+	      (string=? prefix (substring str 0 prefix-length)))))
 
    (let* ((formals (cadr expr))
 	  (id (car formals))
