@@ -111,15 +111,15 @@
       ((Js-Object? v) "object")
       (else (error "jsop-typeof" "missed type " v))))
 
-(define-inline (jsop-delete base field)
+(define-inline (jsop-delete base prop)
    ;; mostly similar to js-property-get
-   (let ((o-typed (any->object o))
+   (let ((o-typed (any->object base))
 	 (prop-typed (any->string prop)))
       (js-property-safe-delete! o-typed prop-typed)))
 
 (define-inline (jsop-delete-implicit-global v id)
    (if (eq? v *js-Undeclared*)
-       (jsop-delete null id)
+       (jsop-delete *js-Null* id)
        (begin
 	  (set! v *js-Undeclared*)
 	  #t)))

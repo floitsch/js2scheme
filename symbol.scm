@@ -8,9 +8,15 @@
 	   nodes
 	   var)
    (export (symbol-resolution! tree::pobject)
-	   *imported-vars*))
+	   *imported-vars*
+	   (id->runtime-var id::symbol)))
 
 (define *imported-vars* '())
+
+(define (id->runtime-var id)
+   (hashtable-get *runtime-table* id))
+;; will be set later
+(define *runtime-table* #unspecified)
 
 (define (symbol-resolution! tree)
    (verbose "symbol-resolution")
@@ -90,7 +96,8 @@
 				      id
 				      v)))
 		*imported-vars*)
-					
+
+      (set! *runtime-table* runtime-table)
       (set! this.imported-table imported-table)
       (set! this.runtime-table runtime-table)
       (set! this.globals globals-table)

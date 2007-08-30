@@ -9,10 +9,6 @@
 
 ;; - replace ++x with tmp = x; x = x+1; tmp  (same for --)
 ;; - replace x++ with x = x+1;  (same for --)
-;; - (with expr body) is transformed into
-;;          (let ((tmp (any->object expr))) (with tmp body))
-;;    this could be done after the symbol-pass too.
-;;    TODO: once we can ref runtime-variables move after symbol pass.
 (define (expand4! tree)
    (verbose " expand4")
    (overload traverse! expand! (Node
@@ -102,16 +98,3 @@
 			       (new Var-ref (if (eq? op '++) '+ '-))
 			       (new Number "1")))
 		    ,(new Var-ref tmp-return)))))))
-
-(define-pmethod (With-expand!)
-   (this.traverse0!)
-   (let ((tmp-id (gensym 'with))
-	 (old-expr this.expr))
-      (set! this.expr (new Var-ref tmp-id))
-      (new Sequence
-	   `(,(new Vassig
-		   (new Decl tmp-id)
-		   (new Unary
-			(new Var-ref 'any->object)
-			old-expr))
-	     ,this))))

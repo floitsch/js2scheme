@@ -4,6 +4,7 @@
    (option (loadq "protobject-eval.sch"))
    (import protobject
 	   verbose
+	   symbol
 	   nodes
 	   label
 	   var)
@@ -17,6 +18,15 @@
 ;; - replace x += exp with x = x + exp ...
 ;; - replace Calls that are actually method calls with Method-call
 ;; - replace void x; with (begin x, undefined)
+;; - (with expr body) is transformed into
+;;          (let ((tmp (any->object expr))) (with tmp body))
+;;    this could be done after the symbol-pass too.
+;; - delete X is transformed to
+;;    * delete o f if X is of form o[f]
+;;    * false if X is X is of form v and v is a declared var.
+;;    * with-delete if X is of form v and v might be with-intercepted.
+;;    * delete-implicit-global if X is of form v and v is undeclared.
+
 (define (expand1! tree)
    (verbose " expand")
    (overload traverse! expand! (Node
@@ -154,5 +164,56 @@
 	 ((eq? op 'void)
 	  (new Sequence
 	       `(,expr ,(new Undefined))))
+	 ((eq? op 'delete)
+	  (cond
+	     ((inherits-from? expr Access)
+	      (new Call
+		   (id->runtime-var 'delete)
+		   (list expr.obj expr.field)))
+	     ((and (inherits-from? expr Var-ref)
+		   (inherits-from? expr.var With-var))
+	      (let loop ((rev-surrounding-withs '())
+			 (var expr.var))
+		 (cond
+		    ((inherits-from? var With-var)
+		     (loop (cons var.with rev-surrounding-withs)
+			   var.with.intercepted))
+		    (var.implicit-global?
+		     (new Call
+			  (id->runtime-var 'with-delete)
+			  `(,(reverse! rev-surrounding-withs)
+			    ,(symbol->string var.id)
+			    ,var)))
+		    (else
+		     (new Call
+			  (id->runtime-var 'with-delete)
+			  `(,(reverse! rev-surrounding-withs)
+			    ,(symbol->string var.id)
+			    ,(new Bool #f)))))))
+	     ((and (inherits-from? expr Var-ref)
+		   expr.var.implicit-global?)
+	      (new Call
+		   (id->runtime-var 'delete-implicit-global)
+		   (list expr (symbol->string expr.var.id))))
+	     ((inherits-from? expr Var-ref)
+	      ;; neither with-var, nor implicit-global
+	      (new Bool #f))
+	     (else
+	      (new Sequence
+		   (list expr
+			 (new Bool #t))))))
 	 (else
 	  this))))
+
+(define-pmethod (With-expand!)
+   (this.traverse0!)
+   (let ((tmp-decl (Decl-of-new-Var (gensym 'with)))
+	 (old-expr this.expr))
+      (set! this.expr (tmp-decl.var.reference))
+      (new Sequence
+	   `(,(new Vassig
+		   tmp-decl
+		   (new Unary
+			(new Var-ref 'any->object)
+			old-expr))
+	     ,this))))

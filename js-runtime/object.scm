@@ -19,6 +19,7 @@
 	     o::Js-Object
 	     prop::bstring
 	     new-entry::Property-entry)
+    (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
     (generic js-object->string::bstring o::Js-Object)
 
     (inline make-props-hashtable)
