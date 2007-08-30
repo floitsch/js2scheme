@@ -168,7 +168,7 @@
 	  (cond
 	     ((inherits-from? expr Access)
 	      (new Call
-		   (id->runtime-var 'delete)
+		   ((id->runtime-var 'delete).reference)
 		   (list expr.obj expr.field)))
 	     ((and (inherits-from? expr Var-ref)
 		   (inherits-from? expr.var With-var))
@@ -180,20 +180,20 @@
 			   var.with.intercepted))
 		    (var.implicit-global?
 		     (new Call
-			  (id->runtime-var 'with-delete)
+			  ((id->runtime-var 'with-delete).reference)
 			  `(,(reverse! rev-surrounding-withs)
 			    ,(symbol->string var.id)
 			    ,var)))
 		    (else
 		     (new Call
-			  (id->runtime-var 'with-delete)
+			  ((id->runtime-var 'with-delete).reference)
 			  `(,(reverse! rev-surrounding-withs)
 			    ,(symbol->string var.id)
 			    ,(new Bool #f)))))))
 	     ((and (inherits-from? expr Var-ref)
 		   expr.var.implicit-global?)
 	      (new Call
-		   (id->runtime-var 'delete-implicit-global)
+		   ((id->runtime-var 'delete-implicit-global).reference)
 		   (list expr (symbol->string expr.var.id))))
 	     ((inherits-from? expr Var-ref)
 	      ;; neither with-var, nor implicit-global
