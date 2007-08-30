@@ -36,7 +36,7 @@
    (let ((o (js-object *js-Number*)))
       (js-property-safe-set! o
 			     "POSITIVE_INFINITY"
-			     *+infinity*)))
+			     (+infinity))))
 
 (define Number-lambda
    (js-fun-lambda

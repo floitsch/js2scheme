@@ -43,7 +43,7 @@
       ((string? any) (not (string=? any "")))
       ((number? any) ;; TODO
        (and (not (=fl any 0.0))
-	    (not (=fl any *NaN*))))
+	    (not (NaN? any))))
       (else #t)))
 
 (define-inline (any->bool::bool any)
@@ -53,7 +53,7 @@
    (cond
       ((number? any) (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
-      ((eq? any *js-Undefined*) *NaN*)
+      ((eq? any *js-Undefined*) (NaN))
       ((eq? any *js-Null*) 0.0)
       ((string? any) (any->number (string->number any))) ;; TODO
       (else (any->number (any->primitive any 'number)))))
@@ -105,9 +105,9 @@
    
    (let ((nb (any->number any)))
       (cond
-	 ((=fl *NaN* nb) 0.0)
-	 ((or (=fl *+infinity* nb)
-	      (=fl *-infinity* nb)
+	 ((NaN? nb) 0.0)
+	 ((or (+infinity? nb)
+	      (-infinity? nb)
 	      (=fl 0.0 nb))
 	  nb)
 	 (else
@@ -116,9 +116,9 @@
 (define-inline (any->int32 any)
    (let ((nb (any->number any)))
       (cond
-	 ((or (=fl *NaN* nb)
-	      (=fl *+infinity* nb)
-	      (=fl *-infinity* nb)
+	 ((or (NaN? nb)
+	      (+infinity? nb)
+	      (-infinity? nb)
 	      (=fl 0.0 nb))
 	  0)
 	 (else
@@ -128,9 +128,9 @@
 (define-inline (any->uint32 any)
    (let ((nb (any->number any)))
       (cond
-	 ((or (=fl *NaN* nb)
-	      (=fl *+infinity* nb)
-	      (=fl *-infinity* nb)
+	 ((or (NaN? nb)
+	      (+infinity? nb)
+	      (-infinity? nb)
 	      (=fl 0.0 nb))
 	  0)
 	 (else
@@ -140,9 +140,9 @@
 (define-inline (any->uint16 any)
    (let ((nb (any->number any)))
       (cond
-	 ((or (=fl *NaN* nb)
-	      (=fl *+infinity* nb)
-	      (=fl *-infinity* nb)
+	 ((or (NaN? nb)
+	      (+infinity? nb)
+	      (-infinity? nb)
 	      (=fl 0.0 nb))
 	  0)
 	 (else

@@ -118,9 +118,9 @@
 (define (time-clip v)
    ;; TODO: care for NaN
    (cond
-      ((or (eq? v *NaN*)
-	   (eq? v *+infinity*)
-	   (eq? v *-infinity*))
+      ((or (NaN? v)
+	   (+infinity? v)
+	   (-infinity? v))
        #f)
       (else
        (flonum->elong v))))

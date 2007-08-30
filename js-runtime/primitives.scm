@@ -14,9 +14,15 @@
 	   (inline primitive? v)
 	   (inline js-property-get o prop)
 	   (inline js-property-set! o prop new-val)
-	   *+infinity* ;; TODO type it
-	   *-infinity* ;; TODO type it
+	   (inline +infinity::double)
+	   (inline -infinity::double)
+	   (inline NaN::double)
+	   *+infinity*
+	   *-infinity*
 	   *NaN*
+	   (inline +infinity?::bool v)
+	   (inline -infinity?::bool v)
+	   (inline NaN?::bool v)
 	   (tmp-js-object)))
 
 (define-inline (primitive? v)
@@ -33,8 +39,14 @@
 (define *js-global-this* (tmp-js-object))
 
 (define *+infinity* (/fl 1.0 0.0))
+(define-inline (+infinity) *+infinity*)
+(define-inline (+infinity? v) (eq? v *+infinity*))
 (define *-infinity* (/fl -1.0 0.0))
-(define *NaN* 0.0) ;; TODO
+(define-inline (-infinity) *-infinity*)
+(define-inline (-infinity? v) (eq? v *-infinity*))
+(define *NaN* (/fl 0.0 0.0))
+(define-inline (NaN) *NaN*)
+(define-inline (NaN? v) (eq? *NaN* v))
 
 (define-inline (js-property-get o prop)
    ;; non-generic. but js-property-contains is.
