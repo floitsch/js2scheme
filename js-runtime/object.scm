@@ -26,6 +26,7 @@
     (default-attribute)    ;; default attributes for common properties.
     (length-attribute)     ;; default attributes for "length" properties.
     (built-in-attribute)   ;; default attributes for "built-in" properties.
+    (DontEnum-DontDelete-ReadOnly-attribute) ;; same as length-attribute
     (inline js-property-safe-set! o::Js-Object prop::bstring new-val)))
    
 (define-inline (mangle-false val)
@@ -53,6 +54,8 @@
       (read-only #t)
       (deletable #f)
       (enumerable #f)))
+(define (DontEnum-DontDelete-ReadOnly-attribute)
+   *length-attributes*)
 (define (length-attribute)
    *length-attributes*)
 

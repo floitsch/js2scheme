@@ -16,10 +16,12 @@
    (export (class Js-Number::Js-Object
 	      value::double) ;; TODO should be constant...
 	   *js-Number* ;; can be modified by user -> can't be ::Js-Object
+	   *js-Number-orig*::Js-Object
 	   *js-Number-prototype*::Js-Object
 	   (Number-init)))
 
 (define *js-Number* (tmp-js-object))
+(define *js-Number-orig* (tmp-js-object))
 (define *js-Number-prototype* (tmp-js-object))
 
 (define (Number-init)

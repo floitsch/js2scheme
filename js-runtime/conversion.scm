@@ -170,9 +170,9 @@
 	   (eq? any *js-Undefined*))
        (type-error any))
       ((Js-Object? any) any)
-      ((string? any) (js-new *js-String* any))
-      ((number? any) (js-new *js-Number* any))
+      ((string? any) (js-new *js-String-orig* any))
+      ((number? any) (js-new *js-Number-orig* any))
       ((procedure? any) (procedure-object any))
-      ((boolean? any) (js-new *js-Bool* any))
+      ((boolean? any) (js-new *js-Bool-orig* any))
       (else
        (type-error any))))

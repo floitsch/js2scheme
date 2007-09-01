@@ -15,7 +15,7 @@
 	   )
    (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
 	   *js-Object-prototype*::Js-Object
-	   (js-object-prototype)
+	   (js-object-prototype::Js-Object)
 	   (Object-init)
 	   (js-object-literal properties::pair-nil)
 	   (object-for-in-attributes o)))
