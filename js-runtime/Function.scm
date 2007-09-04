@@ -10,9 +10,11 @@
 	   jsre-exceptions
 	   jsre-primitives
 	   jsre-conversion
+	   jsre-global-object
+	   jsre-globals-tmp
 	   )
    (export
-    *js-Function* ;; can be modified by user -> can't be ::Js-Object
+    *js-Function* ;; can be modified by user -> can't be ::procedure
     *js-Function-prototype*::Js-Object
     (class Js-Function::Js-Object
        new::procedure       ;; when called as a function. by default raises an error.
@@ -51,14 +53,21 @@
    *js-Function-prototype*)
 
 (define (Function-init)
-   (set! *js-Function* Function-lambda)
-   (register-function-object! Function-lambda
-			      Function-new
-			      (lambda () 'ignored)
+   (set! *js-Function* (Function-lambda))
+   (register-function-object! *js-Function*
+			      *js-Function* ;; new == lambda
+			      (lambda (ignored) 'ignored)
 			      (js-function-prototype)
 			      1 ;; TODO
 			      "TODO [native]")
-   ;; TODO: add other attributes?
+   (globals-tmp-add! (lambda () (global-add! 'Function *js-Function*)))
+   (let ((fun-object (procedure-object *js-Function*)))
+      (js-property-direct-set! fun-object
+			       "prototype"
+			       (instantiate::Property-entry
+				  (val (js-function-prototype))
+				  (attr (prototype-attribute)))))
+   ;; TODO: add other attributes
    )
 
 ;; TODO: correct attributes
@@ -80,9 +89,8 @@
 			       (enumerable #f)))
 
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
-   (let ((proto (let ((prototype (js-object (js-property-get f-o "prototype"))))
-		   (or prototype
-		       *js-Object-prototype*))))
+   (let ((proto (or (js-object (js-property-safe-get f-o "prototype"))
+		    *js-Object-prototype*)))
       (instantiate::Js-Object
 	 (props (make-props-hashtable))
 	 (proto proto))))
@@ -122,11 +130,33 @@
    (hashtable-get *js-function-objects-ht* p))
 
 (define (Function-lambda)
-   ;; TODO
-   'TODO
-   )
-
-(define (Function-new)
-   ;; TODO
-   'TODO
-   )
+   (js-fun
+    #f #f ;; don't need 'this' and 'this-callee'
+    (nb-args get-arg)
+    ()
+    (print "HERE")
+    (let loop ((i 0)
+	       (args "")
+	       (body ""))
+       (cond
+	  ((=fx i nb-args)
+	   (with-handler
+	      (lambda (e) (syntax-error e))
+	      (let* ((fun (string-append "(function (" args ") {"
+					 body
+					 "})"))
+		     (scm-prog (js2scheme (open-input-string fun))))
+		 (print fun)
+		 (print scm-prog)
+		 ;; we can't use the eval-library function, as the scope of the
+		 ;; created function is only the global this (and not all
+		 ;; visible variables.
+		 (eval scm-prog))))
+	  ((=fx i (- nb-args 1))
+	   (loop (+ i 1) args (any->string (get-arg i))))
+	  ((=fx i 0)
+	   (loop (+ i 1) (any->string (get-arg i)) body))
+	  (else
+	   (loop (+ i 1)
+		 (string-append args "," (any->string (get-arg i)))
+		 body))))))

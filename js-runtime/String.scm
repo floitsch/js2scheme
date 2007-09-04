@@ -11,13 +11,13 @@
 	   jsre-primitives
 	   jsre-conversion
 	   )
-   (export *js-String* ;; can be modified by user -> can't be ::Js-Object
-	   *js-String-orig*::Js-Object
+   (export *js-String* ;; can be modified by user -> can't be ::procedure
+	   *js-String-orig*::procedure
 	   *js-String-prototype*::Js-Object
 	   (String-init)))
 
-(define *js-String* (tmp-js-object))
-(define *js-String-orig* (tmp-js-object))
+(define *js-String* #unspecified)
+(define *js-String-orig* (lambda () #f))
 (define *js-String-prototype* (tmp-js-object))
 
 (define (String-init)

@@ -12,8 +12,8 @@
 	   jsre-conversion)
    (export *js-global-this*::Js-Object
 	   (inline primitive? v)
-	   (inline js-property-get o prop)
-	   (inline js-property-set! o prop new-val)
+	   (inline js-property-safe-get o::Js-Object prop::bstring)
+	   (inline js-property-safe-set! o::Js-Object prop::bstring new-val)
 	   (inline +infinity::double)
 	   (inline -infinity::double)
 	   (inline NaN::double)
@@ -48,7 +48,7 @@
 (define-inline (NaN) *NaN*)
 (define-inline (NaN? v) (eq? *NaN* v))
 
-(define-inline (js-property-get o prop)
+(define-inline (js-property-safe-get o prop)
    ;; non-generic. but js-property-contains is.
    (define (js-property-safe-get o::Js-Object prop::bstring)
       ;(write-circle o)(print)
@@ -63,7 +63,6 @@
 	 (prop-typed (any->string prop)))
       (js-property-safe-get o-typed prop-typed)))
 
-(define-inline (js-property-set! o prop new-val)
-   (let ((o-typed (any->object o))
-	 (prop-typed (any->string prop)))
-      (js-property-safe-set! o-typed prop-typed new-val)))
+;; non-generic. but js-property-generic-set! is.
+(define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)
+      (js-property-generic-set! o prop (mangle-false new-value)))

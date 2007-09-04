@@ -14,21 +14,20 @@
 	   jsre-globals-tmp
 	   )
    (export (class Js-Number::Js-Object
-	      value::double) ;; TODO should be constant...
-	   *js-Number* ;; can be modified by user -> can't be ::Js-Object
-	   *js-Number-orig*::Js-Object
+	      (value::double read-only))
+	   *js-Number* ;; can be modified by user -> can't be ::procedure
+	   *js-Number-orig*::procedure
 	   *js-Number-prototype*::Js-Object
 	   (Number-init)))
 
-(define *js-Number* (tmp-js-object))
-(define *js-Number-orig* (tmp-js-object))
+(define *js-Number* #unspecified)
+(define *js-Number-orig* (lambda () #f))
 (define *js-Number-prototype* (tmp-js-object))
 
 (define (Number-init)
-   ;; TODO not yet correct
-   (set! *js-Number* Number-lambda)
-   (register-function-object! Number-lambda
-			      Number-new
+   (set! *js-Number* (Number-lambda))
+   (register-function-object! *js-Number*
+			      (Number-new)
 			      Number-construct
 			      (js-function-prototype)
 			      1
@@ -40,7 +39,7 @@
 			     "POSITIVE_INFINITY"
 			     (+infinity))))
 
-(define Number-lambda
+(define (Number-lambda)
    (js-fun-lambda
     #f
     #f
@@ -51,19 +50,21 @@
 	(any->number (get-arg 0)))))
 
 ;; maybe 'new' should construct the object, so 'value' can be constant.
-(define Number-new
+(define (Number-new)
    (js-fun-lambda
-    this
+    #f
     #f
     (nb-args get-arg)
     ()
-    (if (= nb-args 0)
-	(Js-Number-value-set! this 0.0) ;; TODO should be +0.0
-	(Js-Number-value-set! this (any->number (get-arg 0))))
-    this))
+    (instantiate::Js-Number
+       (props (make-props-hashtable))
+       (proto *js-Number-prototype*)
+       (value (if (= nb-args 0)
+		  0.0 ;; TODO should be +0.0
+		  (get-arg 0))))))
    
-(define (Number-construct::Js-Number f-o::Js-Function)   
-   (instantiate::Js-Number
-      (props (make-props-hashtable))
-      (proto *js-Number-prototype*)
-      (value 0.0)))
+(define (Number-construct f-o::Js-Function)
+   ;; Number-new always returns an Object.
+   ;; so we can ignore this one.
+   #f)
+

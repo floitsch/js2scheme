@@ -15,7 +15,7 @@
 	   jsre-globals-tmp
 	   )
    (export
-    *js-Array* ;; can be modified by user -> can't be ::Js-Object
+    *js-Array* ;; can be modified by user -> can't be ::procedure
     *js-Array-prototype*::Js-Object
     (class Js-Array::Js-Object
        length::bint) ;; TODO: bint is too small.
@@ -70,9 +70,9 @@
 ; 			(construct (lambda () 'ignored))
 ; 			(text-repr "TODO [native]")))
 
-   (set! *js-Array* Array-lambda)
-   (register-function-object! Array-lambda
-			      Array-new
+   (set! *js-Array* (Array-lambda))
+   (register-function-object! *js-Array*
+			      (Array-new)
 			      Array-construct
 			      (js-function-prototype) ;; TODO: what's the proto?
 			      1
@@ -87,18 +87,18 @@
 	     (number? (get-arg 0)))
 	(let ((len (get-arg 0)))
 	   (if (exact? len)
-	       (js-property-set! a "length" len)
+	       (js-property-safe-set! a "length" len)
 	       (let ((int-len (any->uint32 len)))
 		  (if (= len int-len)
-		      (js-property-set! a "length" int-len)
+		      (js-property-safe-set! a "length" int-len)
 		      (range-error len)))))
 	(let loop ((i 0))
 	   (when (< i nb-args)
-	      (js-property-set! a i (get-arg i))
+	      (js-property-safe-set! a i (get-arg i))
 	      (loop (+ i 1)))))
     a)
 
-(define Array-lambda
+(define (Array-lambda)
    (js-fun-lambda
     #f
     #f
@@ -111,7 +111,7 @@
        (fill-Array a nb-args get-arg))))
 
 
-(define Array-new
+(define (Array-new)
    (js-fun-lambda
     this
     #f
@@ -127,10 +127,10 @@
 
 (define (js-array-literal length els)
    (let ((a (js-new *js-Array*)))
-      (js-property-set! a "length" length)
+      (js-property-safe-set! a "length" length)
       (for-each (lambda (el)
 		   (let ((index (car el))
 			 (val (cadr el)))
-		      (js-property-set! a index val)))
+		      (js-property-safe-set! a index val)))
 		els)
       a))

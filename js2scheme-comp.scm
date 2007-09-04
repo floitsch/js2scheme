@@ -23,7 +23,6 @@
 	   symbol
 	   label
 	   label-resolution
-	   expand3
 	   expand4
 	   simplify-labels
 	   bind-exit
@@ -59,7 +58,6 @@
       (symbol-resolution! ast)
       (label-resolution ast)
       (expand1! ast)
-      ;	 (expand3! ast)
       (simplify-labels! ast)
       (bind-exit! ast)
       (escape ast)

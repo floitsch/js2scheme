@@ -106,17 +106,9 @@
 (define-pmethod (Call-expand!)
    (this.traverse0!)
    (if (inherits-from? this.op Access)
-       (let* ((op this.op)
-	      (tmp-o (gensym 'o))
-	      (o-decl (Decl-of-new-Var tmp-o))
-	      (o-var o-decl.var)
-	      (assig (new Vassig o-decl op.obj)))
-	  (set! op.obj (o-decl.var.reference))
-	  (new Sequence (list assig
-			      (new Method-call
-				   (o-var.reference)
-				   op
-				   this.args))))
+       (new Method-call
+	    this.op
+	    this.args)
        this))
 
 (define-pmethod (Vassig-op-expand!)

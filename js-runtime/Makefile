@@ -54,6 +54,8 @@ o:
 
 o/globals.o: globals.scm $(RUNTIME_BIGL_INCLUDES)
 	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
+o/Function.o: Function.scm $(RUNTIME_BIGL_INCLUDES)
+	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
 
 o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
 	$(BIGLOO) -c -g -o $@ $<

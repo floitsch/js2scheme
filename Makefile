@@ -12,7 +12,7 @@ PP_BGL_MODULES	= nodes protobject js-pp js-out var \
 JS2SCHEME_LIB_MODULES = fun-bindings nodes protobject var \
 		 verbose lexer parser symbol statements simplify expand1 label \
 		 label-resolution simplify-labels bind-exit escape liveness let \
-		 scm-out expand3 expand4 js2scheme-comp
+		 scm-out  expand4 js2scheme-comp
 
 JS2SCHEME_BGL_MODULES = js2scheme
 

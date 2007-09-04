@@ -21,7 +21,7 @@
 (define (global-add! id val)
    ;; TODO: global-add! is only one direction
    (let ((str-id (if (symbol? id) (symbol->string id) id)))
-      (js-property-set! *js-global-object* str-id val)))
+      (js-property-safe-set! *js-global-object* str-id val)))
 
 (define (global-object-init)
    (set! *js-global-object* (js-new *js-Object*))

@@ -26,8 +26,7 @@
     (default-attribute)    ;; default attributes for common properties.
     (length-attribute)     ;; default attributes for "length" properties.
     (built-in-attribute)   ;; default attributes for "built-in" properties.
-    (DontEnum-DontDelete-ReadOnly-attribute) ;; same as length-attribute
-    (inline js-property-safe-set! o::Js-Object prop::bstring new-val)))
+    (prototype-attribute)))  ;; same as length-attribute
    
 (define-inline (mangle-false val)
    (or val 'false))
@@ -54,7 +53,7 @@
       (read-only #t)
       (deletable #f)
       (enumerable #f)))
-(define (DontEnum-DontDelete-ReadOnly-attribute)
+(define (prototype-attribute)
    *length-attributes*)
 (define (length-attribute)
    *length-attributes*)
@@ -78,10 +77,6 @@
 	     (entry (and ht-entry (Property-entry-val ht-entry))))
 	 (or entry
 	     (js-property-contains proto prop)))))
-
-;; non-generic. but js-property-generic-set! is.
-(define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)
-      (js-property-generic-set! o prop (mangle-false new-value)))
 
 (define-generic (js-property-generic-set! o::Js-Object prop::bstring new-value)
    ;(print "set!: " prop " <- " new-value)

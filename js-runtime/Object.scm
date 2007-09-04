@@ -34,9 +34,9 @@
    *js-Object-prototype*)
 
 (define (Object-init)
-   (set! *js-Object* Object-lambda)
-   (register-function-object! Object-lambda
-			      Object-new
+   (set! *js-Object* (Object-lambda))
+   (register-function-object! *js-Object*
+			      (Object-new)
 			      Object-construct
 			      (js-function-prototype)
 			      1 ;; TODO
@@ -44,12 +44,23 @@
    (globals-tmp-add! (lambda () (global-add! 'Object *js-Object*)))
 
    ;; TODO: add other properties (like prototype) ?
-   (js-property-safe-set! *js-Object-prototype*
-			 "valueOf"
-			 (valueOf))
-   )
+   (js-property-direct-set! (procedure-object *js-Object*)
+			    "prototype"
+			    (instantiate::Property-entry
+			       (val (js-object-prototype))
+			       (attr (prototype-attribute))))
+   (js-property-direct-set! *js-Object-prototype*
+			    "toString"
+			    (instantiate::Property-entry
+			       (val (toString))
+			       (attr (built-in-attribute))))
+   (js-property-direct-set! *js-Object-prototype*
+			    "valueOf"
+			    (instantiate::Property-entry
+			       (val (valueOf))
+			       (attr (built-in-attribute)))))
 
-(define Object-lambda
+(define (Object-lambda)
    (js-fun-lambda #f
 		  this-callee
 		  #f
@@ -59,8 +70,9 @@
 		      (js-new this-callee)
 		      (any->object first-arg))))
 
-(define (Object-new this f . L)
-   'do-nothing)
+(define (Object-new)
+   (lambda (this f . L)
+      'do-nothing))
 
 (define (Object-construct c . L)
    (create-empty-object-lambda c))
@@ -71,7 +83,7 @@
 		   (let ((name (car prop))
 			 (val (cadr prop)))
 		      ;; TODO: js-object-literal can be optimized
-		      (js-property-set! o name val)))
+		      (js-property-safe-set! o name val)))
 		properties)
       o))
 
@@ -82,5 +94,12 @@
 
 ;; Properties
 ;; ===================================
-(define (valueOf) (js-fun this #f #f ()
-			  this))
+(define (valueOf)
+   (js-fun this #f #f ()
+	   this))
+
+(define (toString)
+   (js-fun this #f #f ()
+	   (string-append "["
+			  (js-object->string this)
+			  "]")))

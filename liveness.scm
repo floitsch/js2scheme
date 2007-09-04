@@ -294,7 +294,7 @@
    (let ((new-nesting (cons this nesting)))
       (sequential-live (map (lambda (n)
 			       (n.traverse new-nesting))
-			    (cons* this.o this.op this.args)))))
+			    (cons* this.op this.args)))))
 
 (define-pmethod (New-live nesting)
    (let ((new-nesting (cons this nesting)))

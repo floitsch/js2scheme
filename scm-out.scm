@@ -249,11 +249,19 @@
 (define-pmethod (Accsig-out)
    (let ((tmp-o (gensym 'tmp-o))
 	 (tmp-field (gensym 'tmp-field))
+	 (tmp-object-o (gensym 'tmp-object-o))
+	 (tmp-string-field (gensym 'tmp-string-field))
 	 (tmp-val (gensym 'tmp-val)))
+      ;; we need all these tmp-variables, to ensure the correct order of
+      ;; evaluation.
       `(let* ((,tmp-o ,(this.lhs.obj.traverse))
 	      (,tmp-field ,(this.lhs.field.traverse))
+	      (,tmp-object-o (any->object ,tmp-o))
+	      (,tmp-string-field (any->string ,tmp-field))
 	      (,tmp-val ,(this.val.traverse)))
-	  (js-property-set! ,tmp-o ,tmp-field ,tmp-val)
+	  (js-property-safe-set! ,tmp-object-o
+				 ,tmp-string-field
+				 ,tmp-val)
 	  ,tmp-val)))
 
 (define-pmethod (Call-out)
@@ -279,9 +287,20 @@
 ;      ,@(map-node-compile this.args)))
 
 (define-pmethod (Method-call-out)
-   `(js-call ,(this.op.traverse)
-	     ,(this.o.traverse)
-	     ,@(map-node-compile this.args)))
+   (let ((tmp-o (gensym 'o))
+	 (tmp-field (gensym 'field))
+	 (tmp-object-o (gensym 'object-o))
+	 (tmp-string-field (gensym 'string-field)))
+      ;; we need all these tmp-variables, to ensure the correct order of
+      ;; evaluation.
+      `(let* ((,tmp-o ,(this.op.obj.traverse))
+	      (,tmp-field ,(this.op.field.traverse))
+	      (,tmp-object-o (any->object ,tmp-o))
+	      (,tmp-string-field (any->string ,tmp-field)))
+	  (js-call (js-property-safe-get ,tmp-object-o
+					 ,tmp-string-field)
+		   ,tmp-object-o
+		   ,@(map-node-compile this.args)))))
 
 (define-pmethod (New-out)
    `(js-new ,(this.class.traverse)
@@ -289,10 +308,16 @@
 
 (define-pmethod (Access-out)
    (let ((tmp-o (gensym 'tmp-o))
-	 (tmp-field (gensym 'tmp-field)))
+	 (tmp-field (gensym 'tmp-field))
+	 (tmp-object-o (gensym 'tmp-object-o))
+	 (tmp-string-field (gensym 'tmp-string-field)))
+      ;; we need all these tmp-variables, to ensure the correct order of
+      ;; evaluation.
       `(let* ((,tmp-o ,(this.obj.traverse))
-	      (,tmp-field ,(this.field.traverse)))
-	  (js-property-get ,tmp-o ,tmp-field))))
+	      (,tmp-field ,(this.field.traverse))
+	      (,tmp-object-o (any->object ,tmp-o))
+	      (,tmp-string-field (any->string ,tmp-field)))
+	  (js-property-safe-get ,tmp-object-o ,tmp-string-field))))
 
 (define-pmethod (This-out)
    'this)
@@ -310,7 +335,10 @@
    (if this.val #t #f))
 
 (define-pmethod (Number-out)
-   (string->number this.val))
+   (let ((nb (string->number this.val)))
+      (if (exact? nb)
+	  (exact->inexact nb)
+	  nb)))
 
 (define-pmethod (String-out)
    ;; TODO: fix strings. (escaping always correct?)

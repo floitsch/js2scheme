@@ -72,7 +72,7 @@
    (eq? v1 v2))
 
 (define-inline (jsop-== v1 v2)
-   (eq? v1 v2))
+   (equal? v1 v2))
 
 (define-inline (jsop-!= v1 v2)
    ;; TODO

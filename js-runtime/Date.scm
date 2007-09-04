@@ -13,7 +13,7 @@
 	   jsre-global-object
 	   jsre-globals-tmp
 	   )
-   (export *js-Date* ;; can be modified by user -> can't be ::Js-Object
+   (export *js-Date* ;; can be modified by user -> can't be ::procedure
 	   *js-Date-prototype*::Js-Object
 	   (class Js-Date::Js-Object
 	      bdate)
@@ -26,9 +26,9 @@
 ;; TODO: js-object->string
 
 (define (Date-init)
-   (set! *js-Date* Date-lambda)
-   (register-function-object! Date-lambda
-			      Date-new
+   (set! *js-Date* (Date-lambda))
+   (register-function-object! *js-Date*
+			      (Date-new)
 			      Date-construct
 			      (js-function-prototype)
 			      1 ;; TODO
@@ -50,7 +50,7 @@
 			  "valueOf"
 			  (valueOf)))
 
-(define Date-lambda
+(define (Date-lambda)
    (js-fun-lambda
     #f
     #f
@@ -58,7 +58,7 @@
     ()
     (date->string (current-date))))
 
-(define Date-new
+(define (Date-new)
    (js-fun-lambda
     this
     #f
@@ -136,7 +136,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "TODO"))
 	      ((not (date? (Js-Date-bdate this)))
-	       *NaN*)
+	       (NaN))
 	      (else
 	       (* 1000
 		  (elong->flonum (date->seconds (Js-Date-bdate this))))))))

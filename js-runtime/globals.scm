@@ -29,8 +29,5 @@
       (write-circle to-print)
       (print))
    (define (eval prog)
-      ;(print prog)
       (let ((scm-prog (js2scheme (open-input-string prog))))
-	 (print prog)
-	 (print scm-prog)
 	 (eval scm-prog))))

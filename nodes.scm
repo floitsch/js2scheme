@@ -439,12 +439,11 @@
 (set! Call.proto (empty-pobject Node))
 (proto-traverses Call op (args))
 
-(define-pclass (Method-call o op args)
-   (set! this.o o)
+(define-pclass (Method-call op args)
    (set! this.op op)
    (set! this.args args))
 (set! Method-call.proto (empty-pobject Call))
-(proto-traverses Method-call o op (args))
+(proto-traverses Method-call op (args))
 
 (define-pclass (Binary left op right)
    (set! this.op op)
