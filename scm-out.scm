@@ -82,7 +82,7 @@
 (define-pmethod (Program-out)
    `(begin
        ,@(map (lambda (var)
-		 (if (inherits-from? var This-var)
+		 (if (inherits-from? var (node 'This-var))
 		     #unspecified
 		     `(define ,(var.traverse) (js-undefined))))
 	      this.declared-globals)
@@ -91,7 +91,7 @@
 		    `(define ,(var.traverse) (js-undeclared))))
 	      this.implicit-globals)
        ,@(map (lambda (var)
-		 (if (inherits-from? var This-var)
+		 (if (inherits-from? var (node 'This-var))
 		     #unspecified
 		     `(global-declared-add! ',var.id ,(var.traverse))))
 	      this.declared-globals)
@@ -279,14 +279,14 @@
 	  ,tmp-val)))
 
 (define-pmethod (Call-out)
-   (if (and (inherits-from? this.op Var-ref)
-	    (inherits-from? this.op.var Runtime-var)
+   (if (and (inherits-from? this.op (node 'Var-ref))
+	    (inherits-from? this.op.var (node 'Runtime-var))
 	    this.op.var.operator?)
        (cond
 	  ((and (eq? this.op.var.id 'typeof)
 		(not (null? this.args))
 		(null? (cdr this.args))
-		(inherits-from? (car this.args) Var-ref))
+		(inherits-from? (car this.args) (node 'Var-ref)))
 	   ;; avoid both undeclared checks (the second must not be here)
 	   `(,(this.op.var.traverse) ,((car this.args).var.traverse)))
 	  (else

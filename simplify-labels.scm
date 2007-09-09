@@ -21,7 +21,7 @@
    (this.traverse0))
 
 (define-pmethod (Labelled-simplify)
-   (if (inherits-from? this.body Labelled)
+   (if (inherits-from? this.body (node 'Labelled))
        (let ((this-label this.label)
 	     (body-label this.body.label))
 	  [assert (this-label body-label) (eq? this-label body-label)]

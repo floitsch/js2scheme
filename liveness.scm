@@ -40,7 +40,7 @@
 			    Obj-init
 			    ;; HACK (bad nodes-macros)
 			    Bind-exit-invoc)
-	     (set! Node.proto.default-traverse-value '(() . ()))
+	     (set! (node 'Node).proto.default-traverse-value '(() . ()))
 	     (tree.traverse '())))
 
 (define (union . Ls)

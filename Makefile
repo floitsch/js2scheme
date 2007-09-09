@@ -2,14 +2,14 @@ CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
 TARGETNAMES	= js-obfuscator js-pp js2scheme
 
-OBFUSCATOR_BGL_MODULES	= fun-bindings nodes protobject var js-obfuscator js-out \
+OBFUSCATOR_BGL_MODULES	= config fun-bindings nodes protobject var js-obfuscator js-out \
 		 verbose lexer parser symbol statements obfuscate-ids simplify \
 		 html
 
-PP_BGL_MODULES	= nodes protobject js-pp js-out var \
+PP_BGL_MODULES	= config nodes protobject js-pp js-out var \
 		 verbose lexer parser statements
 
-JS2SCHEME_LIB_MODULES = fun-bindings nodes protobject var \
+JS2SCHEME_LIB_MODULES = config fun-bindings nodes protobject var \
 		 verbose lexer parser symbol statements simplify expand1 label \
 		 label-resolution simplify-labels bind-exit escape liveness let \
 		 scm-out  expand4 js2scheme-comp

@@ -71,7 +71,7 @@
 	  'do-nothing)
 	 ((not begin-stack) ;; imported, runtime or whatever...
 	  'do-nothing)
-	 ((inherits-from? (cadr begin-stack) Begin)
+	 ((inherits-from? (cadr begin-stack) (node 'Begin))
 	  (mark-live-begin (car begin-stack) var)
 	  (mark-live-end (car end-stack) var))
 	 (else
@@ -105,7 +105,7 @@
 	     (if (null? (cdr lives))
 		 (delete! n.live-begins)
 		 (set! n.live-begins (cdr lives)))
-	     ((new Let* (list (v.assig (new Undefined))) n).traverse!))
+	     ((new-node Let* (list (v.assig (new-node Undefined))) n).traverse!))
 	  (n.traverse0!))))
    
 (define-pmethod (Node-intro!)
@@ -113,7 +113,7 @@
 
 (define-pmethod (Let*-intro!)
    (this.traverse0!)
-   (when (inherits-from? this.body Let*)
+   (when (inherits-from? this.body (node 'Let*))
       (set! this.assigs (append! this.vassigs this.body.vassigs))
       (set! this.body this.body.body))
    this)
@@ -141,17 +141,17 @@
 		     (set! el.live-begins filtered-l))
 		 (cond
 		    ((and long-v
-			  (inherits-from? el Vassig)
+			  (inherits-from? el (node 'Vassig))
 			  (eq? el.lhs.var long-v))
-		     (let ((let-n (new Let*
+		     (let ((let-n (new-node Let*
 				       (list el)
-				       (new Sequence (cdr els)))))
+				       (new-node Sequence (cdr els)))))
 			(set-car! els (let-n.traverse!))
 			(set-cdr! els '())))
 		    (long-v
-		     (let ((let-n (new Let*
-				       `(,(long-v.assig (new Undefined)))
-				       (new Sequence
+		     (let ((let-n (new-node Let*
+				       `(,(long-v.assig (new-node Undefined)))
+				       (new-node Sequence
 					    (cons (car els) (cdr els))))))
 			(set-car! els (let-n.traverse!))
 			(set-cdr! els '())))

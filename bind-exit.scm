@@ -24,24 +24,19 @@
 			      (Continue Continue/Break-intro!)
 			      (Break Continue/Break-intro!)
 			      Return)
-	     (tree.traverse!)
-	     ;; deprecate usage of replaced classes
-	     (deprecate! Labelled)
-	     (deprecate! Continue)
-	     (deprecate! Break)
-	     (deprecate! Return)))
+	     (tree.traverse!)))
 
 (define-pmethod (Node-intro!)
    (this.traverse0!))
 
 (define-pmethod (Labelled-intro!)
-   (new Bind-exit this.label (this.body.traverse!)))
+   (new-node Bind-exit this.label (this.body.traverse!)))
 
 (define-pmethod (Continue/Break-intro!)
-   (new Bind-exit-invoc this.label (new Undefined)))
+   (new-node Bind-exit-invoc this.label (new-node Undefined)))
 
 (define-pmethod (Return-intro!)
-   (new Bind-exit-invoc this.label this.expr))
+   (new-node Bind-exit-invoc this.label this.expr))
 
 (define (bind-exit-removal! tree)
    (verbose "  removal (optim)")
@@ -60,7 +55,7 @@
 			     Throw
 			     Bind-exit
 			     Try)
-	     (set! Node.proto.default-traverse-value #f)
+	     (set! (node 'Node).proto.default-traverse-value #f)
 	     (tree.traverse #f)))
 
 (define *throw-const* (cons 'throw 'throw))
@@ -92,11 +87,11 @@
 	  (append! then-interrupted else-interrupted))
 	 (then-interrupted
 	  (if sequence
-	      (set! this.else (new Sequence (cons this.else sequence))))
+	      (set! this.else (new-node Sequence (cons this.else sequence))))
 	  then-interrupted)
 	 (else-interrupted
 	  (if sequence
-	      (set! this.then (new Sequence (cons this.then sequence))))
+	      (set! this.then (new-node Sequence (cons this.then sequence))))
 	  then-interrupted)
 	 (else
 	  #f))))
@@ -138,7 +133,7 @@
 	  (cond
 	     ((null? els)
 	      (warning "Begin-remove! Bind-exits" "Begin without elements" #f)
-	      (new NOP))
+	      (new-node NOP))
 	     ((null? (cdr els))
 	      (set-car! els ((car els).traverse! enclosing))
 	      this)

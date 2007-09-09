@@ -58,6 +58,8 @@
 	      else))))
 
 (define (js-obfuscator args)
+   (define imported-vars '())
+   
    (handle-args args)
    (if (not *in-file*)
        (begin
@@ -73,13 +75,13 @@
 		(let ((l (if (string? f)
 			     (with-input-from-file f read)
 			     f)))
-		   (set! *imported-vars*
+		   (set! imported-vars
 			 (append! (map (lambda (id/p)
 					  (if (symbol? id/p)
 					      id/p
 					      (car id/p)))
 				       l)
-				  *imported-vars*))
+				  imported-vars))
 		   (set! *imported-global-mapping*
 			 (append! (map! (lambda (id/p)
 					   (if (pair? id/p)
@@ -88,7 +90,7 @@
 					l)
 				  *imported-global-mapping*))))
 	     *importation*)
-   (print *imported-vars*)
+   (print imported-vars)
    (print *imported-global-mapping*)
    (let* ((in-p (if (string=? *in-file* "-")
 		    (current-input-port)
@@ -100,7 +102,7 @@
       (if *obfuscation-mapping-file*
 	  (set! *obfuscation-mapping-p* (open-output-file *obfuscation-mapping-file*)))
       (fun-bindings! ast)
-      (symbol-resolution! ast)
+      (symbol-resolution! ast imported-vars)
       (set! *integrate-Var-decl-lists* #f)
       (simplify! ast)
       (statements ast)

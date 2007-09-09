@@ -17,6 +17,7 @@
    (import protobject
 	   verbose
 	   nodes
+	   var
 	   parser
 	   expand1
 	   fun-bindings
@@ -52,10 +53,12 @@
 					    ))))))
 
 (define (js2scheme in-p)
+   (nodes-init!)
+   (var-nodes-init!)
    (let ((ast (parse in-p)))
       (fun-bindings! ast)
       (expand4! ast)
-      (symbol-resolution! ast)
+      (symbol-resolution! ast '())
       (label-resolution ast)
       (expand1! ast)
       (simplify-labels! ast)

@@ -26,7 +26,7 @@
 	  (new-body (this.body.traverse! bindings-ht))
 	  (bindings (hashtable-key-list bindings-ht)))
       (if (not (null? bindings))
-	  (set! this.body (new Block (append! bindings (list new-body)))))
+	  (set! this.body (new-node Block (append! bindings (list new-body)))))
       this))
 
 (define-pmethod (Named-fun-fb! ht)
@@ -35,4 +35,4 @@
 (define-pmethod (Fun-binding-fb! ht)
    (this.traverse1! ht)
    (hashtable-put! ht this #t)
-   (new NOP))
+   (new-node NOP))

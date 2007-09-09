@@ -2,81 +2,9 @@
    (include "protobject.sch")
    (option (loadq "protobject-eval.sch"))
    (import protobject)
-   (export deprecate!
-	   Node
-	   Program
-	   Begin
-	   Block
-	   Sequence
-	   Var-decl-list
-	   Var-ref
-	   Decl
-	   NOP
-	   If
-	   Loop
-	   For
-	   While
-	   Do
-	   For-in
-	   Flow-interruption
-	   Bind-exit
-	   Bind-exit-invoc
-	   Continue
-	   Break
-	   Return
-	   With
-	   Switch
-	   Fall-through
-	   Switch-clause
-	   Case
-	   Default
-	   Throw
-	   Try
-	   Catch
-	   Labelled
-	   Fun-binding
-	   Named-fun
-	   Scope
-	   Param
-	   This-decl
-	   Arguments-decl
-	   Fun
-	   Assig
-	   Vassig
-	   Init
-	   Vassig-op
-	   Accsig
-	   Accsig-op
-	   Cond
-	   Call
-	   Method-call
-	   Binary
-	   Unary
-	   Postfix
-	   New
-	   Access
-	   Dot
-	   This
-	   Literal
-	   Undefined
-	   Null
-	   Bool
-	   Number
-	   String
-	   Array
-	   Array-element
-	   Obj-init
-	   Property-init
-	   Reg-exp
-	   Let*))
+   (export (node n::symbol)
+	   (nodes-init!)))
 
-(define (deprecate! C)
-   (define-pmethod (deprecated-use . L)
-      (error #f
-	     "using deprecated node"
-	     (pobject-name C)))
-   (set! C.proto.traverse deprecated-use)
-   (set! C.proto.traverse! deprecated-use))
 
 (define-macro (debug-print . L)
 ;   (cons 'print L))
@@ -179,39 +107,53 @@
    `(begin
        ,@(map gen-traverse (iota 3))))
 
-(define-pclass (Node))
+
+(define (node n)
+   (hashtable-get (thread-parameter '*nodes*) n))
+
+;; === nodes-init =====
+(define (nodes-init!)
+(define nodes (make-hashtable))
+(thread-parameter-set! '*nodes* nodes)
+
+(define-macro (define-node signature . Lrest)
+   `(begin
+       (define-pclass ,signature ,@Lrest)
+       (hashtable-put! nodes ',(car signature) ,(car signature))))
+
+(define-node (Node))
 (proto-traverses Node)
 
-(define-pclass (Var-ref id)
+(define-node (Var-ref id)
    (set! this.id id))
 (set! Var-ref.proto (empty-pobject Node))
 (proto-traverses Var-ref)
 
-(define-pclass (Decl id)
+(define-node (Decl id)
    (set! this.id id))
 (set! Decl.proto (empty-pobject Var-ref))
 (proto-traverses Decl)
 
-(define-pclass (Param id)
+(define-node (Param id)
    (set! this.id id))
 (set! Param.proto (empty-pobject Decl))
 (proto-traverses Param)
 
-(define-pclass (This-decl)
+(define-node (This-decl)
    (set! this.id 'this))
 (set! This-decl.proto (empty-pobject Param))
 (proto-traverses This-decl)
 
-(define-pclass (Arguments-decl)
+(define-node (Arguments-decl)
    (set! this.id 'arguments))
 (set! Arguments-decl.proto (empty-pobject Param))
 (proto-traverses Arguments-decl)
 
-(define-pclass (Scope body)
+(define-node (Scope body)
    (set! this.body body))
 (set! Scope.proto (empty-pobject Node))
 
-(define-pclass (Program body)
+(define-node (Program body)
    (set! this.this-decl (new This-decl))
    (set! this.imported '())
    (set! this.runtime '())
@@ -220,41 +162,41 @@
 (set! Program.proto (empty-pobject Scope))
 (proto-traverses Program this-decl (imported) (runtime) (implicit-globals) body)
 
-(define-pclass (Begin)) ;; els
+(define-node (Begin)) ;; els
 (set! Begin.proto (empty-pobject Node))
 (proto-traverses Begin) ;; should not be necessary
 
-(define-pclass (Block els)
+(define-node (Block els)
    (set! this.els els))
 (set! Block.proto (empty-pobject Begin))
 (proto-traverses Block (els))
 
-(define-pclass (Sequence els)
+(define-node (Sequence els)
    (set! this.els els))
 (set! Sequence.proto (empty-pobject Begin))
 (proto-traverses Sequence (els))
 
-(define-pclass (Var-decl-list var-decls)
+(define-node (Var-decl-list var-decls)
    (set! this.els var-decls))
 (set! Var-decl-list.proto (empty-pobject Begin))
 (proto-traverses Var-decl-list (els))
 
-(define-pclass (NOP))
+(define-node (NOP))
 (set! NOP.proto (empty-pobject Node))
 (proto-traverses NOP)
 
-(define-pclass (If test then else)
+(define-node (If test then else)
    (set! this.test test)
    (set! this.then then)
    (set! this.else else))
 (set! If.proto (empty-pobject Node))
 (proto-traverses If test then else)
 
-(define-pclass (Loop))
+(define-node (Loop))
 (set! Loop.proto (empty-pobject Node))
 (proto-traverses Loop) ;; should not be necessary
 
-(define-pclass (For init test incr body)
+(define-node (For init test incr body)
    (set! this.init init)
    (set! this.test test)
    (set! this.incr incr)
@@ -262,163 +204,163 @@
 (set! For.proto (empty-pobject Loop))
 (proto-traverses For ?init ?test ?incr body)
 
-(define-pclass (While test body)
+(define-node (While test body)
    (set! this.test test)
    (set! this.body body))
 (set! While.proto (empty-pobject Loop))
 (proto-traverses While test body)
 
-(define-pclass (Do body test)
+(define-node (Do body test)
    (set! this.body body)
    (set! this.test test))
 (set! Do.proto (empty-pobject Loop))
 (proto-traverses Do body test)
 
-(define-pclass (For-in lhs obj body)
+(define-node (For-in lhs obj body)
    (set! this.lhs lhs)
    (set! this.obj obj)
    (set! this.body body))
 (set! For-in.proto (empty-pobject Loop))
 (proto-traverses For-in lhs obj body)
 
-(define-pclass (Flow-interruption))
+(define-node (Flow-interruption))
 (set! Flow-interruption.proto (empty-pobject Node))
 (proto-traverses Flow-interruption) ;; should not be needed
 
-(define-pclass (Bind-exit label body)
+(define-node (Bind-exit label body)
    (set! this.label label)
    (set! this.body body))
 (set! Bind-exit.proto (empty-pobject Node))
 (proto-traverses Bind-exit body)
 
-(define-pclass (Bind-exit-invoc label expr)
+(define-node (Bind-exit-invoc label expr)
    (set! this.label label)
    (set! this.expr expr))
 (set! Bind-exit-invoc.proto (empty-pobject Flow-interruption))
 (proto-traverses Bind-exit-invoc expr)
    
-(define-pclass (Continue id)
+(define-node (Continue id)
    (set! this.id id))
 (set! Continue.proto (empty-pobject Node))
 (proto-traverses Continue)
 
-(define-pclass (Break id)
+(define-node (Break id)
    (set! this.id id))
 (set! Break.proto (empty-pobject Node))
 (proto-traverses Break)
 
-(define-pclass (Return expr)
+(define-node (Return expr)
    (set! this.expr expr))
 (set! Return.proto (empty-pobject Node))
 (proto-traverses Return expr)
 
-(define-pclass (With obj body)
+(define-node (With obj body)
    (set! this.obj obj)
    (set! this.intercepted '())
    (set! this.body body))
 (set! With.proto (empty-pobject Node))
 (proto-traverses With obj (intercepted) body)
 
-(define-pclass (Switch key cases)
+(define-node (Switch key cases)
    (set! this.key key)
    (set! this.cases cases))
 (set! Switch.proto (empty-pobject Node))
 (proto-traverses Switch key (cases))
 
-(define-pclass (Fall-through))
+(define-node (Fall-through))
 (set! Fall-through.proto (empty-pobject Node))
 (proto-traverses Fall-through)
 
-(define-pclass (Switch-clause) ; body
+(define-node (Switch-clause) ; body
    'do-nothing)
 (set! Switch-clause.proto (empty-pobject Node))
 (proto-traverses Switch-clause) ;; should never be necessary
    
-(define-pclass (Case expr body)
+(define-node (Case expr body)
    (set! this.expr expr)
    (set! this.body body))
 (set! Case.proto (empty-pobject Switch-clause))
 (proto-traverses Case expr body)
 
-(define-pclass (Default body)
+(define-node (Default body)
    (set! this.body body))
 (set! Default.proto (empty-pobject Switch-clause))
 (proto-traverses Default body)
 
-(define-pclass (Throw expr)
+(define-node (Throw expr)
    (set! this.expr expr))
 (set! Throw.proto (empty-pobject Flow-interruption))
 (proto-traverses Throw expr)
 
-(define-pclass (Try body catch finally)
+(define-node (Try body catch finally)
    (set! this.body body)
    (set! this.catch catch)
    (set! this.finally finally))
 (set! Try.proto (empty-pobject Node))
 (proto-traverses Try body ?catch ?finally)
 
-(define-pclass (Catch exception body)
+(define-node (Catch exception body)
    (set! this.exception exception)
    (set! this.body body))
 (set! Catch.proto (empty-pobject Node))
 (proto-traverses Catch exception body)
 
-(define-pclass (Labelled id body)
+(define-node (Labelled id body)
    (set! this.id id)
    (set! this.body body))
 (set! Labelled.proto (empty-pobject Node))
 (proto-traverses Labelled body)
 
-(define-pclass (Assig lhs val)) ;; lhs val
+(define-node (Assig lhs val)) ;; lhs val
 (set! Assig.proto (empty-pobject Node))
 (proto-traverses Assig) ;; should not be necessary
 
-(define-pclass (Vassig lhs val)
+(define-node (Vassig lhs val)
    (set! this.lhs lhs)
    (set! this.val val))
 (set! Vassig.proto (empty-pobject Assig))
 (proto-traverses Vassig lhs val)
 
-(define-pclass (Vassig-op lhs op val)
+(define-node (Vassig-op lhs op val)
    (set! this.lhs lhs)
    (set! this.op op)
    (set! this.val val))
 (set! Vassig-op.proto (empty-pobject Vassig))
 (proto-traverses Vassig-op lhs op val)
 
-(define-pclass (Init decl val)
+(define-node (Init decl val)
    (set! this.lhs decl)
    (set! this.val val))
 (set! Init.proto (empty-pobject Vassig))
 (proto-traverses Init lhs val)
 
-(define-pclass (Accsig lhs val)
+(define-node (Accsig lhs val)
    (set! this.lhs lhs)
    (set! this.val val))
 (set! Accsig.proto (empty-pobject Assig))
 (proto-traverses Accsig lhs val)
 
-(define-pclass (Accsig-op lhs op val)
+(define-node (Accsig-op lhs op val)
    (set! this.lhs lhs)
    (set! this.op op)
    (set! this.val val))
 (set! Accsig-op.proto (empty-pobject Accsig))
 (proto-traverses Accsig-op lhs op val)
 
-(define-pclass (Fun-binding decl fun)
+(define-node (Fun-binding decl fun)
    (set! this.lhs decl)
    (set! this.val fun))
 (set! Fun-binding.proto (empty-pobject Vassig))
 (proto-traverses Fun-binding lhs val)
 
 ;; will be usually replaced by a Vassig after symbol-pass
-(define-pclass (Named-fun decl fun)
+(define-node (Named-fun decl fun)
    (set! this.decl decl)
    (set! this.fun fun))
 (set! Named-fun.proto (empty-pobject Scope))
 (proto-traverses Named-fun decl fun)
 
-(define-pclass (Fun params body)
+(define-node (Fun params body)
    (set! this.params params)
    (set! this.this-decl (new This-decl))
    (set! this.arguments-decl (new Arguments-decl))
@@ -426,57 +368,57 @@
 (set! Fun.proto (empty-pobject Scope))
 (proto-traverses Fun (params) ?this-decl ?arguments-decl body)
 
-(define-pclass (Cond test then else)
+(define-node (Cond test then else)
    (set! this.test test)
    (set! this.then then)
    (set! this.else else))
 (set! Cond.proto (empty-pobject If))
 (proto-traverses Cond test then else)
 
-(define-pclass (Call op args)
+(define-node (Call op args)
    (set! this.op op)
    (set! this.args args))
 (set! Call.proto (empty-pobject Node))
 (proto-traverses Call op (args))
 
-(define-pclass (Method-call op args)
+(define-node (Method-call op args)
    (set! this.op op)
    (set! this.args args))
 (set! Method-call.proto (empty-pobject Call))
 (proto-traverses Method-call op (args))
 
-(define-pclass (Binary left op right)
+(define-node (Binary left op right)
    (set! this.op op)
    (set! this.args (list left right)))
 (set! Binary.proto (empty-pobject Call))
 (proto-traverses Binary op (args))
 
-(define-pclass (Unary op right)
+(define-node (Unary op right)
    (set! this.op op)
    (set! this.args (list right)))
 (set! Unary.proto (empty-pobject Call))
 (proto-traverses Unary op (args))
 
-(define-pclass (Postfix expr op)
+(define-node (Postfix expr op)
    (set! this.postfix? #t)
    (set! this.op op)
    (set! this.args (list expr)))
 (set! Postfix.proto (empty-pobject Call))
 (proto-traverses Postfix op (args))
 
-(define-pclass (New class args)
+(define-node (New class args)
    (set! this.class class)
    (set! this.args args))
 (set! New.proto (empty-pobject Node))
 (proto-traverses New class (args))
 
-(define-pclass (Access obj field)
+(define-node (Access obj field)
    (set! this.obj obj)
    (set! this.field field))
 (set! Access.proto (empty-pobject Node))
 (proto-traverses Access obj field)
 
-(define-pclass (Dot obj field)
+(define-node (Dot obj field)
    (set! this.obj obj)
    (set! this.field (new String (symbol->string field))))
 (set! Dot.proto (empty-pobject Access))
@@ -484,55 +426,55 @@
 
 ;; we consider This to be a var-ref and not to be
 ;; literal.
-(define-pclass (This)
+(define-node (This)
    (set! this.id 'this))
 (set! This.proto (empty-pobject Var-ref))
 (proto-traverses This)
 
-(define-pclass (Literal val)
+(define-node (Literal val)
    (set! this.val val))
 (set! Literal.proto (empty-pobject Node))
 (proto-traverses Literal)
 
-(define-pclass (Undefined)
+(define-node (Undefined)
    (set! this.val 'undefined))
 (set! Undefined.proto (empty-pobject Literal))
 (proto-traverses Undefined)
-(define-pclass (Null)
+(define-node (Null)
    (set! this.val 'null))
 (set! Null.proto (empty-pobject Literal))
 (proto-traverses Null)
-(define-pclass (Bool val)
+(define-node (Bool val)
    (set! this.val val))
 (set! Bool.proto (empty-pobject Literal))
 (proto-traverses Bool)
-(define-pclass (Number val)
+(define-node (Number val)
    (set! this.val val))
 (set! Number.proto (empty-pobject Literal))
 (proto-traverses Number)
-(define-pclass (String val)
+(define-node (String val)
    (set! this.val val))
 (set! String.proto (empty-pobject Literal))
 (proto-traverses String)
 
-(define-pclass (Array els length)
+(define-node (Array els length)
    (set! this.els els)
    (set! this.length length))
 (set! Array.proto (empty-pobject Node))
 (proto-traverses Array (els))
 
-(define-pclass (Array-element index expr)
+(define-node (Array-element index expr)
    (set! this.index index)
    (set! this.expr expr))
 (set! Array-element.proto (empty-pobject Node))
 (proto-traverses Array-element expr)
 
-(define-pclass (Obj-init props)
+(define-node (Obj-init props)
    (set! this.props props))
 (set! Obj-init.proto (empty-pobject Node))
 (proto-traverses Obj-init (props))
 
-(define-pclass (Property-init name val)
+(define-node (Property-init name val)
    (set! this.name (if (symbol? name)
 		       (new String (symbol->string name))
 		       name))
@@ -540,7 +482,7 @@
 (set! Property-init.proto (empty-pobject Node))
 (proto-traverses Property-init name val)
 
-(define-pclass (Reg-exp pattern)
+(define-node (Reg-exp pattern)
    (set! this.pattern pattern))
 (set! Reg-exp.proto (empty-pobject Node))
 (proto-traverses Reg-exp)
@@ -549,8 +491,9 @@
 ;; Scheme nodes
 ;;
 
-(define-pclass (Let* vassigs body)
+(define-node (Let* vassigs body)
    (set! this.vassigs vassigs)
    (set! this.body body))
 (set! Let*.proto (empty-pobject Node))
 (proto-traverses Let* (vassigs) body)
+)

@@ -7,20 +7,17 @@
 	   verbose
 	   nodes
 	   var)
-   (export (symbol-resolution! tree::pobject)
-	   *imported-vars*
+   (export (symbol-resolution! tree::pobject imported-ids::pair-nil)
 	   (id->runtime-var id::symbol)))
 
-(define *imported-vars* '())
-
 (define (id->runtime-var id)
-   (hashtable-get *runtime-table* id))
-;; will be set later
-(define *runtime-table* #unspecified)
+   (hashtable-get (thread-parameter '*runtime-table*) id))
+(define (runtime-table-set! table)
+   (thread-parameter-set! '*runtime-table* table))
 
-(define (symbol-resolution! tree)
+(define (symbol-resolution! tree imported-ids)
    (verbose "symbol-resolution")
-   (collect! tree)
+   (collect! tree imported-ids)
    (resolve tree))
 
 
@@ -56,7 +53,7 @@
 ;; param, or other 'var') nothing happens.
 ;; Function declarations win over 'var'-statements. This is only important when
 ;; initializing (setting local vars to 'undefined')
-(define (collect! tree)
+(define (collect! tree imported-ids)
    (verbose "collect!")
    (overload traverse! collect! (Node
 				 Program
@@ -65,20 +62,20 @@
 				 Param
 				 This-decl
 				 Decl)
-	     (tree.traverse! #f)))
+	     (tree.traverse! #f imported-ids)))
 
 
 (define-pmethod (Node-collect! scope-table)
    (this.traverse1! scope-table))
 
-(define-pmethod (Program-collect! scope-table)
+(define-pmethod (Program-collect! scope-table imported-ids)
    (let* ((runtime-table (make-scope-table))
 	  (imported-table (make-scope-table))
 	  (globals-table (make-scope-table)))
       (for-each (lambda (runtime-var-binding)
 		   (let* ((id (car runtime-var-binding))
 			  (scm-id (cadr runtime-var-binding))
-			  (v (new Runtime-var id scm-id)))
+			  (v (new-node Runtime-var id scm-id)))
 		      (if (and (not (null? (cddr runtime-var-binding)))
 			       (eq? (caddr runtime-var-binding) 'operator))
 			  (set! v.operator? #t))
@@ -90,14 +87,14 @@
       (for-each (lambda (imported-var-binding)
 		   (let* ((id (car imported-var-binding))
 			  (scm-id (cadr imported-var-binding))
-			  (v (new Imported-var id scm-id)))
+			  (v (new-node Imported-var id scm-id)))
 		      (set! v.global? #t)
 		      (hashtable-put! imported-table
 				      id
 				      v)))
-		*imported-vars*)
+		imported-ids)
 
-      (set! *runtime-table* runtime-table)
+      (runtime-table-set! runtime-table)
       (set! this.imported-table imported-table)
       (set! this.runtime-table runtime-table)
       (set! this.globals-table globals-table)
@@ -133,14 +130,14 @@
 ;; Params always have their proper vars (for the 'arguments-object')
 (define-pmethod (Param-collect! scope-table)
    (let* ((id this.id)
-	  (var (new Var id)))
+	  (var (new-node Var id)))
       (set! this.var var)
       (scope-symbol-var-set! scope-table id var))
    this)
 
 ;; This-param
 (define-pmethod (This-decl-collect! scope-table)
-   (let* ((var (new This-var)))
+   (let* ((var (new-node This-var)))
       (set! this.var var)
       (scope-symbol-var-set! scope-table 'this var))
    this)
@@ -159,10 +156,10 @@
 	  (var (scope-symbol-var scope-table id)))
       (if var
 	  ;; there exists already a decl. -> remove this one.
-	  (let ((ref (new Var-ref this.id)))
+	  (let ((ref (new-node Var-ref this.id)))
 	     (set! ref.var var)
 	     ref)
-	  (let ((new-var (new Var id)))
+	  (let ((new-var (new-node Var id)))
 	     (set! this.var new-var)
 	     (scope-symbol-var-set! scope-table id new-var)
 	     this))))
@@ -174,33 +171,38 @@
 			       Scope
 			       Catch
 			       Var-ref)
-	     (tree.traverse #f)))
+	     (tree.traverse #f #f)))
 
-(define *program* #f)
+(define-pmethod (Node-resolve symbol-table implicit-proc)
+   (this.traverse2 symbol-table implicit-proc))
 
-(define-pmethod (Node-resolve symbol-table)
-   (this.traverse1 symbol-table))
-
-(define-pmethod (Program-resolve symbol-table)
+(define-pmethod (Program-resolve symbol-table ignored)
    (let ((symbol-table (add-scope (add-scope (add-scope (make-symbol-table)
 							this.runtime-table)
 					     this.imported-table)
-				  this.globals-table)))
-      (set! *program* this)
-      (this.traverse1 symbol-table)
+				  this.globals-table))
+	 (implicit-proc (lambda (id decl)
+			   (set! this.implicit-globals
+				 (cons decl this.implicit-globals))
+			   (scope-symbol-var-set! this.globals-table
+						  id
+						  decl.var)
+			   (set! decl.var.implicit-global? #t))))
+      (this.traverse2 symbol-table implicit-proc)
+
       (for-each (lambda (decl)
 		   (set! decl.var.global? #t))
 		this.implicit-globals)))
 					     
-(define-pmethod (Scope-resolve symbol-table)
+(define-pmethod (Scope-resolve symbol-table implicit-proc)
    (let ((extended-symbol-table (add-scope symbol-table this.locals)))
-      (this.traverse1 extended-symbol-table)))
+      (this.traverse2 extended-symbol-table implicit-proc)))
 
-(define-pmethod (Catch-resolve symbol-table)
+(define-pmethod (Catch-resolve symbol-table implicit-proc)
    (let ((extended-symbol-table (add-scope symbol-table this.locals)))
-      (this.traverse1 extended-symbol-table)))
+      (this.traverse2 extended-symbol-table implicit-proc)))
 
-(define-pmethod (Var-ref-resolve symbol-table)
+(define-pmethod (Var-ref-resolve symbol-table implicit-proc)
    (unless this.var ;; already has var
        (let ((var (symbol-var symbol-table this.id)))
 	  (cond
@@ -209,18 +211,15 @@
 ; 	     ((assq this.id *runtime-variables*)
 ; 	      =>
 ; 	      (lambda (binding)
-; 		 (set! this.var (new Runtime-var
+; 		 (set! this.var (new-node Runtime-var
 ; 				     (car binding)
 ; 				     (cdr binding)))))
 	     (else
 	      ;; a new global...
 	      (let* ((id this.id)
-		     (prog *program*)
 		     (decl (Decl-of-new-Var id)))
 		 (verbose "implicit global: " id)
-		 (set! prog.implicit-globals (cons decl prog.implicit-globals))
-		 (scope-symbol-var-set! prog.globals-table id decl.var)
-		 (set! decl.var.implicit-global? #t)
+		 (implicit-proc id decl)
 		 (set! this.var decl.var)))))))
 
 ;; for now another pass.
@@ -282,8 +281,8 @@
 		 ;; build pseudo-decl and put it into With-interceptions.
 		 ;; continue recursively: the intercepted var might be
 		 ;; intercepted several times...
-		 (let* ((decl (new Decl id))
-			(fake-var (new With-var
+		 (let* ((decl (new-node Decl id))
+			(fake-var (new-node With-var
 				       id
 				       surrounding-with
 				       ;; continue recursively

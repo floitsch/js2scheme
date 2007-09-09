@@ -69,8 +69,8 @@
 			     (tree.traverse #f 0 #f))))))
 
 (define (assign-priorities!)
-   (define (assign-priority! n priority)
-      (set! n.proto.priority (pmethod () priority)))
+   (define (assign-priority! n-sym priority)
+      (set! (node n-sym).proto.priority (pmethod () priority)))
 
    (define-pmethod (binary-priority)
       (+ 10 (case this.op.id
@@ -89,26 +89,26 @@
 		       "bad op"
 		       this.op.id)))))
    
-   (assign-priority! Node #f)
-   (assign-priority! Sequence 1)
-   (assign-priority! Cond 2)
-   (assign-priority! Var-ref 30)
-   (assign-priority! Fun 25)
-   (assign-priority! Vassig 3)
-   (assign-priority! Vassig-op 3)
-   (assign-priority! Accsig 3)
-   (assign-priority! Accsig-op 3)
-   (assign-priority! Call 25)
-   (set! Binary.proto.priority binary-priority)
-   (assign-priority! Unary 19)
-   (assign-priority! Postfix 19)
-   (assign-priority! New 25)
-   (assign-priority! Access 25)
-   (assign-priority! This 30)
-   (assign-priority! Literal 30)
-   (assign-priority! Array 30)
-   (assign-priority! Obj-init 30)
-   (assign-priority! Reg-exp 30))
+   (assign-priority! 'Node #f)
+   (assign-priority! 'Sequence 1)
+   (assign-priority! 'Cond 2)
+   (assign-priority! 'Var-ref 30)
+   (assign-priority! 'Fun 25)
+   (assign-priority! 'Vassig 3)
+   (assign-priority! 'Vassig-op 3)
+   (assign-priority! 'Accsig 3)
+   (assign-priority! 'Accsig-op 3)
+   (assign-priority! 'Call 25)
+   (set! (node 'Binary).proto.priority binary-priority)
+   (assign-priority! 'Unary 19)
+   (assign-priority! 'Postfix 19)
+   (assign-priority! 'New 25)
+   (assign-priority! 'Access 25)
+   (assign-priority! 'This 30)
+   (assign-priority! 'Literal 30)
+   (assign-priority! 'Array 30)
+   (assign-priority! 'Obj-init 30)
+   (assign-priority! 'Reg-exp 30))
 
 (define (indent+ indent)
    (+ indent 3))
@@ -132,7 +132,7 @@
       (else (symbol->string op))))
 
 (define (block-body body indent needs-separation? newline-after?)
-   (let ((body-block? (inherits-from? body Block)))
+   (let ((body-block? (inherits-from? body (node 'Block))))
       (if body-block?
 	  (begin
 	     (space-out)
@@ -167,7 +167,7 @@
 				  priority
 				  indent
 				  in-for-init?)
-   (if (instance-of? stmt Block)
+   (if (inherits-from? stmt (node 'Block))
        (for-each (lambda (n)
 		    (n.traverse #f indent #f))
 		 stmt.els)
@@ -175,12 +175,12 @@
 
 (define (stmt->block stmt)
    (cond
-      ((instance-of? stmt Block)
+      ((inherits-from? stmt (node 'Block))
        stmt)
-      ((instance-of? stmt NOP)
-       (new Block '()))
+      ((inherits-from? stmt (node 'NOP))
+       (new-node Block '()))
       (else
-       (new Block (list stmt)))))
+       (new-node Block (list stmt)))))
 
 ;; priority is only for expressions.
 ;; indent only for statements.
@@ -248,17 +248,17 @@
    (newline-out))
 
 (define-pmethod (If-out priority indent in-for-in?)
-   (if (and (instance-of? this.then If) ;; nested if
-	    (instance-of? this.then.else NOP) ;; has no else-branch
-	    (not (instance-of? this.else NOP))) ;; but we have one
-       (set! this.then (new Block (list this.then)))) ;; protect our else
+   (if (and (inherits-from? this.then (node 'If)) ;; nested if
+	    (inherits-from? this.then.else (node 'NOP)) ;; has no else-branch
+	    (not (inherits-from? this.else (node 'NOP)))) ;; but we have one
+       (set! this.then (new-node Block (list this.then)))) ;; protect our else
    (indent! indent)
    (display "if")
    (space-out)
    (display "(")
    (this.test.traverse #f indent #f)
    (display ")")
-   (let* ((else-branch? (not (instance-of? this.else NOP)))
+   (let* ((else-branch? (not (inherits-from? this.else (node 'NOP))))
 	  (then-block? (block-body this.then indent #f (not else-branch?))))
       (when else-branch?
 	 (if then-block?

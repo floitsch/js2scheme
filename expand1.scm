@@ -49,24 +49,24 @@
 
 (define-pmethod (Named-fun-expand!)
    (this.traverse0!)
-   (new Vassig this.decl this.fun))
+   (new-node Vassig this.decl this.fun))
 
 (define-pmethod (For-expand!)
-   (let* ((continue-labelled (new Labelled
-				  *default-continue-label-id*
-				  (this.body.traverse!)))
+   (let* ((continue-labelled (new-node Labelled
+				       *default-continue-label-id*
+				       (this.body.traverse!)))
 	  (while-body (if this.incr
-			  (new Block (list continue-labelled
-					   (this.incr.traverse!)))
+			  (new-node Block (list continue-labelled
+						(this.incr.traverse!)))
 			  continue-labelled))
-	  (while (new While (if this.test
-				(this.test.traverse!)
-				(new Bool #t))
+	  (while (new-node While (if this.test
+				     (this.test.traverse!)
+				     (new-node Bool #t))
 		      while-body))
 	  (block (if this.init
-		     (new Block (list (this.init.traverse!) while))
+		     (new-node Block (list (this.init.traverse!) while))
 		     while))
-	  (break-labelled (new Labelled *default-break-label-id* block))
+	  (break-labelled (new-node Labelled *default-break-label-id* block))
 	  (new-this break-labelled))
       (set! continue-labelled.label this.continue-label)
       (set! break-labelled.label this.break-label)
@@ -75,20 +75,21 @@
       new-this))
 
 (define-pmethod (While-expand!)
-   (let ((continue-labelled (new Labelled *default-continue-label-id* this.body)))
+   (let ((continue-labelled (new-node Labelled *default-continue-label-id* this.body)))
       (set! continue-labelled.label this.continue-label)
       (delete! this.continue-label)
       (set! this.body continue-labelled)
       (let* ((old-this (this.traverse0!))
-	     (break-labelled (new Labelled *default-break-label-id* old-this)))
+	     (break-labelled (new-node Labelled *default-break-label-id* old-this)))
 	 (set! break-labelled.label this.break-label)
 	 (delete! this.break-label)
 	 break-labelled)))
 
 (define-pmethod (Switch-clause-expand!)
    (this.traverse0!)
-   (let ((new-body (new Labelled #f (new Block (list this.body
-						     (new Fall-through))))))
+   (let ((new-body (new-node Labelled #f
+			     (new-node Block (list this.body
+						   (new-node Fall-through))))))
       (set! new-body.label this.break-label)
       (set! this.body new-body)
       (delete! this.break-label)
@@ -96,9 +97,9 @@
 
 (define-pmethod (Fun-expand!)
    (this.traverse0!)
-   (let ((return (new Return (new Undefined))))
+   (let ((return (new-node Return (new-node Undefined))))
       (set! return.label this.return-label)
-      (let ((new-body (new Labelled #f (new Block (list this.body return)))))
+      (let ((new-body (new-node Labelled #f (new-node Block (list this.body return)))))
 	 (set! new-body.label this.return-label)
 	 (set! this.body new-body)
 	 (delete! this.return-label)
@@ -106,15 +107,15 @@
 
 (define-pmethod (Call-expand!)
    (this.traverse0!)
-   (if (inherits-from? this.op Access)
-       (new Method-call
+   (if (inherits-from? this.op (node 'Access))
+       (new-node Method-call
 	    this.op
 	    this.args)
        this))
 
 (define-pmethod (Vassig-op-expand!)
    (this.traverse0!)
-   (let ((new-rhs (new Binary
+   (let ((new-rhs (new-node Binary
 		       (this.lhs.var.reference)
 		       this.op
 		       this.val)))
@@ -128,23 +129,23 @@
 	  (tmp-field-id (gensym 'tmp-field))
 	  (tmp-o-decl (Decl-of-new-Var tmp-o-id))
 	  (tmp-field-decl (Decl-of-new-Var tmp-field-id))
-	  (init-o (new Init tmp-o-decl o))
+	  (init-o (new-node Init tmp-o-decl o))
 	  (tmp-o-var tmp-o-decl.var)
-	  (init-field (new Init tmp-field-decl field))
+	  (init-field (new-node Init tmp-field-decl field))
 	  (tmp-field-var tmp-field-decl.var)
 
-	  (access-lhs (new Access
+	  (access-lhs (new-node Access
 			   (tmp-o-var.reference)
 			   (tmp-field-var.reference)))
-	  (access-rhs (new Access
+	  (access-rhs (new-node Access
 			   (tmp-o-var.reference)
 			   (tmp-field-var.reference)))
-	  (rhs-binary (new Binary
+	  (rhs-binary (new-node Binary
 			   access-rhs
 			   this.op
 			   this.val))
-	  (accsig (new Accsig access-lhs rhs-binary))
-	  (sequence (new Sequence (list init-o
+	  (accsig (new-node Accsig access-lhs rhs-binary))
+	  (sequence (new-node Sequence (list init-o
 					init-field
 					accsig))))
       sequence))
@@ -155,48 +156,48 @@
 	 (expr (car this.args)))
       (cond
 	 ((eq? op 'void)
-	  (new Sequence
-	       `(,expr ,(new Undefined))))
+	  (new-node Sequence
+	       `(,expr ,(new-node Undefined))))
 	 ((eq? op 'delete)
 	  (cond
-	     ((inherits-from? expr Access)
-	      (new Call
+	     ((inherits-from? expr (node 'Access))
+	      (new-node Call
 		   ((id->runtime-var 'delete).reference)
 		   (list expr.obj expr.field)))
-	     ((and (inherits-from? expr Var-ref)
-		   (inherits-from? expr.var With-var))
+	     ((and (inherits-from? expr (node 'Var-ref))
+		   (inherits-from? expr.var (node 'With-var)))
 	      (let loop ((rev-surrounding-withs '())
 			 (var expr.var))
 		 (cond
-		    ((inherits-from? var With-var)
+		    ((inherits-from? var (node 'With-var))
 		     (loop (cons var.with rev-surrounding-withs)
 			   var.with.intercepted))
 		    ((and var.global?
 			  (not var.declared-global?))
-		     (new Call
+		     (new-node Call
 			  ((id->runtime-var 'with-delete).reference)
 			  `(,(reverse! rev-surrounding-withs)
 			    ,(symbol->string var.id)
 			    ,var)))
 		    (else
-		     (new Call
+		     (new-node Call
 			  ((id->runtime-var 'with-delete).reference)
 			  `(,(reverse! rev-surrounding-withs)
 			    ,(symbol->string var.id)
-			    ,(new Bool #f)))))))
-	     ((and (inherits-from? expr Var-ref)
+			    ,(new-node Bool #f)))))))
+	     ((and (inherits-from? expr (node 'Var-ref))
 		   expr.var.global?
 		   (not expr.var.declared-global?))
-	      (new Call
+	      (new-node Call
 		   ((id->runtime-var 'delete-global).reference)
 		   (list expr (symbol->string expr.var.id))))
-	     ((inherits-from? expr Var-ref)
+	     ((inherits-from? expr (node 'Var-ref))
 	      ;; neither with-var, nor implicit/runtime-global
-	      (new Bool #f))
+	      (new-node Bool #f))
 	     (else
-	      (new Sequence
+	      (new-node Sequence
 		   (list expr
-			 (new Bool #t))))))
+			 (new-node Bool #t))))))
 	 (else
 	  this))))
 
@@ -205,10 +206,10 @@
    (let ((tmp-decl (Decl-of-new-Var (gensym 'with)))
 	 (old-expr this.expr))
       (set! this.expr (tmp-decl.var.reference))
-      (new Sequence
-	   `(,(new Vassig
+      (new-node Sequence
+	   `(,(new-node Vassig
 		   tmp-decl
-		   (new Unary
-			(new Var-ref 'any->object)
+		   (new-node Unary
+			(new-node Var-ref 'any->object)
 			old-expr))
 	     ,this))))

@@ -40,9 +40,9 @@
 	     (let ((fst ((car els).traverse!))
 		   (rest (cdr els)))
 		(cond
-		   ((and (inherits-from? fst Begin)
+		   ((and (inherits-from? fst (node 'Begin))
 			 (or *integrate-Var-decl-lists*
-			     (not (inherits-from? fst Var-decl-list))))
+			     (not (inherits-from? fst (node 'Var-decl-list)))))
 		    ;; "integrate" nested Begin
 		    (let ((other-els fst.els))
 		       ;; other-els has at least 2 els. otherwise the Begin
@@ -56,12 +56,12 @@
 			  ;; was a break/continue or return.
 			  (continue-loop lp #t))))
 		   ;; discard NOPs
-		   ((inherits-from? fst NOP)
+		   ((inherits-from? fst (node 'NOP))
 		    (loop rest new-head))
 		   ;; remove dead code
-		   ((or (inherits-from? fst Break)
-			(inherits-from? fst Continue)
-			(inherits-from? fst Return))
+		   ((or (inherits-from? fst (node 'Break))
+			(inherits-from? fst (node 'Continue))
+			(inherits-from? fst (node 'Return)))
 		    (continue-loop '() #t))
 		   (else
 		    (continue-loop rest #t)))))))
@@ -70,7 +70,7 @@
       (cond
 	 ((null? els)
 	  ;; probably happened, cause we removed a list of NOPs.
-	  (new NOP))
+	  (new-node NOP))
 	 ((null? (cdr els)) ;; discard Begin
 	  ((car els).traverse!))
 	 (else
