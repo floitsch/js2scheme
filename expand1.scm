@@ -25,7 +25,8 @@
 ;;    * delete o f if X is of form o[f]
 ;;    * false if X is X is of form v and v is a declared var.
 ;;    * with-delete if X is of form v and v might be with-intercepted.
-;;    * delete-implicit-global if X is of form v and v is undeclared.
+;;    * delete-global if X is of form v and v is global (either undeclared or
+;;      runtime).
 
 (define (expand1! tree)
    (verbose " expand")
@@ -170,7 +171,8 @@
 		    ((inherits-from? var With-var)
 		     (loop (cons var.with rev-surrounding-withs)
 			   var.with.intercepted))
-		    (var.implicit-global?
+		    ((and var.global?
+			  (not var.declared-global?))
 		     (new Call
 			  ((id->runtime-var 'with-delete).reference)
 			  `(,(reverse! rev-surrounding-withs)
@@ -183,12 +185,13 @@
 			    ,(symbol->string var.id)
 			    ,(new Bool #f)))))))
 	     ((and (inherits-from? expr Var-ref)
-		   expr.var.implicit-global?)
+		   expr.var.global?
+		   (not expr.var.declared-global?))
 	      (new Call
-		   ((id->runtime-var 'delete-implicit-global).reference)
+		   ((id->runtime-var 'delete-global).reference)
 		   (list expr (symbol->string expr.var.id))))
 	     ((inherits-from? expr Var-ref)
-	      ;; neither with-var, nor implicit-global
+	      ;; neither with-var, nor implicit/runtime-global
 	      (new Bool #f))
 	     (else
 	      (new Sequence

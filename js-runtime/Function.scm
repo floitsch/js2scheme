@@ -30,16 +30,13 @@
 	    text-repr)
     (procedure-object::Js-Object p::procedure)
     (Function-init)
-    (inline create-empty-object-lambda::Js-Object f-o::Js-Function)
-    *constructor-attributes*
-    *prototype-attributes*
-    *length-attributes*))
+    (inline create-empty-object-lambda::Js-Object f-o::Js-Function)))
 
 (define *js-Function* (tmp-js-object))
 (define *js-Function-prototype* (tmp-js-object))
 
 (define-method (js-object->string::bstring o::Js-Function)
-   (Js-Function-text-repr o))
+   "Function")
 
 (define *function-prototype-initialized?* #f)
 
@@ -60,34 +57,14 @@
 			      (js-function-prototype)
 			      1 ;; TODO
 			      "TODO [native]")
-   (globals-tmp-add! (lambda () (global-add! 'Function *js-Function*)))
-   (let ((fun-object (procedure-object *js-Function*)))
-      (js-property-direct-set! fun-object
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Function *js-Function*)))
+   (let ((fun-object (procedure-object *js-Function*))
+	 (prototype (js-function-prototype)))
+      (js-property-generic-set! fun-object
 			       "prototype"
-			       (instantiate::Property-entry
-				  (val (js-function-prototype))
-				  (attr (prototype-attribute)))))
-   ;; TODO: add other attributes
-   )
-
-;; TODO: correct attributes
-(define *constructor-attributes* (instantiate::Attributes
-				  (read-only #f)
-				  (deletable #f)
-				  (enumerable #f)))
+			       prototype
+			       (prototype-attributes))))
 				  
-;; TODO: correct attributes
-(define *prototype-attributes* (instantiate::Attributes
-				  (read-only #f)
-				  (deletable #f)
-				  (enumerable #f)))
-				  
-;; TODO: correct attributes
-(define *length-attributes* (instantiate::Attributes
-			       (read-only #f)
-			       (deletable #f)
-			       (enumerable #f)))
-
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
    (let ((proto (or (js-object (js-property-safe-get f-o "prototype"))
 		    *js-Object-prototype*)))
@@ -97,6 +74,7 @@
 
 (define *js-function-objects-ht* (make-hashtable #unspecified #unspecified eq?))
 
+;; ECMA 13.2
 (define (register-function-object! js-lambda
 				   new
 				   construct
@@ -110,21 +88,22 @@
 		     (construct construct)
 		     (text-repr text-repr))))
       (hashtable-put! *js-function-objects-ht* js-lambda fun-obj)
-      (js-property-direct-set! prototype-object
+      (js-property-generic-set! prototype-object
 			       "constructor"
-			       (instantiate::Property-entry
-				  (val js-lambda)
-				  (attr *constructor-attributes*)))
-      (js-property-direct-set! fun-obj
+			       js-lambda
+			       (constructor-attributes))
+      (js-property-generic-set! fun-obj
 			       "length"
-			       (instantiate::Property-entry
-				  (val length)
-				  (attr *length-attributes*)))
-      (js-property-direct-set! fun-obj
+			       (if (exact? length)
+				   (exact->inexact length)
+				   length)
+			       (length-attributes))
+      
+      (js-property-generic-set! fun-obj
 			       "prototype"
-			       (instantiate::Property-entry
-				  (val prototype-object)
-				  (attr *prototype-attributes*)))))
+			       prototype-object
+			       ;; ECMA 15.3.5.2
+			       (dont-delete-attributes))))
 
 (define (procedure-object::Js-Object p::procedure)
    (hashtable-get *js-function-objects-ht* p))

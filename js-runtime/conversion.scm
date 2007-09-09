@@ -9,7 +9,8 @@
 	   jsre-Function
 	   jsre-String
 	   jsre-Number
-	   jsre-Bool)
+	   jsre-Bool
+	   jsre-global-object)
    (export (inline js-boolify::bool any)
 	   (inline any->bool::bool any)
 	   (inline any->number any)
@@ -38,8 +39,8 @@
 (define-inline (js-boolify::bool any)
    (cond
       ((boolean? any) any)
-      ((eq? any *js-Undefined*) #f)
-      ((eq? any *js-Null*) #f)
+      ((js-undefined? any) #f)
+      ((js-null? any) #f)
       ((string? any) (not (string=? any "")))
       ((number? any) ;; TODO
        (and (not (=fl any 0.0))
@@ -53,8 +54,8 @@
    (cond
       ((number? any) (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
-      ((eq? any *js-Undefined*) (NaN))
-      ((eq? any *js-Null*) 0.0)
+      ((js-undefined? any) (NaN))
+      ((js-null? any) 0.0)
       ((string? any) (any->number (string->number any))) ;; TODO
       (else (any->number (any->primitive any 'number)))))
 
@@ -149,7 +150,19 @@
 	  ;; TODO
 	  0))))
 
+
 (define-inline (any->string::bstring any)
+   ;; TODO: not correct!
+   (define (double->string::bstring v::double)
+      (cond
+	 ((NaN? v) "NaN")
+	 ((<fl v 0.0)
+	  (string-append "-" (double->string (-fl 0.0 v))))
+	 ((+infinity? v) "Infinity")
+	 ((=fl (floorfl v) v)
+	  (llong->string (flonum->llong v)))
+	 (else
+	  (number->string v))))
    (cond
       ((string? any) any)
       ((eq? any *js-Null*) "null")
@@ -157,10 +170,7 @@
       ((boolean? any) (if any
 		       "true"
 		       "false"))
-
-      ;; TODO: not correct!
-      ((number? any) (number->string any))
-      ;; any->primitive is supposed to call o.toString or o.toValue
+      ((flonum? any) (double->string any))
       (else
        (any->string (any->primitive any 'string)))))
 

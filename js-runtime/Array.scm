@@ -25,20 +25,18 @@
 (define *js-Array* (tmp-js-object))
 (define *js-Array-prototype* (tmp-js-object))
 
-(define-method (js-property-one-level-contains o::Js-Array prop::bstring)
+(define-method (js-property-contains o::Js-Array prop::bstring)
    (if (string=? prop "length")
        (exact->inexact (Js-Array-length o))
        (call-next-method)))
 
-(define-method (js-property-contains o::Js-Array prop::bstring)
-   (if (string=? prop "length")
-       (Js-Array-length o)
-       (call-next-method)))
-
-(define-method (js-property-generic-set! o::Js-Array prop::bstring new-val)
+(define-method (js-property-generic-set! o::Js-Array prop::bstring
+					 new-val attributes)
    (define (property-index prop)
       ;; TODO
-      #f)
+      (let ((index (any->uint32 prop)))
+	 (and (string=? (integer->string index) prop)
+	      index)))
 
    (with-access::Js-Array o (length)
       (if (string=? prop "length")
@@ -54,22 +52,9 @@
 	     (call-next-method)))))
 
 (define-method (js-object->string::bstring o::Js-Array)
-   ;; TODO
-   "Array"
-   )
+   "Array")
 
 (define (Array-init)
-   ;; TODO not yet correct
-;    (set! *js-Array-prototype* (instantiate::Js-Object
-; 				 (props (make-props-hashtable))
-; 				 (proto (js-object-prototype))))
-;    (set! *js-Array* (instantiate::Js-Function
-; 			(props (make-props-hashtable))
-; 			(proto *js-Array-prototype*)
-; 			(new Array-new)
-; 			(construct (lambda () 'ignored))
-; 			(text-repr "TODO [native]")))
-
    (set! *js-Array* (Array-lambda))
    (register-function-object! *js-Array*
 			      (Array-new)
@@ -77,9 +62,30 @@
 			      (js-function-prototype) ;; TODO: what's the proto?
 			      1
 			      "TODO [native]")
-   (globals-tmp-add! (lambda () (global-add! 'Array *js-Array*)))
-   ;; TODO: add other properties (like prototype...) ?
-   )
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Array
+						     *js-Array*)))
+   (let ((array-object (procedure-object *js-Array*))
+	 (prototype (instantiate::Js-Array
+		       (props (make-props-hashtable))
+		       (proto *js-Object-prototype*)
+		       (length 0))))
+      (set! *js-Bool-prototype* prototype)
+      (js-property-generic-set! array-object
+				"prototype"
+				prototype
+				(prototype-attributes))
+      (js-property-generic-set! prototype
+			       "toString"
+			       (toString)
+			       (built-in-attributes))
+      (js-property-generic-set! prototype
+			       "concat"
+			       (concat)
+			       (built-in-attributes))
+      (js-property-generic-set! prototype
+			       "join"
+			       (join)
+			       (built-in-attributes))))
 
 (define (fill-Array a nb-args get-arg)
     ;; TODO: touches numbers
@@ -94,7 +100,7 @@
 		      (range-error len)))))
 	(let loop ((i 0))
 	   (when (< i nb-args)
-	      (js-property-safe-set! a i (get-arg i))
+	      (js-property-safe-set! a (integer->string i) (get-arg i))
 	      (loop (+ i 1)))))
     a)
 
@@ -134,3 +140,77 @@
 		      (js-property-safe-set! a index val)))
 		els)
       a))
+
+(define (join-array a sep)
+   (define (join->string el)
+      (if (or (js-undefined? el)
+	      (js-null? el))
+	  ""
+	  (any->string el)))
+   
+   (let ((len (any->uint32 (js-property-safe-get a "length")))
+	 (sep-str (if (js-undefined? sep)
+		      ","
+		      (any->string sep))))
+      (if (zero? len)
+	  ""
+	  (let loop ((res (join->string (js-property-safe-get a "0")))
+		     (i 1))
+	     (if (=fx i len)
+		 res
+		 (let* ((el (js-property-safe-get a (integer->string i)))
+			(str (join->string el)))
+		    (loop (string-append res sep-str str)
+			  (+ 1 i))))))))
+   
+(define (toString)
+   (js-fun this #f #f ()
+	   (if (not (Js-Array? this))
+	       (type-error (with-output-to-string
+			      (lambda () (display-circle this))))
+	       (join-array this (js-undefined)))))
+
+(define (join)
+   (js-fun this #f #f (sep) (join-array this sep)))
+
+(define (arrays-concat nb-arrays get-array)
+   (define (add-els new-a offset a)
+      (let ((len (Js-Array-length a)))
+	 (let loop ((i 0)
+		    (j offset))
+	    (unless (=fx i len)
+	       (let ((prop (js-property-contains a (integer->string i))))
+		  (when prop
+		     (js-property-generic-set! new-a
+					       (integer->string offset)
+					       prop
+					       #f))
+		  (loop (+ i 1) (+ j 1)))))))
+   
+   (let ((new-a (js-new *js-Array*)))
+      (let loop ((array-counter 0)
+		 (new-length 0))
+	 (if (=fx array-counter nb-arrays)
+	     (begin
+		(Js-Array-length-set! new-a new-length)
+		 new-a)
+	     (let ((a (get-array array-counter)))
+		(if (Js-Array? a)
+		    (begin
+		       (add-els new-a new-length a)
+		       (loop (+ array-counter 1)
+			     (+ new-length (Js-Array-length a))))
+		    (let ((str (any->string a)))
+		       (js-property-safe-set! new-a
+					      (integer->string new-length)
+					      str)
+		       (loop (+ array-counter 1)
+			     (+ new-length 1)))))))))
+
+(define (concat)
+   (js-fun this #f (nb-args get-arg) (first-arg)
+	   (arrays-concat (+ nb-args 1)
+			  (lambda (i)
+			     (if (zero? i)
+				 this
+				 (get-arg (- i 1)))))))

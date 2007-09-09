@@ -32,7 +32,7 @@
 	   (inline jsop-OR v1 v2)
 	   (inline jsop-typeof v)
 	   (inline jsop-delete base field)
-	   (inline jsop-delete-implicit-global v id)
+	   (inline jsop-delete-global v id)
 	   (inline jsop-any->object expr)
 	   (js-op-with-delete objs id implicit-global)))
 
@@ -105,24 +105,30 @@
       ((number? v) "number")
       ((boolean? v) "boolean")
       ((procedure? v) "function")
-      ((eq? *js-Undefined* v) "undefined")
-      ((eq? *js-Null* v) "object")
-      ((eq? *js-Undeclared* v) "undefined")
+      ((js-undefined? v) "undefined")
+      ((js-null? v) "object")
+      ((js-undeclared? v) "undefined")
       ((Js-Object? v) "object")
-      (else (error "jsop-typeof" "missed type " v))))
+      (else
+       (print)
+       (display "-*")
+       (write v)
+       (print "*-")
+       (error "jsop-typeof" "missed type " v))))
 
+;; base must not be undefined or null (which can only happen for
+;; undeclared variables anyways.
 (define-inline (jsop-delete base prop)
    ;; mostly similar to js-property-get
    (let ((o-typed (any->object base))
 	 (prop-typed (any->string prop)))
       (js-property-safe-delete! o-typed prop-typed)))
 
-(define-inline (jsop-delete-implicit-global v id)
-   (if (eq? v *js-Undeclared*)
-       (jsop-delete *js-Null* id)
-       (begin
-	  (set! v *js-Undeclared*)
-	  #t)))
+(define-inline (jsop-delete-global v id)
+   (if (not (js-property-contains *js-global-object* id))
+       ;; TODO
+       (type-error "can't delete from null")
+       (js-property-safe-delete! *js-global-object* id)))
 
 (define-inline (jsop-any->object expr)
    (any->object expr))
@@ -144,12 +150,12 @@
 ;;
 ;;   (js-op-with-delete `(,o3 ,o2 ,o1) "y" implicit-y)
 ;;   (js-op-with-delete `(,o3 ,o2 ,o1) "x" #f)
-(define (js-op-with-delete objs id implicit-global)
+(define (js-op-with-delete objs id global)
    (let loop ((objs objs))
       (cond
 	 ((and (null? objs)
-	       implicit-global)
-	  (jsop-delete-implicit-global implicit-global id))
+	       global)
+	  (jsop-delete-global global id))
 	 ((null? objs)
 	  #f) ;; no implicit-global, but a declared variable
 	 (else

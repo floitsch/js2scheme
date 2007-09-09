@@ -9,7 +9,8 @@
 	   jsre-String
 	   jsre-Number
 	   jsre-Bool
-	   jsre-conversion)
+	   jsre-conversion
+	   jsre-global-object)
    (export *js-global-this*::Js-Object
 	   (inline primitive? v)
 	   (inline js-property-safe-get o::Js-Object prop::bstring)
@@ -40,29 +41,23 @@
 
 (define *+infinity* (/fl 1.0 0.0))
 (define-inline (+infinity) *+infinity*)
-(define-inline (+infinity? v) (eq? v *+infinity*))
+(define-inline (+infinity? v) (eqv? v *+infinity*))
 (define *-infinity* (/fl -1.0 0.0))
 (define-inline (-infinity) *-infinity*)
-(define-inline (-infinity? v) (eq? v *-infinity*))
+(define-inline (-infinity? v) (eqv? v *-infinity*))
 (define *NaN* (/fl 0.0 0.0))
 (define-inline (NaN) *NaN*)
-(define-inline (NaN? v) (eq? *NaN* v))
+(define-inline (NaN? v) (eqv? *NaN* v))
 
-(define-inline (js-property-safe-get o prop)
-   ;; non-generic. but js-property-contains is.
-   (define (js-property-safe-get o::Js-Object prop::bstring)
-      ;(write-circle o)(print)
-      ;(write-circle prop)(print)
-      (let ((res (js-property-contains o prop)))
-	 ;(write-circle res)(print)
-	 (if res
-	     (unmangle-false res)
-	     *js-Undefined*)))
-
-   (let ((o-typed (any->object o))
-	 (prop-typed (any->string prop)))
-      (js-property-safe-get o-typed prop-typed)))
+(define-inline (js-property-safe-get o::Js-Object prop::bstring)
+   ;(write-circle o)(print)
+   ;(write-circle prop)(print)
+   (let ((res (js-property-contains o prop)))
+      ;(write-circle res)(print)
+      (if res
+	  (unmangle-false res)
+	  (js-undefined))))
 
 ;; non-generic. but js-property-generic-set! is.
 (define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)
-      (js-property-generic-set! o prop (mangle-false new-value)))
+      (js-property-generic-set! o prop (mangle-false new-value) #f))

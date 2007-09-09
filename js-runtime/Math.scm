@@ -25,7 +25,7 @@
 		      (props (make-props-hashtable))
 		      (proto *js-Object-prototype*)))
 
-   (globals-tmp-add! (lambda () (global-add! 'Math *js-Math*)))
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Math *js-Math*)))
    (js-property-safe-set! *js-Math*
 			  "abs"
 			  (js-fun #f #f #f (val)

@@ -80,15 +80,26 @@
 	  (pobject-name this)))
 
 (define-pmethod (Program-out)
-   (if (null? this.implicit-globals)
-       (this.body.traverse)
-       (begin
-	  (for-each (lambda (var) (set! var.check-undeclared? #t))
-		    this.implicit-globals)
-	  `(let (,@(map (lambda (decl)
-			   `(,(decl.var.traverse) *js-Undeclared*))
-			this.implicit-globals))
-	      ,(this.body.traverse)))))
+   `(begin
+       ,@(map (lambda (var)
+		 (if (inherits-from? var This-var)
+		     #unspecified
+		     `(define ,(var.traverse) (js-undefined))))
+	      this.declared-globals)
+       ,@(map (lambda (decl)
+		 (let ((var decl.var))
+		    `(define ,(var.traverse) (js-undeclared))))
+	      this.implicit-globals)
+       ,@(map (lambda (var)
+		 (if (inherits-from? var This-var)
+		     #unspecified
+		     `(global-declared-add! ',var.id ,(var.traverse))))
+	      this.declared-globals)
+       ,@(map (lambda (decl)
+		 (let ((var decl.var))
+		    `(global-implicit-add! ',var.id ,(var.traverse))))
+	      this.implicit-globals)
+       ,(this.body.traverse)))
    
 
 (define-pmethod (Begin-out)
@@ -104,8 +115,11 @@
 (define-pmethod (Var-ref-out)
    ;; TODO: handle with-variables
    (let ((var this.var))
-      (if var.check-undeclared?
-	  `(check-undeclared ,(this.var.traverse) ',this.var.id)
+      (if (and var.global?
+	       (not var.declared-global?))
+	  ;; TODO: some runtime-globals don't need the check.
+	  `(check-undeclared ,(this.var.traverse)
+			     ,(symbol->string this.var.id))
 	  (this.var.traverse))))
 
 (define-pmethod (NOP-out)

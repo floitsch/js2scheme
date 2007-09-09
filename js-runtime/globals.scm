@@ -16,18 +16,37 @@
 	   jsre-globals-tmp
 	   ;js2scheme-comp
 	   )
-   (export jsg-print
+   (export jsg-NaN
+	   jsg-Infinity
+	   jsg-undefined
+	   jsg-print
 	   jsg-scmprint
-	   jsg-eval))
+	   jsg-eval
+	   ))
 
-(define js-print #unspecified)
+(define jsg-NaN (NaN))
+(global-special-add! 'NaN
+		     jsg-NaN
+		     (dont-enum-dont-delete-attributes))
+(define jsg-Infinity (+infinity))
+(global-special-add! 'Infinity
+		     jsg-Infinity
+		     (dont-enum-dont-delete-attributes))
+(define jsg-undefined (js-undefined))
+(global-special-add! 'undefined
+		     jsg-undefined
+		     (dont-enum-dont-delete-attributes))
 
-(define-globals
+(define-runtime-globals
    (define (print to-print)
       (print (any->string to-print)))
    (define (scmprint to-print)
       (write-circle to-print)
       (print))
    (define (eval prog)
-      (let ((scm-prog (js2scheme (open-input-string prog))))
-	 (eval scm-prog))))
+      (let* ((p (open-input-string prog))
+	     (scm-prog (js2scheme p))
+	     (res (eval scm-prog)))
+	 (print scm-prog)
+	 (close-input-port p)
+	 res)))

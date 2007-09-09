@@ -24,6 +24,9 @@
 (define *js-Number-orig* (lambda () #f))
 (define *js-Number-prototype* (tmp-js-object))
 
+(define-method (js-object->string::bstring o::Js-Number)
+   "Number")
+
 (define (Number-init)
    (set! *js-Number* (Number-lambda))
    (register-function-object! *js-Number*
@@ -32,7 +35,7 @@
 			      (js-function-prototype)
 			      1
 			      "TODO [native]")
-   (globals-tmp-add! (lambda () (global-add! 'Number *js-Number*)))
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Number *js-Number*)))
    ;; TODO: add other properties (like prototype...) ?
    (let ((o (js-object *js-Number*)))
       (js-property-safe-set! o

@@ -34,7 +34,10 @@
 	 (list id (caddr expr))))
 
    (cond
-      ((and (pair? expr) (eq? (car expr) 'global-add!))
+      ((and (pair? expr) (memq (car expr) '(global-declared-add!
+					    global-implicit-add!
+					    global-runtime-add!
+					    global-special-add!)))
        (list (global-add!-binding expr)))
       ((and (pair? expr) (eq? (car expr) 'define))
        (search-for-global-adds (cddr expr)))
@@ -68,7 +71,7 @@
 	     (loop (append
 		    (if (pair? expr)
 			(cond
-			   ((eq? (car expr) 'define-globals)
+			   ((eq? (car expr) 'define-runtime-globals)
 			    (extract-define-globals expr))
 			   ((eq? (car expr) 'define-inline)
 			    (extract-operator expr))

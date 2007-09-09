@@ -33,7 +33,7 @@
 			      (js-function-prototype)
 			      1 ;; TODO
 			      "TODO [native]")
-   (globals-tmp-add! (lambda () (global-add! 'Date *js-Date*)))
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Date *js-Date*)))
    ;; TODO: add other properties (like prototype) ?
 
    (co-instantiate ((tmp (instantiate::Js-Date

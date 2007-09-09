@@ -24,6 +24,9 @@
 (define *js-Bool-orig* (lambda () #f))
 (define *js-Bool-prototype* (tmp-js-object))
 
+(define-method (js-object->string::bstring o::Js-Bool)
+   "Boolean")
+
 (define (Bool-init)
    (set! *js-Bool* (Bool-lambda))
    (set! *js-Bool-orig* *js-Bool*)
@@ -33,28 +36,29 @@
 			      (js-function-prototype) ;; TODO: what's the proto?
 			      1
 			      "TODO [native]")
-   (globals-tmp-add! (lambda () (global-add! 'Boolean *js-Bool*)))
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Boolean *js-Bool*)))
    (let ((bool-object (procedure-object *js-Bool*))
 	 (prototype (instantiate::Js-Bool
 		       (props (make-props-hashtable))
 		       (proto *js-Object-prototype*)
 		       (val #f))))
       (set! *js-Bool-prototype* prototype)
-      (js-property-direct-set! bool-object
+      (js-property-generic-set! bool-object
 			       "prototype"
-			       (instantiate::Property-entry
-				  (val prototype)
-				  (attr (prototype-attribute))))
-      (js-property-direct-set! prototype
+			       prototype
+			       (prototype-attributes))
+      (js-property-generic-set! prototype
+			       "constructor"
+			       *js-Bool*
+			       (built-in-attributes))
+      (js-property-generic-set! prototype
 			       "toString"
-			       (instantiate::Property-entry
-				  (val (toString))
-				  (attr (built-in-attribute))))
-      (js-property-direct-set! prototype
+			       (toString)
+			       (built-in-attributes))
+      (js-property-generic-set! prototype
 			       "valueOf"
-			       (instantiate::Property-entry
-				  (val (valueOf))
-				  (attr (built-in-attribute))))))
+			       (valueOf)
+			       (built-in-attributes))))
 
 (define (Bool-lambda)
    (js-fun-lambda
@@ -66,18 +70,17 @@
 
 (define (Bool-new)
    (js-fun-lambda
-    this
+    #f
     #f
     #f
     (value)
-    (Js-Bool-val-set! this (any->bool value))))
+    (instantiate::Js-Bool
+       (props (make-props-hashtable))
+       (proto *js-Bool-prototype*)
+       (val (any->bool value)))))
 
-(define (Bool-construct::Js-Bool f-o::Js-Function)
-   (instantiate::Js-Bool
-      (props (make-props-hashtable))
-      ;; Bool-prototype can not be changed.
-      (proto *js-Bool-prototype*)
-      (val #f)))
+(define (Bool-construct f-o::Js-Function)
+   #f)
 
 (define (toString)
    (js-fun this #f #f ()

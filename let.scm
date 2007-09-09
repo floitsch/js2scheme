@@ -16,8 +16,8 @@
    (reverse-liveness tree)
    (add-nodes! tree))
 
-;; at this moment of the compilation all vars have a begin-nesting and a
-;; end-nesting stack.
+;; at this moment of the compilation all (non-global) vars have a begin-nesting
+;; and a end-nesting stack.
 ;; this pass reverses this, and assigns to each respective node the
 ;; variables that start to be live at this node (and the same for the end).
 ;; If the node is a 'begin' the start/end is assigned to the respective
@@ -67,7 +67,7 @@
 	 (var.escapes?
 	  (mark-live-begin surrounding-fun.body var)
 	  (mark-live-end surrounding-fun.body var))
-	 (var.implicit-global? ;; we are printing those directly in Program-out.
+	 (var.global? ;; we are printing those directly in Program-out.
 	  'do-nothing)
 	 ((not begin-stack) ;; imported, runtime or whatever...
 	  'do-nothing)

@@ -12,21 +12,24 @@
     (class Js-Object
        (props read-only) ;; hashtable
        (proto::Js-Object read-only)) ;; prototype
-    (generic js-property-one-level-contains o::Js-Object prop::bstring)
     (generic js-property-contains o::Js-Object prop::bstring)
-    (generic js-property-generic-set! o::Js-Object prop::bstring new-val)
-    (generic js-property-direct-set!
-	     o::Js-Object
-	     prop::bstring
-	     new-entry::Property-entry)
+    (generic js-property-generic-set!
+	     o::Js-Object prop::bstring
+	     new-val attributes)
     (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
     (generic js-object->string::bstring o::Js-Object)
 
     (inline make-props-hashtable)
-    (default-attribute)    ;; default attributes for common properties.
-    (length-attribute)     ;; default attributes for "length" properties.
-    (built-in-attribute)   ;; default attributes for "built-in" properties.
-    (prototype-attribute)))  ;; same as length-attribute
+    (default-attributes)    ;; default attributes for common properties.
+    (length-attributes)     ;; default attributes for "length" properties.
+    (built-in-attributes)    ;; default attributes for "built-in" properties.
+    (prototype-attributes)   ;; same as length-attribute
+    (constructor-attributes)
+    (declared-attributes)
+    (dont-delete-attributes)
+    (dont-enum-dont-delete-attributes)
+    (runtime-attributes)
+    (implicit-attributes)))
    
 (define-inline (mangle-false val)
    (or val 'false))
@@ -45,17 +48,40 @@
       (read-only #f)
       (deletable #t)
       (enumerable #t)))
-(define (default-attribute)
+(define (default-attributes)
+   *default-attributes*)
+(define (runtime-attributes)
+   *default-attributes*)
+(define (implicit-attributes)
    *default-attributes*)
 
+;; ECMA 10.2.1 & 10.2.3
+(define *declared-attributes*
+   (instantiate::Attributes
+      (read-only #f)
+      (deletable #f)
+      (enumerable #t)))
+(define (declared-attributes)
+   *declared-attributes*)
+
+;; ECMA 13.2
+(define *constructor-attributes*
+   (instantiate::Attributes
+      (read-only #f)
+      (deletable #t)
+      (enumerable #f)))
+(define (constructor-attributes)
+   *constructor-attributes*)
+
+;; ECMA 15
 (define *length-attributes*
    (instantiate::Attributes
       (read-only #t)
       (deletable #f)
       (enumerable #f)))
-(define (prototype-attribute)
+(define (prototype-attributes)
    *length-attributes*)
-(define (length-attribute)
+(define (length-attributes)
    *length-attributes*)
 
 (define *built-in-attributes*
@@ -63,13 +89,18 @@
       (read-only #f)
       (deletable #t)
       (enumerable #f)))
-(define (built-in-attribute)
+(define (dont-delete-attributes)
+   *built-in-attributes*)
+(define (built-in-attributes)
    *built-in-attributes*)
 
-(define-generic (js-property-one-level-contains o::Js-Object prop::bstring)
-   (with-access::Js-Object o (props)
-      (let ((entry (hashtable-get props prop)))
-	 (and entry (Property-entry-val entry)))))
+(define *dont-enum-dont-delete-attributes*
+   (instantiate::Attributes
+      (read-only #f)
+      (deletable #f)
+      (enumerable #f)))
+(define (dont-enum-dont-delete-attributes)
+   *dont-enum-dont-delete-attributes*)
 
 (define-generic (js-property-contains o::Js-Object prop::bstring)
    (with-access::Js-Object o (props proto)
@@ -78,7 +109,9 @@
 	 (or entry
 	     (js-property-contains proto prop)))))
 
-(define-generic (js-property-generic-set! o::Js-Object prop::bstring new-value)
+;; if no attributes are given, the default-attributes are used.
+(define-generic (js-property-generic-set! o::Js-Object prop::bstring
+					  new-value attributes)
    ;(print "set!: " prop " <- " new-value)
    (with-access::Js-Object o (props)
       (hashtable-update!
@@ -92,14 +125,7 @@
 		entry))) ;; put old entry back in.
        (instantiate::Property-entry
 	  (val new-value)
-	  (attr *default-attributes*)))))
-
-;; direct-set! allows to use different attributes than the default-attributes
-(define-generic (js-property-direct-set! o::Js-Object
-					 prop::bstring
-					 new-entry::Property-entry)
-   (with-access::Js-Object o (props)
-      (hashtable-put! props prop new-entry)))
+	  (attr (or attributes (default-attributes)))))))
 
 (define-generic (js-property-safe-delete!::bool o::Js-Object prop::bstring)
    (with-access::Js-Object o (props)

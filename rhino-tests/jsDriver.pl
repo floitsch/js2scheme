@@ -316,7 +316,7 @@ sub execute_tests {
             }
 
             # watch for failures
-            if ($line =~ /failed!/i) {
+            if ($line =~ /failed/i) {
                 $failure_lines .= $line;
             }
 

@@ -23,14 +23,17 @@
 (define *js-Object* (tmp-js-object))
 (define *js-Object-prototype* (tmp-js-object))
 
+(define-method (js-object->string::bstring o::Js-Object)
+   "Object")
+
 (define *object-prototype-initialized?* #f)
 (define (js-object-prototype)
-   (if (not *object-prototype-initialized?*)
-       (let ((proto (instantiate::Js-Object
-		       (props (make-props-hashtable))
-		       (proto *js-Null*))))
-	  (set! *js-Object-prototype* proto)
-	  (set! *object-prototype-initialized?* #t)))
+   (unless *object-prototype-initialized?*
+      (let ((proto (instantiate::Js-Object
+		      (props (make-props-hashtable))
+		      (proto *js-Null*))))
+	 (set! *js-Object-prototype* proto)
+	 (set! *object-prototype-initialized?* #t)))
    *js-Object-prototype*)
 
 (define (Object-init)
@@ -41,24 +44,24 @@
 			      (js-function-prototype)
 			      1 ;; TODO
 			      "TODO [native]")
-   (globals-tmp-add! (lambda () (global-add! 'Object *js-Object*)))
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Object *js-Object*)))
 
-   ;; TODO: add other properties (like prototype) ?
-   (js-property-direct-set! (procedure-object *js-Object*)
-			    "prototype"
-			    (instantiate::Property-entry
-			       (val (js-object-prototype))
-			       (attr (prototype-attribute))))
-   (js-property-direct-set! *js-Object-prototype*
-			    "toString"
-			    (instantiate::Property-entry
-			       (val (toString))
-			       (attr (built-in-attribute))))
-   (js-property-direct-set! *js-Object-prototype*
-			    "valueOf"
-			    (instantiate::Property-entry
-			       (val (valueOf))
-			       (attr (built-in-attribute)))))
+   (let ((prototype (js-object-prototype)))
+      ;; no need to safe the prototype in *js-object-prototype*. that's already
+      ;; done.
+
+      (js-property-generic-set! (procedure-object *js-Object*)
+				"prototype"
+				prototype
+				(prototype-attributes))
+      (js-property-generic-set! prototype
+				"toString"
+				(toString)
+				(built-in-attributes))
+      (js-property-generic-set! prototype
+				"valueOf"
+				(valueOf)
+				(built-in-attributes))))
 
 (define (Object-lambda)
    (js-fun-lambda #f
@@ -88,9 +91,14 @@
       o))
 
 (define (object-for-in-attributes o)
-   ;: TODO: completely wrong object-for-in
+   ;: TODO: (mostly?) wrong object-for-in
    (let ((real-o (any->object o)))
-      (hashtable-key-list (Js-Object-props real-o))))
+      (filter (lambda (prop) prop)
+	      (hashtable-map (Js-Object-props real-o)
+			     (lambda (name prop)
+				(let ((attr (Property-entry-attr prop)))
+				   (and (Attributes-enumerable attr)
+					name)))))))
 
 ;; Properties
 ;; ===================================
@@ -100,6 +108,6 @@
 
 (define (toString)
    (js-fun this #f #f ()
-	   (string-append "["
+	   (string-append "[object "
 			  (js-object->string this)
 			  "]")))
