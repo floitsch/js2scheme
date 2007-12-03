@@ -3,8 +3,10 @@ BIGLOO = bigloo -cc $(CC)
 #TARGETNAMES	= test repl
 TARGETNAMES	= repl
 
-RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String conversion exceptions\
-			natives object global-object globals globals-tmp primitives runtime operators
+RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
+			conversion exceptions Eval-env eval\
+			natives object global-object globals globals-tmp \
+			primitives runtime operators scope-object
 
 RUNTIME_BGL_INCLUDES = macros.sch
 
@@ -16,7 +18,7 @@ RUNTIME_SOURCES = $(RUNTIME_BGL_MODULES:%=%.scm)
 TEST_OBJECTS = $(TEST_BGL_MODULES:%=o/%.o)
 REPL_OBJECTS = $(REPL_BGL_MODULES:%=o/%.o)
 
-OBJECTS	= $(RUNTIME_OBJECTS) $(TEST_OBJECTS)
+OBJECTS	= $(RUNTIME_OBJECTS) $(TEST_OBJECTS) $(REPL_OBJECTS)
 SOURCES		= $(OBJECTS:o/%.o=%.scm)
 
 INCLUDES	= macros.sch
@@ -40,6 +42,9 @@ extract-globals: extract-globals.scm
 runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
 	cat $(RUNTIME_SOURCES) | ./extract-globals > $@
 
+test.scm:
+	touch $@
+
 test: $(RUNTIME_OBJECTS) $(TEST_OBJECTS)
 	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
 
@@ -52,9 +57,7 @@ o/repl.o: $(RUNTIME_SOURCES)
 o:
 	mkdir o
 
-o/globals.o: globals.scm $(RUNTIME_BIGL_INCLUDES)
-	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
-o/Function.o: Function.scm $(RUNTIME_BIGL_INCLUDES)
+o/eval.o: eval.scm $(RUNTIME_BIGL_INCLUDES)
 	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
 
 o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)

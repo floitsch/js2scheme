@@ -10,7 +10,8 @@
 	   jsre-String
 	   jsre-Number
 	   jsre-Bool
-	   jsre-global-object)
+	   jsre-global-object
+	   jsre-scope-object)
    (export (inline js-boolify::bool any)
 	   (inline any->bool::bool any)
 	   (inline any->number any)

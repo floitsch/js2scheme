@@ -3,6 +3,7 @@
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))
    (import parser
+	   config
 	   html
 	   protobject
 	   nodes
@@ -38,11 +39,11 @@
       ((("--version") (help "Version number"))
        (print *version*))
       ((("-v" "--verbose") (help "Verbose output"))
-       (set! *verbose* #t))
+       (config-set! 'verbose #t))
       (("--obfuscate-globals" (help "Obfuscate globals too"))
        (set! *obfuscate-globals* #t))
       ((("-c" "--compress") (help "Compress output"))
-       (set! *compress?* #t))
+       (config-set! 'compress? #t))
       ((("--html") (help "Include HTML global variables"))
        (set! *importation* (cons *HTML-globals* *importation*))) ;; small hack.
       (("--imported" ?file
@@ -59,6 +60,8 @@
 
 (define (js-obfuscator args)
    (define imported-vars '())
+
+   (config-init!)
    
    (handle-args args)
    (if (not *in-file*)

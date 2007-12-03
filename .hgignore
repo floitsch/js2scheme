@@ -1,0 +1,17 @@
+^o/.*\.o
+^js-runtime/o/.*\.o
+^rhino-tests/results-[0-9-]+js2scheme.*
+.*\.afile$
+^js-obfuscator$
+^js-pp$
+^tests/
+^js-runtime/extract-globals$
+^js-runtime/extract-globals\.o
+^js-runtime/repl$
+^js-runtime/runtime-variables.sch$
+^js-runtime/test.scm$
+^js-runtime/test$
+.*a.out$
+^js2scheme-comp.heap$
+^js2scheme$
+libjs2scheme-comp.a

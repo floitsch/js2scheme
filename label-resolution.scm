@@ -31,7 +31,7 @@
 
 (define-pmethod (Fun-label-res labels direct-enclosing)
    (let* ((break-labels (make-label-table))
-	  (return-label (new Break-label)))
+	  (return-label (new-node Break-label)))
       (return-label.add-id! *return-label-id*)
       (label-set! break-labels *return-label-id* return-label)
       (set! this.return-label return-label)
@@ -75,7 +75,7 @@
 			   (cons this.id enclosing-ids))
 		 (this.traverse2 labels direct-enclosing)
 		 (label-remove! break-labels this.id))
-	      (let* ((break-label (new Break-label)))
+	      (let* ((break-label (new-node Break-label)))
 		 (if (not break-label.add-id!)
 		     (print (pobject-name break-label)))
 		 (break-label.add-id! this.id)
@@ -91,11 +91,11 @@
 					      *default-break-label-id*))
 	  (break-label (if direct-enclosing
 			   (car direct-enclosing)
-			   (new Break-label)))
+			   (new-node Break-label)))
 	  (continue-labels (cdr labels))
 	  (old-default-continue-label (label-get continue-labels
 						 *default-continue-label-id*))
-	  (continue-label (new Continue-label)))
+	  (continue-label (new-node Continue-label)))
       (break-label.add-id! *default-break-label-id*)
       (label-set! break-labels *default-break-label-id* break-label)
       (set! this.break-label break-label)
@@ -134,7 +134,7 @@
 					      *default-break-label-id*))
 	  (break-label (if direct-enclosing
 			   (car direct-enclosing)
-			   (new Break-label))))
+			   (new-node Break-label))))
       (break-label.add-id! *default-break-label-id*)
       (label-set! break-labels *default-break-label-id* break-label)
       (set! this.break-label break-label)

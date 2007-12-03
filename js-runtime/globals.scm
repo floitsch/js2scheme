@@ -1,6 +1,5 @@
 (module jsre-globals
    (include "macros.sch")
-;   (library js2scheme-comp)
    (import jsre-object
 	   jsre-natives ;; undefined, null, ...
 	   jsre-primitives
@@ -13,6 +12,7 @@
 	   jsre-Bool
 	   jsre-conversion
 	   jsre-global-object
+	   jsre-scope-object
 	   jsre-globals-tmp
 	   ;js2scheme-comp
 	   )
@@ -44,9 +44,4 @@
       (write-circle to-print)
       (print))
    (define (eval prog)
-      (let* ((p (open-input-string prog))
-	     (scm-prog (js2scheme p))
-	     (res (eval scm-prog)))
-	 (print scm-prog)
-	 (close-input-port p)
-	 res)))
+      (eval-error prog)))

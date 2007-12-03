@@ -16,6 +16,7 @@
     (generic js-property-generic-set!
 	     o::Js-Object prop::bstring
 	     new-val attributes)
+    (generic js-property-update! o::Js-Object prop::bstring new-val)
     (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
     (generic js-object->string::bstring o::Js-Object)
 
@@ -109,7 +110,12 @@
 	 (or entry
 	     (js-property-contains proto prop)))))
 
-;; if no attributes are given, the default-attributes are used.
+;; if attributes are given, then the original attributes are not used and
+;; the original value is replaced (obviously the attributes too).
+;; Subclasses might still forbid the replacement of properties (for instance
+;; the length-property of an array)
+;; if no attributes are given, but the value did not yet exist, then the
+;; default-attributes are used.
 (define-generic (js-property-generic-set! o::Js-Object prop::bstring
 					  new-value attributes)
    ;(print "set!: " prop " <- " new-value)
@@ -118,14 +124,30 @@
        props
        prop
        (lambda (entry)
-	  (with-access::Property-entry entry (attr)
-	     (with-access::Attributes attr (read-only)
-		(if (not read-only)
-		    (Property-entry-val-set! entry new-value))
-		entry))) ;; put old entry back in.
+	  (with-access::Property-entry entry (val attr)
+	     (if attributes
+		 (begin
+		    (set! attr attributes)
+		    (set! val new-value))
+		 (with-access::Attributes attr (read-only)
+		    (unless read-only
+		       (set! val new-value)))))
+	     entry) ;; put old entry back in.
        (instantiate::Property-entry
 	  (val new-value)
 	  (attr (or attributes (default-attributes)))))))
+
+;; if no attributes are given, the default-attributes are used.
+(define-generic (js-property-update! o::Js-Object prop::bstring new-value)
+   (with-access::Js-Object o (props proto)
+      (let* ((entry (hashtable-get props prop)))
+	 (if entry
+	     (with-access::Property-entry entry (attr val)
+		(with-access::Attributes attr (read-only)
+		   (when (not read-only)
+		      (set! val new-value))
+		   #t)) ;; return true: we knew how to handle this.
+	     (js-property-update! proto prop new-value)))))
 
 (define-generic (js-property-safe-delete!::bool o::Js-Object prop::bstring)
    (with-access::Js-Object o (props)

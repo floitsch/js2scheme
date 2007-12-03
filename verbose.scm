@@ -1,13 +1,9 @@
 (module verbose
-   (export (verbose . L)
-	   *verbose*))
-
-(define *verbose* #f)
+   (import config)
+   (export (verbose . L)))
 
 (define (verbose . L)
-   (if *verbose*
+   (if (config 'verbose)
        (with-output-to-port (current-error-port)
 	  (lambda ()
 	     (apply print L)))))
-
-;; testy

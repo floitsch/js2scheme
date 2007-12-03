@@ -69,6 +69,8 @@
 	  (mark-live-end surrounding-fun.body var))
 	 (var.global? ;; we are printing those directly in Program-out.
 	  'do-nothing)
+	 (var.no-let? ;; in particular Decl-With variables.
+	  'do-nothing)
 	 ((not begin-stack) ;; imported, runtime or whatever...
 	  'do-nothing)
 	 ((inherits-from? (cadr begin-stack) (node 'Begin))
@@ -97,6 +99,12 @@
 			       Let*)
 	     (tree.traverse!)))
 
+(define (make-let* assigs body)
+   (for-each (lambda (assig)
+		(set! assig.lhs.var.in-let? #t))
+	     assigs)
+   (new-node Let* assigs body))
+
 (define (intro! n)
    (delete! n.live-ends)
    (let ((lives n.live-begins))
@@ -105,7 +113,7 @@
 	     (if (null? (cdr lives))
 		 (delete! n.live-begins)
 		 (set! n.live-begins (cdr lives)))
-	     ((new-node Let* (list (v.assig (new-node Undefined))) n).traverse!))
+	     ((make-let* (list (v.assig (new-node Undefined))) n).traverse!))
 	  (n.traverse0!))))
    
 (define-pmethod (Node-intro!)
@@ -143,16 +151,15 @@
 		    ((and long-v
 			  (inherits-from? el (node 'Vassig))
 			  (eq? el.lhs.var long-v))
-		     (let ((let-n (new-node Let*
-				       (list el)
-				       (new-node Sequence (cdr els)))))
+		     (let ((let-n (make-let* (list el)
+					     (new-node Sequence (cdr els)))))
 			(set-car! els (let-n.traverse!))
 			(set-cdr! els '())))
 		    (long-v
-		     (let ((let-n (new-node Let*
-				       `(,(long-v.assig (new-node Undefined)))
-				       (new-node Sequence
-					    (cons (car els) (cdr els))))))
+		     (let ((let-n (make-let*
+				   `(,(long-v.assig (new-node Undefined)))
+				   (new-node Sequence
+					     (cons (car els) (cdr els))))))
 			(set-car! els (let-n.traverse!))
 			(set-cdr! els '())))
 		    (else

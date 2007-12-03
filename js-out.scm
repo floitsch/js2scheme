@@ -3,14 +3,12 @@
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))
    (import parser
+	   config
 	   protobject
 	   nodes
 	   var
 	   verbose)
-   (export (js-out tree::pobject p)
-	   *compress?*))
-
-(define *compress?* #f)
+   (export (js-out tree::pobject p)))
 
 (define (js-out tree p)
    (verbose "js-out")
@@ -114,15 +112,15 @@
    (+ indent 3))
 
 (define (indent! indent)
-   (if (not *compress?*)
+   (if (not (config 'compress?))
        (display (make-string indent #\space))))
 
 (define (newline-out)
-   (if (not *compress?*)
+   (if (not (config 'compress?))
        (display "\n")))
 
 (define (space-out)
-   (if (not *compress?*)
+   (if (not (config 'compress?))
        (display " ")))
 
 (define (op->string op)
@@ -139,7 +137,7 @@
 	     (body.traverse #f indent #f #f newline-after?)
 	     #t)
 	  (begin
-	     (if (and *compress?*
+	     (if (and (config 'compress?)
 		      needs-separation?)
 		 (display " ")
 		 (newline-out))
@@ -402,7 +400,7 @@
 (define-pmethod (Catch-out priority indent in-for-in?)
    (space-out)
    (display "catch(")
-   (this.exception.traverse #f indent #f)
+   (this.decl.traverse #f indent #f)
    (display ")")
    (block-body (stmt->block this.body) indent #f #t))
 

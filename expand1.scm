@@ -10,7 +10,6 @@
 	   var)
    (export (expand1! tree::pobject)))
 
-;; - replace Named-Fun with Vassig
 ;; - add implicit "Labelled"-nodes for Loops, Funs and Case
 ;; - replace For with While
 ;; - add implicit "Fall-through"-node.
@@ -20,18 +19,13 @@
 ;; - replace void x; with (begin x, undefined)
 ;; - (with expr body) is transformed into
 ;;          (let ((tmp (any->object expr))) (with tmp body))
-;;    this could be done after the symbol-pass too.
+;; - Decl-Withs however receive just a new decl.
 ;; - delete X is transformed to
-;;    * delete o f if X is of form o[f]
-;;    * false if X is X is of form v and v is a declared var.
-;;    * with-delete if X is of form v and v might be with-intercepted.
-;;    * delete-global if X is of form v and v is global (either undeclared or
-;;      runtime).
-
+;;    * delete o f (Delete-property-call) if X is of form o[f]
+;;    * delete v   (Delete-call) otherwise
 (define (expand1! tree)
    (verbose " expand")
    (overload traverse! expand! (Node
-				Named-fun
 				For
 				While
 				(Do While-expand!) ; same as for While
@@ -41,15 +35,13 @@
 				Call
 				Vassig-op
 				Accsig-op
-				Unary)
+				Unary
+				With
+				Decl-With)
 	     (tree.traverse!)))
 
 (define-pmethod (Node-expand!)
    (this.traverse0!))
-
-(define-pmethod (Named-fun-expand!)
-   (this.traverse0!)
-   (new-node Vassig this.decl this.fun))
 
 (define-pmethod (For-expand!)
    (let* ((continue-labelled (new-node Labelled
@@ -148,6 +140,8 @@
 	  (sequence (new-node Sequence (list init-o
 					init-field
 					accsig))))
+      (set! tmp-o-var.internal? #t)
+      (set! tmp-field-var.internal? #t)
       sequence))
 
 (define-pmethod (Unary-expand!)
@@ -161,51 +155,23 @@
 	 ((eq? op 'delete)
 	  (cond
 	     ((inherits-from? expr (node 'Access))
-	      (new-node Call
-		   ((id->runtime-var 'delete).reference)
-		   (list expr.obj expr.field)))
-	     ((and (inherits-from? expr (node 'Var-ref))
-		   (inherits-from? expr.var (node 'With-var)))
-	      (let loop ((rev-surrounding-withs '())
-			 (var expr.var))
-		 (cond
-		    ((inherits-from? var (node 'With-var))
-		     (loop (cons var.with rev-surrounding-withs)
-			   var.with.intercepted))
-		    ((and var.global?
-			  (not var.declared-global?))
-		     (new-node Call
-			  ((id->runtime-var 'with-delete).reference)
-			  `(,(reverse! rev-surrounding-withs)
-			    ,(symbol->string var.id)
-			    ,var)))
-		    (else
-		     (new-node Call
-			  ((id->runtime-var 'with-delete).reference)
-			  `(,(reverse! rev-surrounding-withs)
-			    ,(symbol->string var.id)
-			    ,(new-node Bool #f)))))))
-	     ((and (inherits-from? expr (node 'Var-ref))
-		   expr.var.global?
-		   (not expr.var.declared-global?))
-	      (new-node Call
-		   ((id->runtime-var 'delete-global).reference)
-		   (list expr (symbol->string expr.var.id))))
-	     ((inherits-from? expr (node 'Var-ref))
-	      ;; neither with-var, nor implicit/runtime-global
-	      (new-node Bool #f))
+	      (new-node Delete-property-call
+			this.op
+			expr.obj
+			expr.field))
 	     (else
-	      (new-node Sequence
-		   (list expr
-			 (new-node Bool #t))))))
+	      (new-node Delete-call
+			this.op
+			expr))))
 	 (else
 	  this))))
 
 (define-pmethod (With-expand!)
    (this.traverse0!)
    (let ((tmp-decl (Decl-of-new-Var (gensym 'with)))
-	 (old-expr this.expr))
-      (set! this.expr (tmp-decl.var.reference))
+	 (old-expr this.obj))
+      (set! tmp-decl.var.internal? #t)
+      (set! this.obj (tmp-decl.var.reference))
       (new-node Sequence
 	   `(,(new-node Vassig
 		   tmp-decl
@@ -213,3 +179,10 @@
 			(new-node Var-ref 'any->object)
 			old-expr))
 	     ,this))))
+
+(define-pmethod (Decl-With-expand!)
+   (this.traverse0!)
+   (let ((decl (Decl-of-new-Var (gensym 'with))))
+      (set! decl.var.internal? #t)
+      (set! this.obj decl)
+      this))

@@ -5,16 +5,14 @@
    (import protobject
 	   verbose
 	   nodes)
-   (export *default-break-label-id*
+   (export (label-nodes-init!)
+	   *default-break-label-id*
 	   *default-continue-label-id*
 	   *return-label-id*
 	   (make-label-table)
 	   (label-set! label-table id label)
 	   (label-get label-table id)
-	   (label-remove! label-table id)
-	   Label
-	   Break-label
-	   Continue-label))
+	   (label-remove! label-table id)))
 
 ;; following labels can't clash with JS-labels, as they use a dash in their id.
 (define *default-break-label-id* '<*default-break*>)
@@ -32,14 +30,22 @@
 (define (label-remove! label-table id)
    (hashtable-remove! label-table id))
 
-(define-pclass (Label)
+(define (label-nodes-init!)
+(define nodes (thread-parameter '*nodes*))
+(define-macro (define-node signature . Lrest)
+   `(begin
+       (define-pclass ,signature ,@Lrest)
+       (hashtable-put! nodes ',(car signature) ,(car signature))))
+
+(define-node (Label)
    (set! this.ids '()))
 (define-pmethod (Label-add-id! id)
    (set! this.ids (cons id this.ids)))
 (set! Label.proto.add-id! Label-add-id!)
 
-(define-pclass (Break-label))
+(define-node (Break-label))
 (set! Break-label.proto (empty-pobject Label))
 
-(define-pclass (Continue-label))
+(define-node (Continue-label))
 (set! Continue-label.proto (empty-pobject Label))
+)

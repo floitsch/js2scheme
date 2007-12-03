@@ -3,16 +3,17 @@ BIGLOO = bigloo -cc $(CC)
 TARGETNAMES	= js-obfuscator js-pp js2scheme
 
 OBFUSCATOR_BGL_MODULES	= config fun-bindings nodes protobject var js-obfuscator js-out \
-		 verbose lexer parser symbol statements obfuscate-ids simplify \
-		 html
+		 verbose lexer parser symbol with ewal statements obfuscate-ids simplify \
+		 html symbol-table
 
 PP_BGL_MODULES	= config nodes protobject js-pp js-out var \
 		 verbose lexer parser statements
 
 JS2SCHEME_LIB_MODULES = config fun-bindings nodes protobject var \
-		 verbose lexer parser symbol statements simplify expand1 label \
-		 label-resolution simplify-labels bind-exit escape liveness let \
-		 scm-out  expand4 js2scheme-comp
+		 verbose lexer parser symbol with ewal statements simplify \
+                 expand1 label label-resolution simplify-labels bind-exit \
+		 escape liveness let scm-out  expand4 js2scheme-comp \
+		 symbol-table
 
 JS2SCHEME_BGL_MODULES = js2scheme
 
@@ -51,8 +52,8 @@ js-obfuscator: $(OBFUSCATOR_OBJECTS)
 js-pp: $(PP_OBJECTS)
 	$(BIGLOO) -o $@ $^
 
-$(JS2SCHEME_HEAP): make-lib.scm
-	bigloo -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_LIB) $^ -addheap $@
+$(JS2SCHEME_HEAP): make-lib.scm js2scheme-comp.scm
+	bigloo -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_LIB) $< -addheap $@
 $(JS2SCHEME_LIB_A): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
 	rm -f $@ && \
 	ar qcv $@ $(JS2SCHEME_LIB_OBJECTS) && \

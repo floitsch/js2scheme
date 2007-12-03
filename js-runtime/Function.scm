@@ -1,6 +1,7 @@
 (module jsre-Function
    (include "macros.sch")
    (import jsre-object
+	   jsre-eval
 	   jsre-Object ;; recursive dependency :(
 	   jsre-Date
 	   jsre-String
@@ -11,6 +12,7 @@
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
+	   jsre-scope-object
 	   jsre-globals-tmp
 	   )
    (export
@@ -113,24 +115,14 @@
     #f #f ;; don't need 'this' and 'this-callee'
     (nb-args get-arg)
     ()
-    (print "HERE")
     (let loop ((i 0)
 	       (args "")
 	       (body ""))
        (cond
 	  ((=fx i nb-args)
-	   (with-handler
-	      (lambda (e) (syntax-error e))
-	      (let* ((fun (string-append "(function (" args ") {"
-					 body
-					 "})"))
-		     (scm-prog (js2scheme (open-input-string fun))))
-		 (print fun)
-		 (print scm-prog)
-		 ;; we can't use the eval-library function, as the scope of the
-		 ;; created function is only the global this (and not all
-		 ;; visible variables.
-		 (eval scm-prog))))
+	   (js-Function-eval (string-append "(function (" args ") {"
+					    body
+					    "})")))
 	  ((=fx i (- nb-args 1))
 	   (loop (+ i 1) args (any->string (get-arg i))))
 	  ((=fx i 0)

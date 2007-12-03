@@ -3,6 +3,7 @@
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))
    (import parser
+	   config
 	   protobject
 	   nodes
 	   statements
@@ -25,19 +26,20 @@
       ((("--version") (help "Version number"))
        (print *version*))
       ((("-v" "--verbose") (help "Verbose output"))
-       (set! *verbose* #t))
+       (config-set! 'verbose #t))
       (("-o" ?file (help "The output file. '-' prints to stdout."))
        (set! *out-file* file))
       (("-i" ?file (help "The input file. '-' reads from stdin."))
        (set! *in-file* file))
       ((("-c" "--compress") (help "Compress output"))
-       (set! *compress?* #t))
+       (config-set! 'compress? #t))
       (else
        (error "handle-args"
 	      "unknown argument: "
 	      else))))
 
 (define (js-pp args)
+   (config-init!)
    (handle-args args)
    (if (not *in-file*)
        (begin

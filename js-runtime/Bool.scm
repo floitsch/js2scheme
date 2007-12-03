@@ -11,6 +11,7 @@
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
+	   jsre-scope-object
 	   jsre-globals-tmp
 	   )
    (export *js-Bool* ;; can be modified by user -> can't be ::procedure

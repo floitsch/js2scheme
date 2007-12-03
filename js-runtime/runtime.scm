@@ -5,6 +5,7 @@
 	   jsre-exceptions
 	   jsre-primitives
 	   jsre-global-object
+	   jsre-scope-object
 	   jsre-globals
 	   jsre-Object
 	   jsre-Number
@@ -20,6 +21,7 @@
 	 jsre-exceptions
 	 jsre-primitives
 	 jsre-global-object
+	 jsre-scope-object
 	 jsre-globals
 	 jsre-Object
 	 jsre-Array

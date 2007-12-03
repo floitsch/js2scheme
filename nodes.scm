@@ -105,7 +105,7 @@
 	     (set! ,(symbol-append class '.proto. method-name!)
 		   ,define-name!))))
    `(begin
-       ,@(map gen-traverse (iota 3))))
+       ,@(map gen-traverse (iota 4))))
 
 
 (define (node n)
@@ -261,6 +261,28 @@
 (set! With.proto (empty-pobject Node))
 (proto-traverses With obj (intercepted) body)
 
+(define-node (Obj-init props)
+   (set! this.props props))
+(set! Obj-init.proto (empty-pobject Node))
+(proto-traverses Obj-init (props))
+
+;; From a symbol-resolution point of view Catch und Named-fun both are nearly
+;; equivalent to Withs. In addition to pushing an object onto the stack, they
+;; declare however a new variable. The new variable has to be inside the
+;; object. For efficiency reasons (especially for Named-fun) a Scope object is
+;; used. The original obj will be the prototype of the Scope-object. This is
+;; possible as neither the Named-Fun nor the exception can be
+;; deleted. (Otherwise a delete would remove the scope-object element and then
+;; 'show' the object-element.).
+(define-node (Decl-With decl body)
+   (set! this.decl decl)
+   ;; this.obj will be replaced in expand1.
+   (set! this.obj (new Obj-init '()))
+   (set! this.intercepted '())
+   (set! this.body body))
+(set! Decl-With.proto (empty-pobject With))
+(proto-traverses Decl-With decl obj (intercepted) body)
+
 (define-node (Switch key cases)
    (set! this.key key)
    (set! this.cases cases))
@@ -300,10 +322,12 @@
 (proto-traverses Try body ?catch ?finally)
 
 (define-node (Catch exception body)
-   (set! this.exception exception)
+   (set! this.decl exception)
+   (set! this.obj (new Obj-init '()))
+   (set! this.intercepted '())
    (set! this.body body))
-(set! Catch.proto (empty-pobject Node))
-(proto-traverses Catch exception body)
+(set! Catch.proto (empty-pobject Decl-With))
+(proto-traverses Catch decl obj (intercepted) body)
 
 (define-node (Labelled id body)
    (set! this.id id)
@@ -353,12 +377,13 @@
 (set! Fun-binding.proto (empty-pobject Vassig))
 (proto-traverses Fun-binding lhs val)
 
-;; will be usually replaced by a Vassig after symbol-pass
 (define-node (Named-fun decl fun)
+   (set! this.obj (new Obj-init '()))
+   (set! this.intercepted '())
    (set! this.decl decl)
-   (set! this.fun fun))
-(set! Named-fun.proto (empty-pobject Scope))
-(proto-traverses Named-fun decl fun)
+   (set! this.body fun))
+(set! Named-fun.proto (empty-pobject Decl-With))
+(proto-traverses Named-fun decl obj (intercepted) body)
 
 (define-node (Fun params body)
    (set! this.params params)
@@ -380,6 +405,14 @@
    (set! this.args args))
 (set! Call.proto (empty-pobject Node))
 (proto-traverses Call op (args))
+
+(define-node (Eval-call op args top-level-object env-vars)
+   (set! this.op op)
+   (set! this.args args)
+   (set! this.top-level-object top-level-object)
+   (set! this.env-vars env-vars))
+(set! Eval-call.proto (empty-pobject Call))
+(proto-traverses Eval-call op (args))
 
 (define-node (Method-call op args)
    (set! this.op op)
@@ -405,6 +438,18 @@
    (set! this.args (list expr)))
 (set! Postfix.proto (empty-pobject Call))
 (proto-traverses Postfix op (args))
+
+(define-node (Delete-property-call op obj prop)
+   (set! this.op op)
+   (set! this.args (list obj prop)))
+(set! Delete-property-call.proto (empty-pobject Binary))
+(proto-traverses Delete-property-call op (args))
+
+(define-node (Delete-call op v)
+   (set! this.op op)
+   (set! this.args (list v)))
+(set! Delete-call.proto (empty-pobject Unary))
+(proto-traverses Delete-call op (args))
 
 (define-node (New class args)
    (set! this.class class)
@@ -468,11 +513,6 @@
    (set! this.expr expr))
 (set! Array-element.proto (empty-pobject Node))
 (proto-traverses Array-element expr)
-
-(define-node (Obj-init props)
-   (set! this.props props))
-(set! Obj-init.proto (empty-pobject Node))
-(proto-traverses Obj-init (props))
 
 (define-node (Property-init name val)
    (set! this.name (if (symbol? name)

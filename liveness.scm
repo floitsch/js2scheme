@@ -100,6 +100,8 @@
 	  'do-nothing)
 	 (var.external?
 	  'do-nothing)
+	 (var.eval?
+	  'do-nothing)
 	 ((not live-begin-stack)
 	  (begin
 	     (set! var.live-begin-stack nesting)

@@ -1,0 +1,90 @@
+JavaScript has the following kinds of variables:
+- this: not really a variable. Immutable, does not appear in activation
+object. Can always simply accessed through "this". Must be transmitted to
+evaled code.
+
+- temporary introduced variables to ease code-generation.
+  Must not be added to any scope-object, ....
+
+- global declared variables. Can be separated into 2 categories:
+  * top-level code. Must reuse existing fields, if they exist, otherwise are
+  added as "do-not-delete". Can be changed through global
+  this. As always: if there's a eval in the scope (at top-level) then
+  variables can be erased.
+  * evaled code. Just reuse existing variables, or add them as
+  "allow-delete". Global this may change variables, if 'eval' is executed at
+  top-level.
+
+- local variables. (only exist 'declared'). 3 categories:
+  * with eval in same scope. -> variable can be erased. This includes the
+  arguments-objects and parameters.
+  * with eval in nested function. -> variable can be changed through eval. (not
+  entirely true: a nested function might hide the local variable, so that eval
+  can't reach it).
+  * without eval. -> undeletable.
+
+- function-declarations:
+  * mostly similar to local/global variables.
+    Must be evaluated in the beginning of the function. -> move them to the
+    front and make the "define"s.
+  * Major difference: They replace existing properties in current activation
+  frame. This only makes problems, when function declaration is global. If it
+  is top-level code it may replace a runtime-function, if it is evaled code it
+  may replace a local-variable.
+
+- params: are similar to local variables.
+
+- implicit globals: are added with attribute "deletable".
+- with variables: access only through the object.
+
+================================================================================
+
+Every local variable (not in eval*) must be in a 'let'. (In the worst case a
+(let ((var undefined)) ...)).
+All local fun-declarations (not in eval*) are compiled to
+(define f (lambda ...))
+These should be the most common and fastest cases.
+
+In the case of 'eval' in nested function:
+(define (f ..)
+  (define g (lambda (...)))
+  (define h (lambda (...)))
+  (let ((fun-eval-obj (new Scope-obj))
+        (var0 undefined) (var1 undefined) ...)
+  (scope-fun-add fun-eval-obj var0 attributes) ...
+  (scope-var-add fun-eval-obj var1 attributes) ...
+  (set! var0 (lambda (...) ...))
+  ... (set! var0 ...))
+
+In the case of 'eval' directly in the function: mostly similar to above
+(define (f ..)
+  (define g (lambda (...)))
+  (define h (lambda (...)))
+  (let ((fun-eval-obj (new Scope-obj))
+        (var0 undefined) (var1 undefined) ...)
+  (scope-fun-add fun-eval-obj var0 attributes) ...
+  (scope-var-add fun-eval-obj var1 attributes) ...
+  (set! var0 (lambda (...) ...))
+  ... (set! var0 ...))
+*but* accesses to local variables need to be done the following way:
+ (if (not (undeclared? v))
+     v
+     (next-v.getter))
+like for 'with'-variables.
+
+
+
+Runtime- and global declared variables are inside Scope-Object (with
+direct access and check for 'undeclared'). Deletes are redirected to
+scope-object.
+
+"Eval"ed globals directly access global object. No shortcut.
+
+================================================================================
+
+Named funs (like in var f = function g() { .... };) and catch-clauses push a
+'new Object' on the stack. They are hence very similar to 'with'-objects. (With
+the only difference, that they add a property with attributes 'dont-delete').
+Even with a local-eval this property can't be deleted (as local-eval can only
+delete properties of the surrounding fun-object). -> These declared variables
+are short-cut using scope-objects. They remain however quite expensive.

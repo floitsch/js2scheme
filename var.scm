@@ -17,6 +17,11 @@
 (define-node (Var id)
    (set! this.id id))
 
+(define-node (Internal-var id)
+   (set! this.id id)
+   (set! this.internal? #t))
+(set! Internal-var.proto (empty-pobject Var))
+
 (define-node (This-var)
    (set! this.id 'this))
 
@@ -30,7 +35,8 @@
    (set! this.external? #t)
    (set! this.runtime? #t)
    (set! this.id id)
-   (set! this.scm-id scm-id))
+   (set! this.scm-id scm-id)
+   (set! this.global? #t))
 (set! Runtime-var.proto (empty-pobject Var))
 (set! Runtime-var.proto.runtime? #t)
 
@@ -38,6 +44,7 @@
    (set! this.external? #t)
    (set! this.imported? #t)
    (set! this.id id)
+   (set! this.global? #t)
    (set! this.scm-id scm-id))
 (set! Imported-var.proto (empty-pobject Var))
 (set! Imported-var.proto.runtime? #t)
@@ -56,6 +63,6 @@
 
 (define (Decl-of-new-Var id)
    (let ((decl (new-node Decl id))
-         (var (new-node Var id)))
+         (var (new-node Internal-var id)))
       (set! decl.var var)
       decl))

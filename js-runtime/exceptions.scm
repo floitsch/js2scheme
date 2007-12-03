@@ -4,7 +4,9 @@
 	   (range-error val)
 	   (type-error val)
 	   (undeclared-error id)
-	   (syntax-error msg)))
+	   (syntax-error msg)
+	   (eval-error msg)
+	   (delete-error msg)))
 
 (define (error-fun msg)
    (lambda L (error #f msg #f)))
@@ -20,3 +22,9 @@
 
 (define (syntax-error msg)
    (error #f "syntax-error" msg))
+
+(define (eval-error msg)
+   (error #f "eval can't be copied ..." msg))
+
+(define (delete-error msg)
+   (error #f "delete error ..." msg))

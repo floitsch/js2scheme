@@ -10,10 +10,11 @@
 	   jsre-Number
 	   jsre-Bool
 	   jsre-conversion
-	   jsre-global-object)
-   (export *js-global-this*::Js-Object
-	   (inline primitive? v)
+	   jsre-global-object
+	   jsre-scope-object)
+   (export (inline primitive? v)
 	   (inline js-property-safe-get o::Js-Object prop::bstring)
+	   ;; returns the given value
 	   (inline js-property-safe-set! o::Js-Object prop::bstring new-val)
 	   (inline +infinity::double)
 	   (inline -infinity::double)
@@ -37,8 +38,6 @@
       (set! *tmp-object* tmp)
       tmp))
 
-(define *js-global-this* (tmp-js-object))
-
 (define *+infinity* (/fl 1.0 0.0))
 (define-inline (+infinity) *+infinity*)
 (define-inline (+infinity? v) (eqv? v *+infinity*))
@@ -60,4 +59,5 @@
 
 ;; non-generic. but js-property-generic-set! is.
 (define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)
-      (js-property-generic-set! o prop (mangle-false new-value) #f))
+   (js-property-generic-set! o prop (mangle-false new-value) #f)
+   new-value)

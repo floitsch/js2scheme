@@ -4,6 +4,7 @@
    (include "js-runtime/runtime-variables.sch")
    (option (loadq "protobject-eval.sch"))
    (import protobject
+	   symbol-table
 	   verbose
 	   nodes
 	   var)
@@ -20,31 +21,6 @@
    (collect! tree imported-ids)
    (resolve tree))
 
-
-(define (make-symbol-table) '())
-(define (make-scope-table) (make-hashtable))
-
-(define (add-scope symbol-table scope-table)
-   (cons scope-table symbol-table))
-
-(define (symbol-var symbol-table symbol)
-   (any (lambda (ht)
-	   (hashtable-get ht symbol))
-	symbol-table))
-
-(define (local-symbol-var symbol-table symbol)
-   (and (pair? symbol-table)
-	(hashtable-get (car symbol-table) symbol)))
-
-(define (symbol-var-set! symbol-table symbol var)
-   (scope-symbol-var-set! (car symbol-table) symbol var))
-
-(define (scope-symbol-var-set! scope symbol var)
-   (hashtable-put! scope symbol var))
-
-(define (scope-symbol-var scope symbol)
-   (hashtable-get scope symbol))
-
 ;; See 10.1.3 of Ecmascript spec.
 ;; Basically:
 ;; each param gets a var (even those with same name). If 2 params have same
@@ -58,6 +34,8 @@
    (overload traverse! collect! (Node
 				 Program
 				 Scope
+				 Fun-binding
+				 Named-fun
 				 Catch
 				 Param
 				 This-decl
@@ -108,7 +86,7 @@
 
 (define-pmethod (Scope-collect! scope-table)
    (let* ((scope-table (make-scope-table)))
-      (set! this.locals scope-table)
+      (set! this.locals-table scope-table)
       (this.traverse1! scope-table)))
    
 
@@ -119,11 +97,26 @@
 ;; all these properties are met by a default traverse, and the Scope-collect
 ;; is hence sufficient.
 
+(define-pmethod (Fun-binding-collect! scope-table)
+   (this.traverse1! scope-table)
+   (set! this.lhs.var.fun? #t)
+   this)
+
+;; we know that a Named-fun has a function inside. -> easier than Catch.
+(define-pmethod (Named-fun-collect! scope-table)
+   (pcall this Scope-collect! scope-table)
+   (set! this.decl.var.named-fun? #t)
+   (set! this.decl.var.no-let? #t)
+   this)
+   
 (define-pmethod (Catch-collect! scope-table)
    (let* ((catch-scope-table (make-scope-table)))
-      (set! this.locals catch-scope-table)
-      (set! this.expection (this.exception.traverse! catch-scope-table))
-      ;; the catch's body is not a scope.
+      (set! this.locals-table catch-scope-table)
+      (set! this.decl (this.decl.traverse! catch-scope-table))
+      (set! this.decl.var.no-let? #t)
+      (set! this.decl.var.catch? #t)
+      ;; the catch's body is only partially a scope.
+      ;; new variables are not inside the Catch.
       (set! this.body (this.body.traverse! scope-table))
       this))
 
@@ -132,6 +125,7 @@
    (let* ((id this.id)
 	  (var (new-node Var id)))
       (set! this.var var)
+      (set! var.param? #t)
       (scope-symbol-var-set! scope-table id var))
    this)
 
@@ -161,6 +155,7 @@
 	     ref)
 	  (let ((new-var (new-node Var id)))
 	     (set! this.var new-var)
+	     (set! new-var.declared? #t)
 	     (scope-symbol-var-set! scope-table id new-var)
 	     this))))
 
@@ -169,6 +164,7 @@
    (overload traverse resolve (Node
 			       Program
 			       Scope
+			       Named-fun
 			       Catch
 			       Var-ref)
 	     (tree.traverse #f #f)))
@@ -187,6 +183,7 @@
 			   (scope-symbol-var-set! this.globals-table
 						  id
 						  decl.var)
+			   (set! decl.var.global? #t)
 			   (set! decl.var.implicit-global? #t))))
       (this.traverse2 symbol-table implicit-proc)
 
@@ -195,11 +192,15 @@
 		this.implicit-globals)))
 					     
 (define-pmethod (Scope-resolve symbol-table implicit-proc)
-   (let ((extended-symbol-table (add-scope symbol-table this.locals)))
+   (let ((extended-symbol-table (add-scope symbol-table this.locals-table)))
+      (this.traverse2 extended-symbol-table implicit-proc)))
+
+(define-pmethod (Named-fun-resolve symbol-table implicit-proc)
+   (let ((extended-symbol-table (add-scope symbol-table this.locals-table)))
       (this.traverse2 extended-symbol-table implicit-proc)))
 
 (define-pmethod (Catch-resolve symbol-table implicit-proc)
-   (let ((extended-symbol-table (add-scope symbol-table this.locals)))
+   (let ((extended-symbol-table (add-scope symbol-table this.locals-table)))
       (this.traverse2 extended-symbol-table implicit-proc)))
 
 (define-pmethod (Var-ref-resolve symbol-table implicit-proc)
@@ -217,82 +218,10 @@
 	     (else
 	      ;; a new global...
 	      (let* ((id this.id)
-		     (decl (Decl-of-new-Var id)))
-		 (verbose "implicit global: " id)
+		     (var (new-node Var id))
+		     (decl (new-node Decl id)))
+		 (set! decl.var var)
+		 (unless (thread-parameter 'eval)
+		    (verbose "implicit global: " id))
 		 (implicit-proc id decl)
-		 (set! this.var decl.var)))))))
-
-;; for now another pass.
-;;   whenever we encounter a 'with', we "clear" the current
-;; symbol-table. Whenever we encounter a var-ref that has no var in the
-;; symbol-table, we know it has been intercepted by a with.
-(define (with-interception tree)
-   (verbose " with-interception")
-   (overload traverse with-interception (Node
-					 Program
-					 Scope
-					 With
-					 Var-ref)
-	     (tree.traverse #f '())))
-
-;; surrounding-withs is a list of 'With's with their symbol-table. (ie. the
-;; symbol-table when the 'With' was encountered.
-(define-pmethod (Node-with-interception symbol-table surrounding-withs)
-   (this.traverse2 symbol-table surrounding-withs))
-
-(define-pmethod (Program-with-interception symbol-table surrounding-withs)
-   (let ((symbol-table (add-scope (add-scope (add-scope (make-symbol-table)
-							this.runtime)
-					     this.imported)
-				  this.locals)))
-      (this.traverse2 symbol-table '())))
-
-(define-pmethod (Scope-with-interception symbol-table surrounding-withs)
-   (let ((extended-symbol-table (add-scope symbol-table this.locals)))
-      (this.traverse2 extended-symbol-table surrounding-withs)))
-
-(define-pmethod (With-with-interception symbol-table surrounding-withs)
-   (set! this.intercepted-ht (make-hashtable))
-   (this.traverse2 (make-symbol-table) (cons (cons this symbol-table)
-					     surrounding-withs))
-   ;; store the 'fake-var'-declarations.
-   (set! this.intercepted (hashtable->list this.intercepted-ht))
-   (for-each (lambda (var)
-		(set! var.intercepted? #t))
-	     this.intercepted)
-   (delete! this.intercepted-ht))
-
-
-;; note: the id is reduntant...
-(define (update-var id var symbol-table surrounding-withs)
-   (let ((var (symbol-var symbol-table id)))
-      (if var
-	  ;; not intercepted
-	  var
-	  ;; intercepted
-	  (let* ((surrounding-with (caar surrounding-withs))
-		 (intercepted-ht surrounding-with.intercepted-ht)
-		 (entry (hashtable-get intercepted-ht id)))
-	     (if entry
-		 ;; not the first interception. just return the previously
-		 ;; created intercepted var.
-		 entry
-		 ;; first interception.
-		 ;; build pseudo-decl and put it into With-interceptions.
-		 ;; continue recursively: the intercepted var might be
-		 ;; intercepted several times...
-		 (let* ((decl (new-node Decl id))
-			(fake-var (new-node With-var
-				       id
-				       surrounding-with
-				       ;; continue recursively
-				       (update-var id
-						   var
-						   (cdar surrounding-withs)
-						   (cdr surrounding-withs)))))
-		   (set! decl.var fake-var)
-		   (hashtable-put! intercepted-ht id fake-var)
-		   fake-var))))))
-
-(define-pmethod (Var-ref-with-interception symbol-table surrounding-withs)
-   (set! this.var (update-var this.id this.var symbol-table surrounding-withs)))
+		 (set! this.var var)))))))

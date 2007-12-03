@@ -1,5 +1,5 @@
 (module extract-globals
-   (main m))
+   (main my-main))
 
 (define (extract-define-globals expr)
    (map (lambda (def)
@@ -63,7 +63,7 @@
       (else
        '())))
 				   
-(define (m args)
+(define (my-main args)
    (let loop ((bindings '()))
       (let ((expr (read)))
 	 (if (eof-object? expr)
@@ -75,6 +75,8 @@
 			    (extract-define-globals expr))
 			   ((eq? (car expr) 'define-inline)
 			    (extract-operator expr))
+			   ((eq? (car expr) 'define-macro)
+			    '())
 			   (else
 			    (search-for-global-adds expr)))
 			'())

@@ -12,6 +12,7 @@
 	   jsre-exceptions
 	   jsre-conversion
 	   jsre-global-object
+	   jsre-scope-object
 	   jsre-globals-tmp
 	   )
    (export
@@ -50,6 +51,16 @@
 		      (<= length index))
 		 (set! length (+ index 1)))
 	     (call-next-method)))))
+
+(define-method (js-property-update! o::Js-Array prop::bstring new-val)
+   (with-access::Js-Array o (length)
+      (if (string=? prop "length")
+	  (let ((nb-int (any->integer new-val))
+		(nb-uint32 (any->uint32 new-val)))
+	     (if (= nb-int nb-uint32) ;; TODO: really not optimal
+		 (set! length nb-uint32)
+		 (range-error new-val)))
+	  (call-next-method))))
 
 (define-method (js-object->string::bstring o::Js-Array)
    "Array")

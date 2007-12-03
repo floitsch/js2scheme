@@ -11,6 +11,7 @@
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
+	   jsre-scope-object
 	   jsre-globals-tmp
 	   )
    (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
@@ -31,7 +32,7 @@
    (unless *object-prototype-initialized?*
       (let ((proto (instantiate::Js-Object
 		      (props (make-props-hashtable))
-		      (proto *js-Null*))))
+		      (proto (js-null)))))
 	 (set! *js-Object-prototype* proto)
 	 (set! *object-prototype-initialized?* #t)))
    *js-Object-prototype*)

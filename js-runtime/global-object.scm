@@ -1,6 +1,7 @@
 (module jsre-global-object
    (include "macros.sch")
    (import jsre-object
+	   jsre-scope-object
 	   jsre-natives ;; undefined, null, ...
 	   jsre-exceptions
 	   jsre-primitives
@@ -11,88 +12,60 @@
 	   jsre-Number
 	   jsre-Function
 	   jsre-conversion
-	   jsre-globals-tmp)
+	   jsre-globals-tmp
+	   jsre-Eval-env)
    (export *js-global-object*::Js-Object
-	   (class Js-Global::Js-Object)
-	   (class Ref
-	      (getter::procedure read-only)
-	      (setter::procedure read-only))
+	   *js-global-this*::Js-Object ;; alias for js-global-object
+	   *js-global-env*
+	   (class Js-Global::Js-Scope-Object)
 	   (global-object-init)
+	   (macro global-declared-add!)
+	   (macro global-implicit-add!)
+	   (macro global-runtime-add!)
+	   (macro global-special-add!)
+	   (macro define-runtime-globals)
 	   (global-add! id getter::procedure setter::procedure attributes)))
 
+
+(define-macro (global-declared-add! id v)
+   `(scope-var-add! *js-global-object* ,id ,v (declared-attributes)))
+(define-macro (global-implicit-add! id v)
+   `(scope-var-add! *js-global-object* ,id ,v (implicit-attributes)))
+(define-macro (global-runtime-add! id v)
+   `(scope-var-add! *js-global-object* ,id ,v (runtime-attributes)))
+(define-macro (global-special-add! id v attributes)
+   `(scope-var-add! *js-global-object* ,id ,v ,attributes))
+   
+(define-macro (define-runtime-globals . L)
+   (let* ((ids (map (lambda (def)
+		       (if (pair? (cadr def))
+			   (caadr def)
+			   (cadr def)))
+		    L))
+	  (exported-ids (map (lambda (id) (symbol-append 'jsg- id)) ids))
+	  (vals (map (lambda (def)
+			(if (pair? (cadr def))
+			    `(js-fun #f #f #f ,(cdr (cadr def)) ,@(cddr def))
+			    (caddr def)))
+			L))
+	  (defines (map (lambda (id) `(define ,id #f)) exported-ids))
+	  (global-adds (map (lambda (id exported-id)
+			       `(global-runtime-add! ',id ,exported-id))
+			    ids
+			    exported-ids))
+	  (sets (map (lambda (id val) `(set! ,id ,val)) exported-ids vals)))
+      `(begin
+;	  (pp ',sets)
+	  ,@defines
+	  (globals-tmp-add! (lambda () ,@sets ,@global-adds)))))
+
+
+(define *js-global-env* #unspecified)
+(define *js-global-this* (tmp-js-object))
 (define *js-global-object* (tmp-js-object))
 
 (define-method (js-object->string::bstring o::Js-Global)
    "global")
-
-(define-method (js-property-contains o::Js-Global prop::bstring)
-   (with-access::Js-Object o (props proto)
-      (let ((ht-entry (hashtable-get props prop)))
-	 (if ht-entry
-	     (let ((val (Property-entry-val ht-entry)))
-		(if (Ref? val)
-		    ;; dereference
-		    (let ((ref-val ((Ref-getter val))))
-		       (if (js-undeclared? ref-val)
-			   ;; as if the ht-entry didn't exist.
-			   (js-property-contains proto prop)
-			   (mangle-false ref-val)))
-		    val))
-	     (js-property-contains proto prop)))))
-
-(define-method (js-property-generic-set! o::Js-Global prop::bstring
-					 new-val attributes)
-;   (print "setting " prop)
-   (with-access::Js-Object o (props)
-      (hashtable-update!
-       props
-       prop
-       (lambda (entry)
-	  (with-access::Property-entry entry (val attr)
-	     (with-access::Attributes attr (read-only)
-		(cond
-		   ((and (Ref? val)
-			 (js-undeclared? ((Ref-getter val))))
-		    ;; does not exist yet, or has been deleted.
-		    ;; we reuse the ref. (was an implicit
-		    ;; global, or a runtime-var)
-		    ((Ref-setter val) new-val)
-		    (instantiate::Property-entry
-		       (val val)
-		       (attr (or attributes (default-attributes)))))
-		   (read-only
-		    ;; do nothing
-		    entry)
-		   ((Ref? val)
-		    ((Ref-setter val) new-val)
-		    entry)
-		   (else ;; simple entry
-		    (set! val new-val)
-		    entry)))))
-       (instantiate::Property-entry
-	  (val new-val)
-	  (attr (or attributes (default-attributes)))))))
-   
-(define-method (js-property-safe-delete! o::Js-Global prop::bstring)
-   (with-access::Js-Object o (props proto)
-      (let ((ht-entry (hashtable-get props prop)))
-	 (if ht-entry
-	     (with-access::Property-entry ht-entry (val attr)
-		(with-access::Attributes attr (deletable)
-		   (cond
-		      ((and (Ref? val)
-			    (js-undeclared? ((Ref-getter val))))
-		       ;; as if we weren't here.
-		       (js-property-safe-delete! proto prop))
-		      ((not deletable)
-		       #f)
-		      ((Ref? val)
-		       ((Ref-setter val) (js-undeclared))
-		       #t)
-		      (else
-		       (hashtable-remove! props prop)
-		       #t))))
-	     (js-property-safe-delete! proto prop)))))
 
 (define (global-add! id getter setter attributes)
    ;; TODO: we must ensure, that globals are really added only once.
@@ -110,4 +83,7 @@
 			       (props (make-props-hashtable))
 			       (proto (js-object-prototype))))
    (set! *js-global-this* *js-global-object*) ;; alias
+   (set! *js-global-env* (instantiate::Js-Eval-env
+			    (objs (list *js-global-object*))
+			    (next-env #f)))
    (for-each (lambda (f) (f)) *globals-init-tmp*))
