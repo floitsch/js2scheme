@@ -56,7 +56,7 @@
 
 (define (js2scheme-compil in-p config
 			  eval? top-level-obj env top-level-this)
-   (thread-parameter-set! 'top-level-obj top-level-obj)
+   (thread-parameter-set! 'top-level-object top-level-obj)
    (thread-parameter-set! 'eval-env env)
    (thread-parameter-set! 'top-level-this top-level-this)
    (thread-parameter-set! 'eval? eval?)

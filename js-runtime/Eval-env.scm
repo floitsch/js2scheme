@@ -18,6 +18,7 @@
 	      (objs::pair-nil read-only)
 	      (next-env read-only))
 	   (env-get env::Js-Eval-env id::bstring)
+	   (env-typeof-get env::Js-Eval-env id::bstring)
 	   ;; returns the given new-val
 	   (env-set! env::Js-Eval-env id::bstring new-val)
 	   (env-delete! env::Js-Eval-env id::bstring)))
@@ -34,6 +35,18 @@
 	     (env-get next-env id))
 	    (else
 	     (undeclared-error id))))))
+
+(define (env-typeof-get env id)
+   (with-access::Js-Eval-env env (objs next-env)
+      (let ((entry (any (lambda (obj)
+			   (js-property-contains obj id))
+			objs)))
+	 (cond
+	    (entry
+	     (unmangle-false entry))
+	    (next-env
+	     (env-get next-env id))
+	    (js-undeclared)))))
 
 (define (env-set! env id new-val)
    (with-access::Js-Eval-env env (objs next-env)

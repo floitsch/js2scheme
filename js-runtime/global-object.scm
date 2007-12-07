@@ -28,13 +28,13 @@
 
 
 (define-macro (global-declared-add! id v)
-   `(scope-var-add! *js-global-object* ,id ,v (declared-attributes)))
+   `(scope-var-add *js-global-object* ,id ,v (declared-attributes)))
 (define-macro (global-implicit-add! id v)
-   `(scope-var-add! *js-global-object* ,id ,v (implicit-attributes)))
+   `(scope-var-add *js-global-object* ,id ,v (implicit-attributes)))
 (define-macro (global-runtime-add! id v)
-   `(scope-var-add! *js-global-object* ,id ,v (runtime-attributes)))
+   `(scope-var-add *js-global-object* ,id ,v (runtime-attributes)))
 (define-macro (global-special-add! id v attributes)
-   `(scope-var-add! *js-global-object* ,id ,v ,attributes))
+   `(scope-var-add *js-global-object* ,id ,v ,attributes))
    
 (define-macro (define-runtime-globals . L)
    (let* ((ids (map (lambda (def)

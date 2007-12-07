@@ -7,6 +7,7 @@
 	   jsre-global-object
 	   jsre-scope-object
 	   jsre-globals
+	   jsre-eval
 	   jsre-Object
 	   jsre-Number
 	   jsre-String
@@ -14,6 +15,7 @@
 	   jsre-Bool
 	   jsre-Date
 	   jsre-Math
+	   jsre-Eval-env
 	   jsre-operators
 	   jsre-conversion)
    (from jsre-object
@@ -23,6 +25,7 @@
 	 jsre-global-object
 	 jsre-scope-object
 	 jsre-globals
+	 jsre-eval
 	 jsre-Object
 	 jsre-Array
 	 jsre-Function
@@ -30,6 +33,7 @@
 	 jsre-Bool
 	 jsre-Date
 	 jsre-Math
+	 jsre-Eval-env
 	 jsre-Number
 	 jsre-operators
 	 jsre-conversion)

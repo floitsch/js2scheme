@@ -221,7 +221,7 @@
 		     (var (new-node Var id))
 		     (decl (new-node Decl id)))
 		 (set! decl.var var)
-		 (unless (thread-parameter 'eval)
+		 (unless (thread-parameter 'eval?)
 		    (verbose "implicit global: " id))
 		 (implicit-proc id decl)
 		 (set! this.var var)))))))

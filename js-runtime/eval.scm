@@ -14,9 +14,10 @@
 ;; - envs: a list of all environments that need to be searched for variables.
 ;;   note the top-level-obj is in this list too.
 (define (js-eval prog top-level-obj top-level-this next-env . Lenvs)
+;   (tprint prog)
    ;; TODO error handling
    (let* ((config (let ((ht (make-hashtable)))
-		     (hashtable-put! ht 'verbose #t)
+		  ;   (hashtable-put! ht 'verbose #t)
 		     ht))
 	  (p (open-input-string prog))
 	  (scm-prog (js2scheme-eval p
@@ -26,8 +27,8 @@
 				       (objs Lenvs)
 				       (next-env next-env))
 				    top-level-this))
+;	  (dummy (write-circle scm-prog))
 	  (res (eval scm-prog)))
-      (print scm-prog)
       (close-input-port p)
       res))
 

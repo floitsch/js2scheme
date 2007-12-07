@@ -13,7 +13,7 @@
 	   jsre-Function
 	   jsre-conversion
 	   jsre-globals-tmp)
-   (export (macro scope-var-add!)
+   (export (macro scope-var-add)
 	   (class Js-Scope-Object::Js-Object)
 	   (class Ref
 	      (getter::procedure read-only)
@@ -29,8 +29,8 @@
 		 (js-null)
 		 (car Lproto)))))
 
-(define-macro (scope-var-add! scope-object
-			      id v attributes)
+(define-macro (scope-var-add scope-object
+			     id v attributes)
    (let ((str-id (gensym 'str-id))
 	 (ref (gensym 'ref))
 	 (new-val (gensym 'new-val)))

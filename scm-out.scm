@@ -36,6 +36,7 @@
 			   Accsig
 			   Call
 			   Delete-call
+			   Delete-property-call
 			   Method-call
 			   Eval-call
 			   New
@@ -59,7 +60,11 @@
 				      With-var
 				      This-var
 				      Imported-var)
-             ;; must return the val (which is an expr!)
+	     (overload typeof typeof (Var
+				      With-var
+				      This-var
+				      Imported-var)
+             ;; set! must return the val (which is an expr!)
 	     (overload set! set! (Var
 				  With-var
 				  This-var
@@ -73,7 +78,7 @@
 						This-var
 						Imported-var)
 		       (overload traverse out (Label)
-				 (tree.traverse))))))))
+				 (tree.traverse)))))))))
 
 (define (map-node-compile l)
    (map (lambda (n)
@@ -92,7 +97,8 @@
 	 ;; access the eval object
 	 ((and (thread-parameter 'eval?)
 	       this.global?)
-	  `(env-get (thread-parameter 'eval-env) this.id))
+	  `(env-get ,(thread-parameter 'eval-env)
+		    ,(symbol->string this.id)))
 	 (this.local-eval?
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
@@ -109,14 +115,51 @@
 (define-pmethod (With-var-access)
    (let* ((w this.with)
 	  (id this.id)
+	  (id-str (symbol->string id))
 	  (obj w.obj)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,(obj.traverse) ,id)
-	   (js-property-safe-get ,(obj.traverse) ,id)
+      `(if (js-property-contains ,(obj.traverse) ,id-str)
+	   (js-property-safe-get ,(obj.traverse) ,id-str)
 	   ,(intercepted.access))))
 (define-pmethod (This-var-access)
    'this)
 (define-pmethod (Imported-var-access)
+   (error "scm-out"
+	  "Encountered imported var"
+	  this.id))
+
+(define-pmethod (Var-typeof)
+   (let ((scm-id (if this.runtime?
+		     this.scm-id
+		     (js-id->scm-id this.id))))
+      (cond
+	 ;; don't even try to do fancy stuff, when we are in an eval. just
+	 ;; access the eval object
+	 ((and (thread-parameter 'eval?)
+	       this.global?)
+	  `(env-typeof-get ,(thread-parameter 'eval-env)
+			   ,(symbol->string this.id)))
+	 (this.local-eval?
+	  ;; stupid thing: evals might delete local variables. If there's a
+	  ;; local eval, we need to verify first, if the variable actually
+	  ;; still exists.
+	  `(if (not (js-undeclared? ,scm-id))
+	       ,scm-id
+	       ,(this.eval-next-var.typeof)))
+	 (this.global? scm-id)
+	 (else scm-id))))
+(define-pmethod (With-var-typeof)
+   (let* ((w this.with)
+	  (id this.id)
+	  (id-str (symbol->string id))
+	  (obj w.obj)
+	  (intercepted this.intercepted))
+      `(if (js-property-contains ,(obj.traverse) ,id-str)
+	   (js-property-safe-get ,(obj.traverse) ,id-str)
+	   ,(intercepted.typeof))))
+(define-pmethod (This-var-typeof)
+   'this)
+(define-pmethod (Imported-var-typeof)
    (error "scm-out"
 	  "Encountered imported var"
 	  this.id))
@@ -130,8 +173,8 @@
 	 ;; set! the id in the eval object
 	 ((and (thread-parameter 'eval?)
 	       this.global?)
-	  `(env-set! (thread-parameter 'eval-env)
-		     this.id
+	  `(env-set! ,(thread-parameter 'eval-env)
+		     ,(symbol->string this.id)
 		     ,val))
 	 (this.local-eval?
 	  ;; stupid thing: evals might delete local variables. If there's a
@@ -150,10 +193,11 @@
 (define-pmethod (With-var-set! val)
    (let* ((w this.with)
 	  (id this.id)
+	  (id-str (symbol->string id))
 	  (obj w.obj)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,(obj.traverse) ,id)
-	   (js-property-safe-set! ,(obj.traverse) ,id ,val)
+      `(if (js-property-contains ,(obj.traverse) ,id-str)
+	   (js-property-safe-set! ,(obj.traverse) ,id-str ,val)
 	   ,(intercepted.set! val))))
 (define-pmethod (This-var-set! val)
    (error "Var-set!"
@@ -170,20 +214,24 @@
 		     (js-id->scm-id this.id))))
       (cond
 	 (this.global?
-	  `(env-delete! ,(thread-parameter 'eval-env) ',this.id))
+	  `(env-delete! ,(thread-parameter 'eval-env)
+			,(symbol->string this.id)))
 	 (this.local-eval?
 	  `(if (not (js-undeclared? ,scm-id))
-	       (js-property-delete! ,this.eval-obj-id ',this.id)
+	       (js-property-delete!
+		,(symbol->string (this.eval-obj-var.compiled-id))
+		',this.id)
 	       ,(this.eval-next-var.delete)))
 	 (else
 	  #f))))
 (define-pmethod (With-var-delete)
    (let* ((w this.with)
 	  (id this.id)
+	  (id-str (symbol->string id))
 	  (obj w.obj)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,(obj.traverse) ,id)
-	   (js-property-delete! ,(obj.traverse) ,id)
+      `(if (js-property-contains ,(obj.traverse) ,id-str)
+	   (js-property-delete! ,(obj.traverse) ,id-str)
 	   ,(intercepted.delete))))
 (define-pmethod (This-var-delete)
    (error "Var-delete"
@@ -260,7 +308,7 @@
 						       (js-undefined)
 						       (default-attributes))
 			       `(unless (js-scope-one-level-property-contains?
-					 ,tlo ,var.id)
+					 ,tlo ,id-str)
 				   (js-property-safe-set! ,tlo
 							  ,id-str
 							  (js-undefined))))))
@@ -273,7 +321,7 @@
 
 (define-pmethod (Let*-out)
    `(let* (,@(map (lambda (vassig)
-		     `(,(vassig.lhs.var.traverse) ,(vassig.val.traverse)))
+		     `(,(vassig.lhs.var.compiled-id) ,(vassig.val.traverse)))
 		  this.vassigs))
        ,(this.body.traverse)))
 
@@ -304,7 +352,7 @@
 		(,loop)))))
 
 (define-pmethod (For-in-out)
-   `(for-each (lambda (,(this.lhs.var.traverse)) ,(this.body.traverse))
+   `(for-each (lambda (,(this.lhs.var.compiled-id)) ,(this.body.traverse))
 	      (object-for-in-attributes ,(this.obj.traverse))))
 
 (define-pmethod (With-out)
@@ -397,13 +445,13 @@
 
 (define-pmethod (Catch-out)
    (let ((exc-scm-id (this.decl.var.compiled-id))
-	 (exc-js-id this.exception.var.id)
+	 (exc-js-id this.decl.var.id)
 	 (obj-id (this.obj.var.compiled-id))
 	 (compiled-body (this.body.traverse)))
       `(lambda (,exc-scm-id)
 	  (let ((,obj-id (js-create-scope-object (js-object-literal))))
 	     (scope-var-add ,obj-id
-			    ,exc-js-id
+			    ,(symbol->string exc-js-id)
 			    ,exc-scm-id
 			    (dont-delete-attributes))
 	     ,compiled-body))))
@@ -416,7 +464,7 @@
       `(let ((,obj-id (js-create-scope-object (js-object-literal))))
 	  (letrec ((,fun-scm-id compiled-body))
 	     (scope-var-add ,obj-id
-			    ,fun-js-id
+			    ,(symbol->string fun-js-id)
 			    ,fun-scm-id
 			    (dont-delete-attributes))
 	     ,fun-scm-id))))
@@ -437,18 +485,19 @@
 				(hashtable->list this.locals-table)))
 	     (local-vars (filter (lambda (var) (not var.param?))
 				 fun-vars))
-	     (eval-obj-id this.eval-obj-id))
+	     (eval-obj-id (this.eval-obj-var.compiled-id)))
 	 `(let ((,eval-obj-id (js-create-scope-object))
 		,@(map (lambda (var)
 			  `(,(var.compiled-id) (js-undefined)))
 		       local-vars))
 	     ,@(map (lambda (var)
 		       `(scope-var-add ,eval-obj-id
-				       ,var.id
+				       ,(symbol->string var.id)
 				       ,(var.compiled-id)
 				       (dont-delete-attributes)))
 		    fun-vars)
 	     ,body)))
+	    
 
    ;; when adding conditional for arguments-var don't forget, that arguments
    ;; var might be added into eval-obj.
@@ -467,18 +516,19 @@
 	       #f ;; no this-fun (only accessible through arguments)
 	       ,compiled-arguments
 	       (,@compiled-params)
-	       ,compiled-body)))
+	       (let ((,(this.arguments-decl.var.compiled-id) #unspecified))
+		  ,compiled-body))))
 
 (define-pmethod (Vassig-out)
    (this.lhs.var.set! (this.val.traverse)))
 
 (define-pmethod (Fun-binding-out)
-   (if (and (thread-parameter 'eval)
+   (if (and (thread-parameter 'eval?)
 	    this.lhs.var.global?)
        ;; assign fun-binding to top-level object and not to current
        ;; environment. (Rhino 1.7 release 1 Pre 2007 11 25 has this bug)
        `(js-property-safe-set! ,(thread-parameter 'top-level-object)
-			       ,this.lhs.var.id
+			       ,(symbol->string this.lhs.var.id)
 			       ,(this.val.traverse))
        (pcall this Vassig-out)))
 
@@ -495,18 +545,18 @@
       (if (and (symbol? traversed-obj)
 	       (string? traversed-field))
 	  `(let* ((,tmp-object-o (any->object ,traversed-obj)))
-	      (js-poperty-safe-set! ,tmp-object-o
-				    ,traversed-field
-				    ,traversed-val))
+	      (js-property-safe-set! ,tmp-object-o
+				     ,traversed-field
+				     ,traversed-val))
 	  ;; we need all these tmp-variables, to ensure the correct order of
 	  ;; evaluation.
 	  `(let* ((,tmp-o ,traversed-obj)
 		  (,tmp-field ,traversed-field)
 		  (,tmp-object-o (any->object ,tmp-o))
-		  (,tmp-string-field (any->string ,tmp-field))
-		  (js-property-safe-set! ,tmp-object-o
-					 ,tmp-string-field
-					 ,(this.val.traverse)))))))
+		  (,tmp-string-field (any->string ,tmp-field)))
+	      (js-property-safe-set! ,tmp-object-o
+				     ,tmp-string-field
+				     ,(this.val.traverse))))))
 
 (define-pmethod (Call-out)
    (if (and (inherits-from? this.op (node 'Var-ref))
@@ -517,10 +567,10 @@
 		(not (null? this.args))
 		(null? (cdr this.args))
 		(inherits-from? (car this.args) (node 'Var-ref)))
-	   ;; avoid both undeclared checks (the second must not be here)
-	   `(,(this.op.var.traverse) ,((car this.args).var.traverse)))
+	   ;; we need to use .typeof to avoid undeclared error
+	   `(,(this.op.var.compiled-id) ,((car this.args).var.typeof)))
 	  (else
-	   `(,(this.op.var.traverse) ;; avoid undeclared-check
+	   `(,(this.op.var.compiled-id) ;; operator call.
 	     ,@(map-node-compile this.args))))
        `(js-call ,(this.op.traverse)
 		 #f
@@ -554,15 +604,19 @@
 		   ,@(map-node-compile this.args)))))
 
 (define-pmethod (Eval-call-out)
-   (let ((t (gensym 'tmp))
-	 (eval-id this.op.var.scm-id)
-	 (tlo this.top-level-object)
-	 (next-env (thread-parameter 'eval-env))
-	 (env-vars this.env-vars))
+   (let* ((t (gensym 'tmp))
+	  (eval-id this.op.var.scm-id)
+	  (tlo this.top-level-object)
+	  (tlo-id (if (symbol? tlo)
+		      tlo
+		      (tlo.compiled-id)))
+	  (next-env (thread-parameter 'eval-env))
+	  (env-vars this.env-vars))
       `(let ((,t ,(this.op.traverse)))
 	  (if (eq? ,t ,eval-id)
 	      ;; we have a real eval here
-	      (js-eval ,tlo this ,next-env
+	      (js-eval ,((car this.args).traverse)
+		       ,tlo-id this ,next-env
 		       ,@(map (lambda (v) (v.compiled-id))
 			      env-vars))
 	      (js-call ,t #f ,@(map-node-compile this.args))))))
