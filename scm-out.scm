@@ -441,7 +441,8 @@
       (if this.finally
 	  `(unwind-protect
 	      ,inner
-	      ,(this.finally.traverse)))))
+	      ,(this.finally.traverse))
+	  inner)))
 
 (define-pmethod (Catch-out)
    (let ((exc-scm-id (this.decl.var.compiled-id))
@@ -449,7 +450,7 @@
 	 (obj-id (this.obj.var.compiled-id))
 	 (compiled-body (this.body.traverse)))
       `(lambda (,exc-scm-id)
-	  (let ((,obj-id (js-create-scope-object (js-object-literal))))
+	  (let ((,obj-id (js-create-scope-object (js-object-literal '()))))
 	     (scope-var-add ,obj-id
 			    ,(symbol->string exc-js-id)
 			    ,exc-scm-id
@@ -461,8 +462,8 @@
 	 (fun-js-id this.decl.var.id)
 	 (obj-id (this.obj.var.compiled-id))
 	 (compiled-body (this.body.traverse)))
-      `(let ((,obj-id (js-create-scope-object (js-object-literal))))
-	  (letrec ((,fun-scm-id compiled-body))
+      `(let ((,obj-id (js-create-scope-object (js-object-literal '()))))
+	  (letrec ((,fun-scm-id ,compiled-body))
 	     (scope-var-add ,obj-id
 			    ,(symbol->string fun-js-id)
 			    ,fun-scm-id
@@ -505,7 +506,9 @@
    ;; deleted, the next one needs to expose its arguments object too. As we
    ;; have (not yet) any means to detect that, we have to add the arguments
    ;; object for all functions with '.eval?'.
-   (let ((compiled-arguments (this.arguments-decl.var.compiled-id)) ;; the obj
+   (let ((compiled-arguments (if this.arguments-decl.var.arguments-used?
+				 (this.arguments-decl.var.compiled-id)
+				 #f))
 	 (compiled-this (this.this-decl.var.compiled-id))
 	 (compiled-params (map (lambda (decl) (decl.var.compiled-id))
 			       this.params))
@@ -516,8 +519,7 @@
 	       #f ;; no this-fun (only accessible through arguments)
 	       ,compiled-arguments
 	       (,@compiled-params)
-	       (let ((,(this.arguments-decl.var.compiled-id) #unspecified))
-		  ,compiled-body))))
+	       ,compiled-body)))
 
 (define-pmethod (Vassig-out)
    (this.lhs.var.set! (this.val.traverse)))

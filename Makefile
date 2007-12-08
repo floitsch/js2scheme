@@ -13,7 +13,7 @@ JS2SCHEME_LIB_MODULES = config fun-bindings nodes protobject var \
 		 verbose lexer parser symbol with ewal statements simplify \
                  expand1 label label-resolution simplify-labels bind-exit \
 		 escape liveness let scm-out  expand4 js2scheme-comp \
-		 symbol-table
+		 symbol-table arguments
 
 JS2SCHEME_BGL_MODULES = js2scheme
 

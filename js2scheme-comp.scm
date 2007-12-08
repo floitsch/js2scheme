@@ -23,6 +23,7 @@
 	   liveness
 	   let
 	   statements
+	   arguments
 	   scm-out)
    (export (js2scheme in-p config)
 	   (js2scheme-eval in-p config top-level-obj env top-level-this))
@@ -85,5 +86,6 @@
       ;(dot-out ast)
       (let-intro! ast)
       ;(dot-out ast)
+      (arguments ast)
       (scm-out ast)
       ))

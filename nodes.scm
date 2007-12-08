@@ -391,7 +391,7 @@
    (set! this.arguments-decl (new Arguments-decl))
    (set! this.body body))
 (set! Fun.proto (empty-pobject Scope))
-(proto-traverses Fun (params) ?this-decl ?arguments-decl body)
+(proto-traverses Fun this-decl arguments-decl (params) body)
 
 (define-node (Cond test then else)
    (set! this.test test)

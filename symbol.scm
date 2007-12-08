@@ -120,12 +120,14 @@
       (set! this.body (this.body.traverse! scope-table))
       this))
 
-;; Params always have their proper vars (for the 'arguments-object')
+;; Params always have their proper vars
 (define-pmethod (Param-collect! scope-table)
    (let* ((id this.id)
 	  (var (new-node Var id)))
       (set! this.var var)
       (set! var.param? #t)
+      (when (inherits-from? this (node 'Arguments-decl))
+	 (set! var.arguments? #t))
       (scope-symbol-var-set! scope-table id var))
    this)
 

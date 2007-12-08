@@ -161,6 +161,19 @@
 
 
 (define-inline (any->string::bstring any)
+   (define (any->string2::bstring any)
+      (cond
+	 ((string? any) any)
+	 ((eq? any *js-Null*) "null")
+	 ((eq? any *js-Undefined*) "undefined")
+	 ((boolean? any) (if any
+			     "true"
+			     "false"))
+	 ((flonum? any) (double->string any))
+	 (else
+	  (with-output-to-string (lambda ()
+				    (write-circle any))))))
+
    ;; TODO: not correct!
    (define (double->string::bstring v::double)
       (cond
@@ -181,7 +194,7 @@
 		       "false"))
       ((flonum? any) (double->string any))
       (else
-       (any->string (any->primitive any 'string)))))
+       (any->string2 (any->primitive any 'string)))))
 
 (define-inline (any->object::Js-Object any)
    (cond

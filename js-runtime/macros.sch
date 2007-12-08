@@ -32,7 +32,11 @@
    ;; TODO
    ''TODO)
 
-(define-macro (js-fun-lambda maybe-this maybe-this-callee arguments formals . Lbody)
+(define-macro (js-fun-lambda maybe-this
+			     maybe-this-callee
+			     arguments
+			     formals
+			     . Lbody)
    (define *nb-named-params* 3)
 
    (let* ((named-params (map (lambda (i)
@@ -110,7 +114,11 @@
 
 (define-macro (js-fun this this-callee arguments formals . Lbody)
    (let ((tmp-f (gensym 'f)))
-      `(let* ((,tmp-f (js-fun-lambda ,this ,this-callee ,arguments ,formals ,@Lbody))
+      `(let* ((,tmp-f (js-fun-lambda ,this
+				     ,this-callee
+				     ,arguments
+				     ,formals
+				     ,@Lbody))
 	      ;; may fail, as Object can be modified by user
 	      (fun-prototype (js-new *js-Object*)))
 	  (register-function-object! ,tmp-f ;; lambda
