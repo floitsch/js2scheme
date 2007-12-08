@@ -99,9 +99,11 @@
 						   orig-var
 						   (cdar surrounding-withs)
 						   (cdr surrounding-withs)))))
-		   (set! decl.var fake-var)
-		   (hashtable-put! intercepted-ht id fake-var)
-		   fake-var))))))
+		    (set! decl.var fake-var)
+		    (hashtable-put! intercepted-ht id fake-var)
+		    fake-var))))))
 
 (define-pmethod (Var-ref-with-interception symbol-table surrounding-withs)
-   (set! this.var (update-var this.id this.var symbol-table surrounding-withs)))
+   (unless this.var.operator? ;; operators can't be intercepted.
+      (set! this.var
+	    (update-var this.id this.var symbol-table surrounding-withs))))
