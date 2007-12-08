@@ -71,11 +71,47 @@
    (eq? v1 v2))
 
 (define-inline (jsop-== v1 v2)
-   (equal? v1 v2))
+   (cond
+      ;; TODO: what about NaN. -0, +0
+      ((equal? v1 v2)
+       ;; covers undefined, null, numbers, strings, booleans, functions
+       ;; (at least short-cuts most of them)
+       #t)
+      ((and (js-null? v1) (js-undefined? v2))
+       #t)
+      ((and (js-undefined? v1) (js-null? v2))
+       #t)
+      ((or (and (string? v1) (string? v2))
+	   (and (boolean? v1) (boolean? v2))
+	   (and (real? v1) (real? v2))
+	   (and (procedure? v1) (procedure? v2)))
+       #f)
+      ((and (string? v1) (real? v2))
+       (=fl (js-string->number v1) v2))
+      ((and (real? v1) (string? v2))
+       (=fl v1 (js-string->number v2)))
+      ((boolean? v1)
+       (if v1 (jsop-== 1.0 v2) (jsop-== 0.0 v2)))
+      ((boolean? v2)
+       (if v2 (jsop-== v1 1.0) (jsop-== v1 0.0)))
+      ((and (or (string? v1) (real? v1))
+	    (js-object v2))
+       => (lambda (obj)
+	     (jsop-== v1
+		      (js-object->primitive v2 (if (Js-Date? obj)
+						   'string
+						   'number)))))
+      ((and (or (string? v2) (real? v2))
+	    (js-object v1))
+       => (lambda (obj)
+	     (jsop-== (js-object->primitive v1 (if (Js-Date? obj)
+						   'string
+						   'number))
+		      v2)))
+      (else #f)))
 
 (define-inline (jsop-!= v1 v2)
-   ;; TODO
-   (not (equal? v1 v2)))
+   (not (jsop-== v1 v2)))
 
 (define-inline (jsop-< v1 v2)
    (< v1 v2))

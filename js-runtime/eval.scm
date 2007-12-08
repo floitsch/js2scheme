@@ -29,6 +29,7 @@
 				    top-level-this))
 ;	  (dummy (write-circle scm-prog))
 	  (res (eval scm-prog)))
+;      (write-circle scm-prog)
       (close-input-port p)
       res))
 

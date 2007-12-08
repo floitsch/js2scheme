@@ -14,6 +14,7 @@
 	   jsre-scope-object)
    (export (inline js-boolify::bool any)
 	   (inline any->bool::bool any)
+	   (inline js-string->number str)
 	   (inline any->number any)
 	   (inline any->primitive any hint)
 	   (inline any->integer any)
@@ -51,13 +52,20 @@
 (define-inline (any->bool::bool any)
    (js-boolify any))
 
+(define-inline (js-string->number str) ;; TODO: number
+   (let ((n (string->number str)))
+      (cond
+	 ((not n) (NaN))
+	 ((exact? n) (exact->inexact n))
+	 (else n))))
+
 (define-inline (any->number any)
    (cond
       ((number? any) (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
       ((js-undefined? any) (NaN))
       ((js-null? any) 0.0)
-      ((string? any) (any->number (string->number any))) ;; TODO
+      ((string? any) (js-string->number any))
       (else (any->number (any->primitive any 'number)))))
 
 (define (js-object->primitive o::Js-Object hint::symbol)

@@ -11,7 +11,7 @@
 				    (append! arg-bindings
 					     (map (lambda (i)
 						     (list (gensym 'ignored)
-							   '*js-Undefined*))
+							   '(js-undefined)))
 						  (iota (- *nb-named-params*
 							   nb-params))))))
 	  (named-params (map! car (take arg-bindings-good-nb
