@@ -76,6 +76,7 @@
       (simplify-labels! ast)
       (expand1! ast)
       (ewal! ast)
+      ;(dot-out ast)
       (with! ast)
       (bind-exit! ast)
       (escape ast)

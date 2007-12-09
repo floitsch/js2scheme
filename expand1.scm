@@ -18,7 +18,7 @@
 ;; - replace Calls that are actually method calls with Method-call
 ;; - replace void x; with (begin x, undefined)
 ;; - (with expr body) is transformed into
-;;          (let ((tmp (any->object expr))) (with tmp body))
+;;          (let ((tmp expr)) (with tmp body))
 ;; - Decl-Withs however receive just a new decl.
 ;; - delete X is transformed to
 ;;    * delete o f (Delete-property-call) if X is of form o[f]
@@ -174,10 +174,10 @@
       (set! this.obj (tmp-decl.var.reference))
       (new-node Sequence
 	   `(,(new-node Vassig
-		   tmp-decl
-		   (new-node Unary
-			(new-node Var-ref 'any->object)
-			old-expr))
+			tmp-decl
+			old-expr)
+	     ;; the tmp-variable is not yet an object.
+	     ;; scm-out still has to do that.
 	     ,this))))
 
 (define-pmethod (Decl-With-expand!)

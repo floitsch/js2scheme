@@ -329,7 +329,7 @@
    (this.var.access))
 
 (define-pmethod (NOP-out)
-   '*js-Undefined*)
+   '(js-undefined))
 
 (define-pmethod (If-out)
    `(if (js-boolify ,(this.test.traverse))
@@ -356,11 +356,13 @@
 	      (object-for-in-attributes ,(this.obj.traverse))))
 
 (define-pmethod (With-out)
-   ;; the obj has already been replaced by a variable (expand1)
-   ;; there is really nothing else to do, than call the body.
-   ;; the with-pass changed all accesses to potential obj-accesses to
-   ;; conditional accesses. The work here is hence done.
-   (this.body.traverse))
+   ;; the obj has already been replaced by a variable (expand1), but
+   ;; the obj is not yet transformed to an object.
+   ;; shadow the old object-var with a variable of similar name, but with
+   ;; any->object applied:
+   (let ((obj-id (this.obj.var.compiled-id)))
+      `(let ((,obj-id (any->object ,obj-id)))
+	  ,(this.body.traverse))))
 
 (define (make-clause default-clause? body-id expr body)
    (list default-clause? body-id expr body))
