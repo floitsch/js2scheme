@@ -17,7 +17,8 @@
 	   jsre-Math
 	   jsre-Eval-env
 	   jsre-operators
-	   jsre-conversion)
+	   jsre-conversion
+	   jsre-Arguments)
    (from jsre-object
 	 jsre-natives
 	 jsre-exceptions
@@ -36,7 +37,8 @@
 	 jsre-Eval-env
 	 jsre-Number
 	 jsre-operators
-	 jsre-conversion)
+	 jsre-conversion
+	 jsre-Arguments)
    (eval (export-all)))
 
 (Object-init)

@@ -89,13 +89,16 @@
       (set! this.locals-table scope-table)
       (this.traverse1! scope-table)))
    
-
 ;; some words for the Function:
-;; it is important, that the arguments are parsed first and in order. This way
-;; the last argument takes precedence over previous same-named arguments. If a
-;; local fun has the same var, the arg is going to be shadowed by the fun-decl.
-;; all these properties are met by a default traverse, and the Scope-collect
-;; is hence sufficient.
+;; arguments is created first.
+;; can be shadowed by parameters.
+;; if parameters share same name, last one wins.
+;; If a local fun (function declaration) has the same var as any arg, then it
+;; will overwrite the parameter inside the body. -> they don't need special
+;; treatment.
+;;
+;; Scope-collect! is hence completely sufficient, as long as Arguments are
+;; visited before Parameters, and before vars.
 
 (define-pmethod (Fun-binding-collect! scope-table)
    (this.traverse1! scope-table)

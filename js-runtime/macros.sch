@@ -28,10 +28,6 @@
 		   ,@named-params
 		   ,(list 'quasiquote rest-vec))))))
 
-(define-macro (make-arguments . L)
-   ;; TODO
-   ''TODO)
-
 (define-macro (js-fun-lambda maybe-this
 			     maybe-this-callee
 			     arguments
@@ -39,78 +35,88 @@
 			     . Lbody)
    (define *nb-named-params* 3)
 
-   (let* ((named-params (map (lambda (i)
-				(string->symbol
-				 (string-append
-				  "js-par-"
-				  (number->string i))))
-			     (iota *nb-named-params*)))
-	  (par-vec (gensym 'param-vec))
+   ;; rename formals that are shadowed.
+   ;; last one wins.
+   (define (unique-formals ids)
+      (cond
+	 ((null? ids)
+	  '())
+	 ((null? (cdr ids))
+	  ids)
+	 ((memq (car ids) (cdr ids))
+	  (cons (gensym 'shadowed) (unique-formals (cdr ids))))
+	 (else
+	  (cons (car ids)
+		(unique-formals (cdr ids))))))
+
+   ;; get *nb-named-params* ids to be put as formals in the lambda.
+   ;; if there aren't enough, create 'ignored vars.
+   (define (named-params ids)
+      (let loop ((ids ids)
+		 (nb 0))
+	 (cond
+	    ((= nb *nb-named-params*)
+	     '())
+	    ((null? ids)
+	     (cons (gensym 'ignored) (loop ids (+ nb 1))))
+	    (else
+	     (cons (car ids) (loop (cdr ids) (+ nb 1)))))))
+
+   ;; there are only *nb-named-params* parameters directly given as parameters.
+   ;; the remaining ones need to be bound inside a 'let'.
+   ;; vec-bindings generates the bindings. (if any).
+   (define (vec-bindings ids par-vec vec-size)
+      (cond
+	 ((<= (length ids) *nb-named-params*)
+	  '())
+	 (else
+	  (map (lambda (id counter)
+		  `(,id (if (< ,counter ,vec-size)
+			    (vector-ref ,par-vec
+					,counter)
+			    (js-undefined))))
+	       (drop ids *nb-named-params*)
+	       (iota (- (length ids) *nb-named-params*))))))
+
+   (let* ((par-vec (gensym 'param-vec))
 	  (vec-size (gensym 'vec-size))
 	  (par-nb (gensym 'param-size))
 	  (par-callee (or maybe-this-callee 'this-callee))
-	  (params formals)
-	  (bindings (let loop ((params params)
-			       (named-params named-params)
-			       (counter 0)
-			       (rev-res '()))
-		       (cond
-			  ((and (null? params)
-				(null? named-params))
-			   (reverse! rev-res))
-			  ((null? params)
-			   (loop params
-				 (cdr named-params)
-				 counter
-				 ;; add binding to avoid empty bindings-list
-				 (cons (list (car named-params)
-					     (car named-params))
-				       rev-res)))
-			  ((null? named-params)
-			   (loop (cdr params)
-				 named-params
-				 (+ counter 1)
-				 (cons (list (car params)
-					     `(if (< ,counter ,vec-size)
-						  (vector-ref ,par-vec
-							      ,counter)
-						  *js-Undefined*))
-				       rev-res)))
-			  (else
-			   (loop (cdr params)
-				 (cdr named-params)
-				 counter
-				 (cons (list (car params)
-					     (car named-params))
-				       rev-res))))))
-	  (param-vars (map car bindings))
+	  (this (or maybe-this (gensym 'ignored-this)))
+	  
+	  (u-formals (unique-formals formals))
 
-	  (this (or maybe-this (gensym 'ignored-this))))
-      `(lambda (,this ,par-callee ,par-nb ,@named-params ,par-vec)
-	  (let ((,vec-size (-fx ,par-nb ,*nb-named-params*)))
-	     (let ,bindings
-		,(cond
-		    ((pair? arguments)
-		     `(let ((,(car arguments) ,par-nb)
-			    (,(cadr arguments)
-			     (lambda (i)
-				(cond
-				   ,@(map (lambda (var j)
-					     `((=fx i ,j) ,var))
-					  named-params
-					  (iota *nb-named-params*))
-				   (else
-				    (vector-ref ,par-vec
-						(-fx i ,*nb-named-params*)))))))
-			 ,@Lbody))
-		    (arguments
-		     `(let ((,arguments (make-arguments ,par-callee
-							,par-nb
-							,param-vars
-							,par-vec)))
-			 ,@Lbody))
-		    (else
-		     `(begin ,@Lbody))))))))
+	  (params (named-params u-formals))
+	  (bindings (vec-bindings u-formals par-vec vec-size)))
+      
+      `(lambda (,this ,par-callee ,par-nb ,@params ,par-vec)
+	  (let* ((,vec-size (-fx ,par-nb ,*nb-named-params*))
+		 ,@bindings)
+	     ,(cond
+		 ;; shortcut for accessing var-args.
+		 ;; (used in runtime).
+		 ((pair? arguments)
+		  `(let ((,(car arguments) ,par-nb)
+			 (,(cadr arguments)
+			  (lambda (i)
+			     (cond
+				,@(map (lambda (var j)
+					  `((=fx i ,j) ,var))
+				       params
+				       (iota *nb-named-params*))
+				(else
+				 (vector-ref ,par-vec
+					     (-fx i ,*nb-named-params*)))))))
+		      ,@Lbody))
+		 (arguments
+		  `(let ((,arguments (make-arguments ,*nb-named-params*
+						     ,par-callee
+						     ,par-nb
+						     ,params
+						     ,par-vec)))
+		      ,@Lbody))
+		 (else
+		  `(begin ,@Lbody)))))))
 
 (define-macro (js-fun this this-callee arguments formals . Lbody)
    (let ((tmp-f (gensym 'f)))

@@ -4,7 +4,7 @@ BIGLOO = bigloo -cc $(CC)
 TARGETNAMES	= repl
 
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
-			conversion exceptions Eval-env eval\
+			conversion exceptions Eval-env eval Arguments \
 			natives object global-object globals globals-tmp \
 			primitives runtime operators scope-object
 
