@@ -45,6 +45,9 @@ runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
 test.scm:
 	touch $@
 
+test.o: test.scm
+	$(BIGLOO) -o $@ $^
+
 test: $(RUNTIME_OBJECTS) $(TEST_OBJECTS)
 	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
 
