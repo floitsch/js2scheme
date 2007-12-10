@@ -304,9 +304,12 @@
 			       ;; always replace existing entry.
 			       ;; initially set to undefined, but that
 			       ;; changes soon.
-			       `(js-property-safe-set! ,tlo ,id-str
-						       (js-undefined)
-						       (default-attributes))
+			       ;; we need to use generic-set, otherwise we
+			       ;; can't overwrite existing entries, if they
+			       ;; have different attributes.
+			       `(js-property-generic-set! ,tlo ,id-str
+							  (js-undefined)
+							  (default-attributes))
 			       `(unless (js-scope-one-level-property-contains?
 					 ,tlo ,id-str)
 				   (js-property-safe-set! ,tlo
@@ -611,16 +614,16 @@
    (let* ((t (gensym 'tmp))
 	  (eval-id this.op.var.scm-id)
 	  (tlo this.top-level-object)
-	  (tlo-id (if (symbol? tlo)
-		      tlo
-		      (tlo.compiled-id)))
+	  (tlo-id/obj (if (inherits-from? tlo (node 'Var))
+			  (tlo.compiled-id)
+			  tlo))
 	  (next-env (thread-parameter 'eval-env))
 	  (env-vars this.env-vars))
       `(let ((,t ,(this.op.traverse)))
 	  (if (eq? ,t ,eval-id)
 	      ;; we have a real eval here
 	      (js-eval ,((car this.args).traverse)
-		       ,tlo-id this ,next-env
+		       ,tlo-id/obj this ,next-env
 		       ,@(map (lambda (v) (v.compiled-id))
 			      env-vars))
 	      (js-call ,t #f ,@(map-node-compile this.args))))))
