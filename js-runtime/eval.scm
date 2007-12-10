@@ -1,6 +1,10 @@
 (module jsre-eval
 ;   (library js2scheme-comp)
    (import jsre-Eval-env
+	   jsre-global-object
+	   jsre-scope-object
+	   jsre-object
+	   jsre-Eval-env
 	   jsre-exceptions)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
 	   (js-Function-eval src::bstring)))
@@ -14,38 +18,40 @@
 ;; - envs: a list of all environments that need to be searched for variables.
 ;;   note the top-level-obj is in this list too.
 (define (js-eval prog top-level-obj top-level-this next-env . Lenvs)
-;   (tprint prog)
+   ;(tprint prog)
    ;; TODO error handling
-   (let* ((config (let ((ht (make-hashtable)))
-		  ;   (hashtable-put! ht 'verbose #t)
-		     ht))
-	  (p (open-input-string prog))
-	  (scm-prog (js2scheme-eval p
-				    config
-				    top-level-obj
-				    (instantiate::Js-Eval-env
-				       (objs Lenvs)
-				       (next-env next-env))
-				    top-level-this))
-;	  (dummy (write-circle scm-prog))
-	  (res (eval scm-prog)))
-;      (write-circle scm-prog)
-      (close-input-port p)
-      res))
+   (if (not (string? prog))
+       prog
+       (let* ((config (let ((ht (make-hashtable)))
+			 ;(hashtable-put! ht 'verbose #t)
+			 ht))
+	      (p (open-input-string prog))
+	      (scm-prog (js2scheme-eval p
+					config
+					top-level-obj
+					(instantiate::Js-Eval-env
+					   (objs Lenvs)
+					   (next-env next-env))
+					top-level-this))
+	      ;(dummy (write-circle scm-prog))
+	      (res (eval scm-prog)))
+	  ;(tprint (with-output-to-string (lambda () (write-circle scm-prog))))
+	  (close-input-port p)
+	  res)))
 
 (define (js-Function-eval src)
    (with-handler
       (lambda (e) (syntax-error e))
       (let* ((config (let ((ht (make-hashtable)))
-			(hashtable-put! ht 'verbose #t)
+;			(hashtable-put! ht 'verbose #t)
 			ht))
 	     (p (open-input-string src))
 	     (scm-prog (js2scheme-eval p config
-				       '*js-global-object*
-				       '*js-global-env*
+				       *js-global-object*
+				       *js-global-env*
 				       ;; we could use *js-global-this* too
-				       '*js-global-object*))
+				       *js-global-object*))
 	     (res (eval scm-prog)))
-	 (print scm-prog)
+;	 (write-circle scm-prog)
 	 (close-input-port p)
 	 res)))
