@@ -3,8 +3,8 @@
    (import jsre-object
 	   jsre-scope-object
 	   jsre-natives)
-   (export (class Js-Arguments::Js-Scope-Object)
-	   (macro make-arguments)))
+   (export (class Js-Arguments::Js-Scope-Object))
+   (eval (class Js-Arguments)))
 
 (define-method (js-object->string::bstring o::Js-Arguments)
    ;; TODO: verify that class-name of Arguments is really "Arguments"
@@ -27,46 +27,3 @@
 			  (hashtable-remove! props prop)
 			  #t)
 		       #f)))))))
-   
-
-(define-macro (make-arguments nb-named-params
-			      callee nb-args param-vars par-vec)
-   (let ((arguments (gensym 'arguments))
-	 (counter (gensym 'counter))
-	 (new-val (gensym 'new-val)))
-      `(let ((,arguments (instantiate::Js-Arguments
-			    (props (make-props-hashtable))
-			    (proto (js-object-prototype)))))
-	  (scope-var-add ,arguments "callee" ,callee
-			 ; 'don-enum
-			 (built-in-attributes))
-	  (scope-var-add ,arguments "length" ,nb-args
-			 ; 'don-enum
-			 (built-in-attributes))
-	  ,@(map (lambda (id c)
-		    `(when (< ,c ,nb-args)
-			(scope-var-add ,arguments
-				       ,(number->string c)
-				       ,id
-				       ; 'don-enum
-				       (built-in-attributes))))
-		 param-vars
-		 (iota (length param-vars)))
-	  (for-each (lambda (,counter)
-		       (js-property-generic-set!
-			,arguments
-			(number->string ,counter)
-			(instantiate::Ref
-			   (getter (lambda ()
-				      (vector-ref ,par-vec
-						  (- ,counter
-						     ,nb-named-params))))
-			   (setter (lambda (,new-val)
-				      (vector-set! ,par-vec
-						   (- ,counter
-						      ,nb-named-params)
-						   ,new-val))))
-			; 'don't-enum
-			(built-in-attributes)))
-		    (iota (- ,nb-args ,(length param-vars))))
-	  ,arguments)))

@@ -13,14 +13,14 @@
 	   jsre-Function
 	   jsre-conversion
 	   jsre-globals-tmp)
-   (export (macro scope-var-add)
-	   (class Js-Scope-Object::Js-Object)
+   (export (class Js-Scope-Object::Js-Object)
 	   (class Ref
 	      (getter::procedure read-only)
 	      (setter::procedure read-only))
 	   (js-scope-one-level-property-contains? scope-object::Js-Scope-Object
 						  id::bstring)
-	   (js-create-scope-object::Js-Scope-Object . Lproto)))
+	   (js-create-scope-object::Js-Scope-Object . Lproto))
+   (eval (class Ref)))
 
 (define (js-create-scope-object . Lproto)
    (instantiate::Js-Scope-Object
@@ -28,20 +28,6 @@
       (proto (if (null? Lproto)
 		 (js-null)
 		 (car Lproto)))))
-
-(define-macro (scope-var-add scope-object
-			     id v attributes)
-   (let ((str-id (gensym 'str-id))
-	 (ref (gensym 'ref))
-	 (new-val (gensym 'new-val)))
-      `(let ((,str-id (if (symbol? ,id) (symbol->string ,id) ,id))
-	     (,ref (instantiate::Ref
-		      (getter (lambda () ,v))
-		      (setter (lambda (,new-val) (set! ,v ,new-val))))))
-	  (js-property-generic-set! ,scope-object
-				    ,str-id
-				    ,ref
-				    ,attributes))))
 
 (define-method (js-object->string::bstring o::Js-Scope-Object)
    "scope-object should never be seen")
