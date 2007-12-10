@@ -6,3 +6,4 @@ JS2SCHEME_RUNTIME_PATH=$JS2SCHEME_PATH/js-runtime
 
 echo '(error #f "compilation-error" #f)' > $JS2SCHEME_RUNTIME_PATH/test.scm
 cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && cat $JS2SCHEME_RUNTIME_PATH/MODULE_HEAD $TMPFILE > $JS2SCHEME_RUNTIME_PATH/test.scm && cd $JS2SCHEME_RUNTIME_PATH && make test && rm test.scm && echo "Executing:" && ./test
+#cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && cat $JS2SCHEME_RUNTIME_PATH/MODULE_HEAD $TMPFILE > $JS2SCHEME_RUNTIME_PATH/test.scm && cd $JS2SCHEME_RUNTIME_PATH && make test && echo "Executing:" && ./test
