@@ -88,3 +88,30 @@ the only difference, that they add a property with attributes 'dont-delete').
 Even with a local-eval this property can't be deleted (as local-eval can only
 delete properties of the surrounding fun-object). -> These declared variables
 are short-cut using scope-objects. They remain however quite expensive.
+
+================================================================================
+
+With-variables intercept normal access to variables, and test first, if the
+property exists inside the object.
+
+With-variables don't need to have their liveness calculated. Instead the
+intercepted variable needs to be used instead.
+The with-variables themselves must not be in lets, but the intercepted one
+needs to be. This can lead to the following construction:
+
+with(o) {
+  var x = 3;
+  print(x);
+}
+
+=>
+
+(let ((with-o o))
+  (let ((x undefined))
+     (if (contains? o "x")
+         (set! with-o.x 3)
+         (set! x 3))
+     (print (if (contains? o "x") with-o.x x))))
+
+The let of the intercepted variable is actually inside the 'with', but can't be
+initialized as usual (let ((x 3)) ...).

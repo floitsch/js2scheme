@@ -59,8 +59,13 @@
       (set! node.live-begins (cons var (or node.live-begins '()))))
    (define (mark-live-end node var)
       (set! node.live-ends (cons var (or node.live-ends '()))))
-   
-   (let* ((var this.var)
+
+   (define (transitive-with-var var)
+      (if (inherits-from? var (node 'With-var))
+	  (transitive-with-var var.intercepted)
+	  var))
+      
+   (let* ((var (transitive-with-var this.var))
 	  (begin-stack var.live-begin-stack)
 	  (end-stack var.live-end-stack))
       (cond

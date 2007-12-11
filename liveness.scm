@@ -21,6 +21,8 @@
 (define (liveness tree)
    (verbose " liveness")
    (overload traverse live (Node
+			    Program
+			    Fun
 			    Begin
 			    Var-ref
 			    Vassig
@@ -33,7 +35,6 @@
 			    Try
 			    Call
 			    Method-call
-			    Scope
 			    New
 			    Access
 			    Array
@@ -138,9 +139,29 @@
 (define-pmethod (Node-live nesting)
    (this.traverse1 (cons this nesting)))
 
+(define-pmethod (Program-live nesting)
+   ;; we don't care for escaping... vars.
+   ;; => the nesting can restart at 0 here.
+   (this.traverse1 (list this))
+   ;; return empty sets
+   '(()()))
+
+(define-pmethod (Fun-live nesting)
+   ;; we don't care for escaping... vars.
+   ;; => the nesting can restart at 0 here.
+   (this.traverse1 (list this))
+   ;; return empty sets
+   '(()()))
+
 (define-pmethod (Var-ref-live nesting)
-   (update-liveness! this.var (cons this nesting))
-   (cons (list this.var) '()))
+   (define (transitive-with-var var)
+      (if (inherits-from? var (node 'With-var))
+	  (transitive-with-var var.intercepted)
+	  var))
+
+   (let ((var (transitive-with-var this.var)))
+      (update-liveness! var (cons this nesting))
+      (cons (list var) '())))
 
 (define-pmethod (Vassig-live nesting)
    (let* ((new-nesting (cons this nesting))
@@ -278,13 +299,6 @@
 	  (new-write (union (cdr catch-read/write)
 			    (cdr finally-read/write))))
       (cons new-read new-write)))
-
-(define-pmethod (Scope-live nesting)
-   ;; we don't care for escaping... vars.
-   ;; => the nesting can restart at 0 here.
-   (this.traverse1 (list this))
-   ;; return empty sets
-   '(()()))
 
 (define-pmethod (Call-live nesting)
    (let ((new-nesting (cons this nesting)))
