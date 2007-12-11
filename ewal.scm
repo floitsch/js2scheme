@@ -123,5 +123,6 @@
 		    surrounding-scopes)
 	  (set! surrounding-fun/prog-scope.local-eval? #t)
        
-	  (new-node Eval-call this.op this.args top-level-object env-vars))
+	  (new-node Eval-call this.op this.op.var.scm-id
+		    this.args top-level-object env-vars))
        this))

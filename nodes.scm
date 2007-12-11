@@ -406,8 +406,10 @@
 (set! Call.proto (empty-pobject Node))
 (proto-traverses Call op (args))
 
-(define-node (Eval-call op args top-level-object env-vars)
+(define-node (Eval-call op eval-scm-id
+			args top-level-object env-vars)
    (set! this.op op)
+   (set! this.eval-scm-id eval-scm-id)
    (set! this.args args)
    (set! this.top-level-object top-level-object)
    (set! this.env-vars env-vars))

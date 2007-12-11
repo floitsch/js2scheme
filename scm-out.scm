@@ -85,13 +85,14 @@
 	   (n.traverse))
 	l))
 
-(define (js-id->scm-id js-id)
-   (symbol-append 'jsv- js-id))
+(define (get/assign-scm-id! var)
+   (or var.scm-id
+       (let ((id (gensym (symbol-append 'jsv- var.id))))
+	  (set! var.scm-id id)
+	  id)))
    
 (define-pmethod (Var-access)
-   (let ((scm-id (if this.runtime?
-		     this.scm-id
-		     (js-id->scm-id this.id))))
+   (let ((scm-id (get/assign-scm-id! this)))
       (cond
 	 ;; don't even try to do fancy stuff, when we are in an eval. just
 	 ;; access the eval object
@@ -129,9 +130,7 @@
 	  this.id))
 
 (define-pmethod (Var-typeof)
-   (let ((scm-id (if this.runtime?
-		     this.scm-id
-		     (js-id->scm-id this.id))))
+   (let ((scm-id (get/assign-scm-id! this)))
       (cond
 	 ;; don't even try to do fancy stuff, when we are in an eval. just
 	 ;; access the eval object
@@ -165,9 +164,7 @@
 	  this.id))
 
 (define-pmethod (Var-set! val)
-   (let ((scm-id (if this.runtime?
-		     this.scm-id
-		     (js-id->scm-id this.id))))
+   (let ((scm-id (get/assign-scm-id! this)))
       (cond
 	 ;; don't even try to do fancy stuff when we are in an eval. just
 	 ;; set! the id in the eval object
@@ -209,9 +206,7 @@
 	  this.id))
 
 (define-pmethod (Var-delete)
-   (let ((scm-id (if this.runtime?
-		     this.scm-id
-		     (js-id->scm-id this.id))))
+   (let ((scm-id (get/assign-scm-id! this)))
       (cond
 	 (this.global?
 	  `(env-delete! ,(thread-parameter 'eval-env)
@@ -231,7 +226,7 @@
 	  (obj w.obj)
 	  (intercepted this.intercepted))
       `(if (js-property-contains ,(obj.traverse) ,id-str)
-	   (js-property-delete! ,(obj.traverse) ,id-str)
+	   (jsop-property-delete! ,(obj.traverse) ,id-str)
 	   ,(intercepted.delete))))
 (define-pmethod (This-var-delete)
    (error "Var-delete"
@@ -243,9 +238,7 @@
 	  this.id))
 
 (define-pmethod (Var-compiled-id)
-   (if this.runtime?
-       this.scm-id
-       (js-id->scm-id this.id)))
+   (get/assign-scm-id! this))
 (define-pmethod (With-var-compiled-id)
    (error "scm-out"
 	  "With-vars don't have any id. (internal error)"
@@ -588,7 +581,7 @@
 ;      ,@(map-node-compile this.args)))
 
 (define-pmethod (Delete-call-out)
-   ((car this.args).delete))
+   ((car this.args).var.delete))
 
 (define-pmethod (Delete-property-call-out)
    `(jsop-property-delete! ,((car this.args).traverse)
@@ -612,7 +605,7 @@
 
 (define-pmethod (Eval-call-out)
    (let* ((t (gensym 'tmp))
-	  (eval-id this.op.var.scm-id)
+	  (eval-id this.eval-scm-id)
 	  (tlo this.top-level-object)
 	  (tlo-id/obj (if (inherits-from? tlo (node 'Var))
 			  (tlo.compiled-id)
