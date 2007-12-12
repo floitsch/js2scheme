@@ -3,7 +3,7 @@
    (import jsre-object
 	   jsre-scope-object
 	   jsre-natives ;; undefined, null, ...
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-Object
 	   jsre-Date
@@ -14,8 +14,8 @@
 	   jsre-conversion
 	   jsre-globals-tmp
 	   jsre-Eval-env)
-   (export *js-global-object*::Js-Object
-	   *js-global-this*::Js-Object ;; alias for js-global-object
+   (export *js-global-object* ;::Js-Object
+	   *js-global-this* ;::Js-Object ;; alias for js-global-object
 	   *js-global-env*
 	   (class Js-Global::Js-Scope-Object)
 	   (global-object-init)

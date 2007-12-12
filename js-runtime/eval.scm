@@ -5,7 +5,7 @@
 	   jsre-scope-object
 	   jsre-object
 	   jsre-Eval-env
-	   jsre-exceptions)
+	   jsre-Error)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
 	   (js-Function-eval src::bstring)))
 

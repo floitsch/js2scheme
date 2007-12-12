@@ -9,7 +9,7 @@
 	   jsre-Bool
 	   jsre-natives
 	   jsre-primitives
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-conversion
 	   jsre-global-object
 	   jsre-scope-object
@@ -17,7 +17,6 @@
 	   )
    (export
     *js-Array* ;; can be modified by user -> can't be ::procedure
-    *js-Array-prototype*::Js-Object
     (class Js-Array::Js-Object
        length::bint) ;; TODO: bint is too small.
     (Array-init)
@@ -78,9 +77,9 @@
    (let ((array-object (procedure-object *js-Array*))
 	 (prototype (instantiate::Js-Array
 		       (props (make-props-hashtable))
-		       (proto *js-Object-prototype*)
+		       (proto (js-object-prototype))
 		       (length 0))))
-      (set! *js-Bool-prototype* prototype)
+      (set! *js-Array-prototype* prototype)
       (js-property-generic-set! array-object
 				"prototype"
 				prototype

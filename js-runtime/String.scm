@@ -7,7 +7,7 @@
 	   jsre-Number
 	   jsre-Bool
 	   jsre-natives
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
@@ -16,7 +16,6 @@
 	   )
    (export *js-String* ;; can be modified by user -> can't be ::procedure
 	   *js-String-orig*::procedure
-	   *js-String-prototype*::Js-Object
 	   (class Js-String::Js-Object
 	      (str::bstring read-only))
 	   (String-init)))
@@ -41,7 +40,7 @@
    (let ((string-object (procedure-object *js-String*))
 	 (prototype (instantiate::Js-String
 		       (props (make-props-hashtable))
-		       (proto *js-Object-prototype*)
+		       (proto (js-object-prototype))
 		       (str ""))))
       (set! *js-String-prototype* prototype)
       (js-property-generic-set! string-object

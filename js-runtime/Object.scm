@@ -7,7 +7,7 @@
 	   jsre-Number
 	   jsre-Bool
 	   jsre-natives
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object

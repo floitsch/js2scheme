@@ -3,7 +3,7 @@
    (import jsre-object
 	   jsre-natives ;; undefined, null, ...
 	   jsre-primitives
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-Object
 	   jsre-Date
 	   jsre-Function

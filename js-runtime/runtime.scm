@@ -2,7 +2,7 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-natives
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-global-object
 	   jsre-scope-object
@@ -21,7 +21,7 @@
 	   jsre-Arguments)
    (from jsre-object
 	 jsre-natives
-	 jsre-exceptions
+	 jsre-Error
 	 jsre-primitives
 	 jsre-global-object
 	 jsre-scope-object
@@ -49,5 +49,6 @@
 (String-init)
 (Date-init)
 (Math-init)
+(Error-init)
 (global-object-init)
 ;(eval '(print (Js-Undefined? (*js-Undefined*_fun))))

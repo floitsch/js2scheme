@@ -1,7 +1,7 @@
 (module jsre-Date
    (include "macros.sch")
    (import jsre-object
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-Object
 	   jsre-Function
 	   jsre-String
@@ -15,7 +15,6 @@
 	   jsre-globals-tmp
 	   )
    (export *js-Date* ;; can be modified by user -> can't be ::procedure
-	   *js-Date-prototype*::Js-Object
 	   (class Js-Date::Js-Object
 	      bdate)
 ;	      value::double)
@@ -35,21 +34,26 @@
 			      1 ;; TODO
 			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Date *js-Date*)))
-   ;; TODO: add other properties (like prototype) ?
 
-   (co-instantiate ((tmp (instantiate::Js-Date
-			    (props (make-props-hashtable))
-			    (proto tmp)
-			    (bdate #f))))
-      (set! *js-Date-prototype* tmp))
-   (js-property-safe-set! *js-Date-prototype*
-			  "getTimezoneOffset"
-			  (js-fun #f #f #f ()
-				  ;; TODO: number
-				  0.0))
-   (js-property-safe-set! *js-Date-prototype*
-			  "valueOf"
-			  (valueOf)))
+   (let ((date-object (procedure-object *js-Date*))
+	 (prototype (instantiate::Js-Date
+		       (props (make-props-hashtable))
+		       (proto (js-object-prototype))
+		       (bdate #f))))
+      (set! *js-Date-prototype* prototype)
+      (js-property-generic-set! date-object
+				"prototype"
+				prototype
+				(prototype-attributes))
+      ;; TODO: all the attributes are probably wrong
+      (js-property-safe-set! prototype
+			     "getTimezoneOffset"
+			     (js-fun #f #f #f ()
+				     ;; TODO: number
+				     0.0))
+      (js-property-safe-set! prototype
+			     "valueOf"
+			     (valueOf))))
 
 (define (Date-lambda)
    (js-fun-lambda

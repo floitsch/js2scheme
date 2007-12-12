@@ -1,7 +1,7 @@
 (module jsre-Math
    (include "macros.sch")
    (import jsre-object
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-Object
 	   jsre-Date
 	   jsre-Function
@@ -24,8 +24,8 @@
 (define (Math-init)
    (set! *js-Math* (instantiate::Js-Math
 		      (props (make-props-hashtable))
-		      (proto *js-Object-prototype*)))
-
+		      (proto (js-object-prototype))))
+   
    (globals-tmp-add! (lambda () (global-runtime-add! 'Math *js-Math*)))
    (js-property-safe-set! *js-Math*
 			  "abs"

@@ -2,7 +2,7 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-natives ;; undefined, null, ...
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-Object
 	   jsre-Date

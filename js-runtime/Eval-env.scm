@@ -4,7 +4,7 @@
 	   jsre-global-object
 	   jsre-scope-object
 	   jsre-natives ;; undefined, null, ...
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-Object
 	   jsre-Date

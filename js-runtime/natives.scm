@@ -1,6 +1,6 @@
 (module jsre-natives
    (import jsre-object
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-globals-tmp
 	   jsre-global-object
 	   jsre-scope-object)

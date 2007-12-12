@@ -8,7 +8,7 @@
 	   jsre-Number
 	   jsre-Bool
 	   jsre-natives
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
@@ -17,7 +17,6 @@
 	   )
    (export
     *js-Function* ;; can be modified by user -> can't be ::procedure
-    *js-Function-prototype*::Js-Object
     (class Js-Function::Js-Object
        new::procedure       ;; when called as a function. by default raises an error.
        construct::procedure ;; when called as constructor. Usually same as 'fun'.
@@ -43,7 +42,7 @@
 (define *function-prototype-initialized?* #f)
 
 (define (js-function-prototype)
-   (if (not *function-prototype-initialized?*)
+   (unless *function-prototype-initialized?*
        (let ((proto (instantiate::Js-Object
 		       (props (make-props-hashtable))
 		       (proto (js-object-prototype)))))
@@ -69,7 +68,7 @@
 				  
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
    (let ((proto (or (js-object (js-property-safe-get f-o "prototype"))
-		    *js-Object-prototype*)))
+		    (js-object-prototype))))
       (instantiate::Js-Object
 	 (props (make-props-hashtable))
 	 (proto proto))))

@@ -7,7 +7,7 @@
 	   jsre-String
 	   jsre-Number
 	   jsre-natives
-	   jsre-exceptions
+	   jsre-Error
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
@@ -16,7 +16,6 @@
 	   )
    (export *js-Bool* ;; can be modified by user -> can't be ::procedure
 	   *js-Bool-orig*::procedure
-	   *js-Bool-prototype*::Js-Object
 	   (class Js-Bool::Js-Object
 	      val::bool)
 	   (Bool-init)))
@@ -41,7 +40,7 @@
    (let ((bool-object (procedure-object *js-Bool*))
 	 (prototype (instantiate::Js-Bool
 		       (props (make-props-hashtable))
-		       (proto *js-Object-prototype*)
+		       (proto (js-object-prototype))
 		       (val #f))))
       (set! *js-Bool-prototype* prototype)
       (js-property-generic-set! bool-object
