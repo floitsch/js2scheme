@@ -184,5 +184,6 @@
    (this.traverse0!)
    (let ((decl (Decl-of-new-Var (gensym 'with))))
       (set! decl.var.internal? #t)
+      (set! decl.var.no-let? #t)
       (set! this.obj decl)
       this))
