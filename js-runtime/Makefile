@@ -1,6 +1,5 @@
 CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
-#TARGETNAMES	= test repl
 TARGETNAMES	= repl
 
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
@@ -10,15 +9,13 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 
 RUNTIME_BGL_INCLUDES = macros.sch
 
-TEST_BGL_MODULES = test
 REPL_BGL_MODULES = repl
 
 RUNTIME_OBJECTS = $(RUNTIME_BGL_MODULES:%=o/%.o)
 RUNTIME_SOURCES = $(RUNTIME_BGL_MODULES:%=%.scm)
-TEST_OBJECTS = $(TEST_BGL_MODULES:%=o/%.o)
 REPL_OBJECTS = $(REPL_BGL_MODULES:%=o/%.o)
 
-OBJECTS	= $(RUNTIME_OBJECTS) $(TEST_OBJECTS) $(REPL_OBJECTS)
+OBJECTS	= $(RUNTIME_OBJECTS) $(REPL_OBJECTS)
 SOURCES		= $(OBJECTS:o/%.o=%.scm)
 
 INCLUDES	= macros.sch
@@ -42,15 +39,6 @@ extract-globals: extract-globals.scm
 runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
 	cat $(RUNTIME_SOURCES) | ./extract-globals > $@
 
-test.scm:
-	touch $@
-
-o/test.o: test.scm
-	$(BIGLOO) -c -copt -g -copt -O0 -o $@ $^
-
-test: $(RUNTIME_OBJECTS) $(TEST_OBJECTS)
-	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
-
 repl: $(RUNTIME_OBJECTS) $(REPL_OBJECTS)
 	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
 
@@ -64,7 +52,11 @@ o/eval.o: eval.scm $(RUNTIME_BIGL_INCLUDES)
 	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
 
 o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -c -g -o $@ $<
+	$(BIGLOO) -c -copt -g -copt -O0 -g -o $@ $<
+
+# for js2scm-comp script
+%.exe: $(RUNTIME_OBJECTS) o/%.o
+	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
 
 clean:
-	rm -f $(OBJECTS) $(TEST_OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
+	rm -f $(OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;

@@ -88,15 +88,17 @@
 (define (toString)
    (js-fun this #f #f ()
 	   (if (not (Js-String? this))
-	       (type-error (with-output-to-string
-			      (lambda () (display-circle this))))
+	       (type-error (string-append
+			    "String-toString applied to "
+			    (any->safe-string this)))
 	       (Js-String-str this))))
 	   
 (define (valueOf)
    (js-fun this #f #f ()
 	   (if (not (Js-String? this))
-	       (type-error (with-output-to-string
-			      (lambda () (display-circle this))))
+	       (type-error (string-append
+			    "String-valueOf applied to "
+			    (any->safe-string this)))
 	       (Js-String-str this))))
 
 (define (replace)

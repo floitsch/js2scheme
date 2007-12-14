@@ -2,6 +2,9 @@
    (include "macros.sch")
    (import jsre-object
 	   jsre-Function
+	   jsre-Array
+	   jsre-Math
+	   jsre-Arguments
 	   jsre-scope-object
 	   jsre-primitives
 	   jsre-natives
@@ -28,7 +31,9 @@
 	   (undeclared-error id)
 	   (syntax-error msg)
 	   (eval-error msg)
-	   (delete-error msg)))
+	   (delete-error msg)
+	   (any->safe-string::bstring any)
+	   (error->js-exception e)))
 
 (define *js-Error* #unspecified)
 (define *js-Error-orig* #unspecified)
@@ -138,7 +143,7 @@
     (msg)
     (unless (js-undefined? msg)
        (js-property-safe-set! this "message"
-			      (any->string msg)))
+			      (any->safe-string msg)))
     this))
 
 (define (Error-construct::Js-Error f-o::Js-Function)
@@ -151,9 +156,9 @@
     this #f #f ()
     (if (not (Js-Error? this))
 	"ERROR"
-	(string-append (any->string (js-property-safe-get this "name"))
+	(string-append (any->safe-string (js-property-safe-get this "name"))
 		       ": "
-		       (any->string (js-property-safe-get this "message"))))))
+		       (any->safe-string (js-property-safe-get this "message"))))))
 
 (define (range-error val)
    (raise (js-new *js-Range-Error-orig* val)))
@@ -175,4 +180,60 @@
    (tprint *js-Type-Error-orig*)
    (raise (js-new *js-Type-Error-orig*
 		  (string-append "can't delete "
-				 (any->string msg)))))
+				 (any->safe-string msg)))))
+
+(define (error->js-exception e)
+   (cond
+      ((&type-error? e)
+       (js-new *js-Type-Error-orig*
+	       (string-append (any->safe-string (&error-msg e))
+			      ": "
+			      (any->safe-string (&error-obj e)))))
+      ((&error? e)
+       (js-new *js-Error-orig*
+	       (any->safe-string (&error-msg e))))
+      ((&exception? e)
+       (js-new *js-Error-orig*
+	       "unknown exception"))
+      (else e)))
+
+(define (any->safe-string any)
+   (define (double->string::bstring v::double)
+      (cond
+	 ((NaN? v) "NaN")
+	 ((<fl v 0.0)
+	  (string-append "-" (double->string (-fl 0.0 v))))
+	 ((+infinity? v) "Infinity")
+	 ((=fl (floorfl v) v)
+	  (llong->string (flonum->llong v)))
+	 (else
+	  (number->string v))))
+   (cond
+      ((string? any) any)
+      ((eq? any *js-Null*) "null")
+      ((eq? any *js-Undefined*) "undefined")
+      ((boolean? any) (if any
+		       "true"
+		       "false"))
+      ((flonum? any) (double->string any))
+      ((Js-Arguments? any) "Arguments")
+      ((Js-Array? any) "Array")
+      ((Js-Bool? any) (if (Js-Bool-val any)
+			  "Bool<true>"
+			  "Bool<false>"))
+      ((Js-Date? any) (format "Date<~a>" any))
+      ((Js-Function? any) "Function-object")
+      ((Js-Math? any) "Math")
+      ((Js-Number? any) (format "Number<~a>" (Js-Number-value any)))
+      ((Js-String? any) (format "String<~a>" (Js-String-str any)))
+      ((Js-Error? any)
+       (let ((name (js-property-safe-get any "name"))
+	     (msg (js-property-safe-get any "message")))
+	  (if (and (string? name)
+		   (string? msg))
+	      (string-append name ": " msg)
+	      (format "Error <~a ~a>" name msg))))
+      ((Js-Object? any) "Js-Object")
+      (else
+       (with-output-to-string (lambda ()
+				 (write-circle any))))))

@@ -12,17 +12,30 @@
 	   jsre-Bool
 	   jsre-global-object
 	   jsre-scope-object)
-   (export (inline js-boolify::bool any)
-	   (inline any->bool::bool any)
-	   (inline js-string->number str)
-	   (inline any->number any)
-	   (inline any->primitive any hint)
-	   (inline any->integer any)
-	   (inline any->int32 any)
-	   (inline any->uint32 any)
-	   (inline any->uint16 any)
-	   (inline any->string::bstring any)
-	   (inline any->object::Js-Object any)
+;    (export (inline js-boolify::bool any)
+; 	   (inline any->bool::bool any)
+; 	   (inline js-string->number str)
+; 	   (inline any->number any)
+; 	   (inline any->primitive any hint)
+; 	   (inline any->integer any)
+; 	   (inline any->int32 any)
+; 	   (inline any->uint32 any)
+; 	   (inline any->uint16 any)
+; 	   (inline any->string::bstring any)
+; 	   (inline any->object::Js-Object any)
+; 	   (js-object any) ;; TODO we really need a better name...
+; 	   (js-object->primitive o::Js-Object hint::symbol)))
+   (export (js-boolify::bool any)
+	   (any->bool::bool any)
+	   (js-string->number str)
+	   (any->number any)
+	   (any->primitive any hint)
+	   (any->integer any)
+	   (any->int32 any)
+	   (any->uint32 any)
+	   (any->uint16 any)
+	   (any->string::bstring any)
+	   (any->object::Js-Object any)
 	   (js-object any) ;; TODO we really need a better name...
 	   (js-object->primitive o::Js-Object hint::symbol)))
 
@@ -38,7 +51,7 @@
       (else
        #f)))
    
-(define-inline (js-boolify::bool any)
+(define (js-boolify::bool any)
    (cond
       ((boolean? any) any)
       ((js-undefined? any) #f)
@@ -49,17 +62,17 @@
 	    (not (NaN? any))))
       (else #t)))
 
-(define-inline (any->bool::bool any)
+(define (any->bool::bool any)
    (js-boolify any))
 
-(define-inline (js-string->number str) ;; TODO: number
+(define (js-string->number str) ;; TODO: number
    (let ((n (string->number str)))
       (cond
 	 ((not n) (NaN))
 	 ((exact? n) (exact->inexact n))
 	 (else n))))
 
-(define-inline (any->number any)
+(define (any->number any)
    (cond
       ((number? any) (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
@@ -85,7 +98,11 @@
 	      (let ((toString-prim (toString)))
 		 (if (primitive? toString-prim)
 		     toString-prim
-		     (type-error "TODO"))))))
+		     (type-error (string-append
+				  "could not convert to primitive type: "
+				  (with-output-to-string
+				     (lambda ()
+					(write-circle o))))))))))
       ((string)
        (let ((toString-prim (toString)))
 	  (if (primitive? toString-prim)
@@ -93,10 +110,14 @@
 	      (let ((valueOf-prim (valueOf)))
 		 (if (primitive? valueOf-prim)
 		     valueOf-prim
-		     (type-error "TODO"))))))))
+		     (type-error (string-append
+				  "could not convert to primitive type: "
+				  (with-output-to-string
+				     (lambda ()
+					(write-circle o))))))))))))
 
 ;; hint may be either #f, 'string or 'number
-(define-inline (any->primitive any hint)
+(define (any->primitive any hint)
    (cond
       ((js-object any)
        =>
@@ -107,7 +128,7 @@
 	      (js-object->primitive o (or hint 'number)))))
       (else any)))
 
-(define-inline (any->integer any)
+(define (any->integer any)
    (define (sign n)
       (if (>=fl n 0.0)
 	  1.0
@@ -123,7 +144,7 @@
 	 (else
 	  (*fl (sign nb) (floor nb))))))
 
-(define-inline (any->int32 any)
+(define (any->int32 any)
    (let ((nb (any->number any)))
       (cond
 	 ((or (NaN? nb)
@@ -135,7 +156,7 @@
 	  ;; TODO
 	  (inexact->exact nb)))))
 
-(define-inline (any->uint32 any)
+(define (any->uint32 any)
    (let ((nb (any->number any)))
       (cond
 	 ((or (NaN? nb)
@@ -147,7 +168,7 @@
 	  ;; TODO
 	  (inexact->exact nb)))))
    
-(define-inline (any->uint16 any)
+(define (any->uint16 any)
    (let ((nb (any->number any)))
       (cond
 	 ((or (NaN? nb)
@@ -160,7 +181,7 @@
 	  0))))
 
 
-(define-inline (any->string::bstring any)
+(define (any->string::bstring any)
    (define (any->string2::bstring any)
       (cond
 	 ((string? any) any)
@@ -196,7 +217,7 @@
       (else
        (any->string2 (any->primitive any 'string)))))
 
-(define-inline (any->object::Js-Object any)
+(define (any->object::Js-Object any)
    (cond
       ((or (eq? any *js-Null*)
 	   (eq? any *js-Undefined*))

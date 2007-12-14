@@ -139,7 +139,9 @@
    (js-fun this #f #f ()
 	   (cond
 	      ((not (Js-Date? this))
-	       (type-error "TODO"))
+	       (type-error (string-append
+			    "Date-valueOf applied to "
+			    (any->safe-string this))))
 	      ((not (date? (Js-Date-bdate this)))
 	       (NaN))
 	      (else

@@ -85,13 +85,16 @@
 (define (toString)
    (js-fun this #f #f ()
 	   (if (not (Js-Bool? this))
-	       (type-error (with-output-to-string
-			      (lambda () (display-circle this))))
+	       (type-error (string-append
+			    "Bool-toString applied to "
+			    (any->safe-string this)))
 	       (let ((val (Js-Bool-val this)))
 		  (if val "true" "false")))))
 
 (define (valueOf)
    (js-fun this #f #f ()
 	   (if (not (Js-Bool? this))
-	       (type-error "TODO")
+	       (type-error (string-append
+			    "Bool-valueOf applied to "
+			    (any->safe-string this)))
 	       (Js-Bool-val this))))

@@ -176,8 +176,8 @@
 (define (toString)
    (js-fun this #f #f ()
 	   (if (not (Js-Array? this))
-	       (type-error (with-output-to-string
-			      (lambda () (display-circle this))))
+	       (type-error (string-append "Array-toString applied to "
+					  (any->safe-string this)))
 	       (join-array this (js-undefined)))))
 
 (define (join)
