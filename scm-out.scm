@@ -431,11 +431,20 @@
    `(raise ,(this.expr.traverse)))
 
 (define-pmethod (Try-out)
-   (let ((inner (if this.catch
-		    `(with-handler
-			,(this.catch.traverse)
-			,(this.body.traverse))
-		    (this.body.traverse))))
+   ;; trampoline-style
+   ;; with-handlers are executed before the surrounding unwind-protects.
+   ;; -> wrap the result into a lambda.
+   ;;    same goes for catch-clause.
+   ;; the catch-clause is then executed after the body and all unwind-protects.
+   (let* ((tmp (gensym 'tmp))
+	  (inner (if this.catch
+		     `((with-handler
+			  ;; catch must return a trampoline
+			  ,(this.catch.traverse)
+			  (let ((,tmp ,(this.body.traverse)))
+			     (lambda ()
+				,tmp))))
+		     (this.body.traverse))))
       (if this.finally
 	  `(unwind-protect
 	      ,inner
@@ -447,13 +456,16 @@
 	 (exc-js-id this.decl.var.id)
 	 (obj-id (this.obj.var.compiled-id))
 	 (compiled-body (this.body.traverse)))
+      ;; the exc-scm-id is assigned in the Try-clause.
       `(lambda (,exc-scm-id)
-	  (let ((,obj-id (js-create-scope-object (js-object-literal '()))))
-	     (scope-var-add ,obj-id
-			    ,(symbol->string exc-js-id)
-			    ,exc-scm-id
-			    (dont-delete-attributes))
-	     ,compiled-body))))
+	  (lambda ()
+	     (let* ((,exc-scm-id (error->js-exception ,exc-scm-id))
+		    (,obj-id (js-create-scope-object (js-object-literal '()))))
+		(scope-var-add ,obj-id
+			       ,(symbol->string exc-js-id)
+			       ,exc-scm-id
+			       (dont-delete-attributes))
+		,compiled-body)))))
 
 (define-pmethod (Named-fun-out)
    (let ((fun-scm-id (this.decl.var.compiled-id))
