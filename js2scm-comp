@@ -1,9 +1,32 @@
 #!/bin/bash
-TMPFILE=`mktemp /tmp/js2scheme.XXXXXXXXXX`  || exit 1
+TMPFILE=`mktemp /tmp/js2scheme.XXXXX`  || exit 1
 
 JS2SCHEME_PATH=/home/flo/programming/js/js-tools
 JS2SCHEME_RUNTIME_PATH=$JS2SCHEME_PATH/js-runtime
 
-echo '(error #f "compilation-error" #f)' > $JS2SCHEME_RUNTIME_PATH/test.scm
-cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && cat $JS2SCHEME_RUNTIME_PATH/MODULE_HEAD $TMPFILE $JS2SCHEME_RUNTIME_PATH/MODULE_TAIL > $JS2SCHEME_RUNTIME_PATH/test.scm && cd $JS2SCHEME_RUNTIME_PATH && make test && rm test.scm && echo "Executing:" && ./test
+SCMTMPFILE=`mktemp $JS2SCHEME_RUNTIME_PATH/js2scheme.XXXXX`  || exit 1
+
+echo "TMPFILE: " $TMPFILE
+echo "SCMTMPFILE: " $SCMTMPFILE.scm
+echo "TARGET: " `basename $SCMTMPFILE`
+
+TARGET=`basename $SCMTMPFILE`.exe
+
+echo '(error #f "compilation-error" #f)' > $TMPFILE.scm
+cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && \
+ cat $JS2SCHEME_RUNTIME_PATH/MODULE_HEAD $TMPFILE $JS2SCHEME_RUNTIME_PATH/MODULE_TAIL > $SCMTMPFILE.scm && \
+ cd $JS2SCHEME_RUNTIME_PATH && \
+ make $TARGET && \
+ echo "Executing:" && \
+ ./$TARGET
+
+EXIT_STATUS=$?
+
+rm -f $TMPFILE
+rm -f $SCMTMPFILE.scm
+rm -f $SCMTMPFILE.exe
+rm -f $JS2SCHEME_RUNTIME_PATH/o/`basename $SCMTMPFILE`.o
+rm -f $SCMTMPFILE
+
+exit $EXIT_STATUS
 #cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && cat $JS2SCHEME_RUNTIME_PATH/MODULE_HEAD $TMPFILE $JS2SCHEME_RUNTIME_PATH/MODULE_TAIL > $JS2SCHEME_RUNTIME_PATH/test.scm && cd $JS2SCHEME_RUNTIME_PATH && make test && echo "Executing:" && ./test
