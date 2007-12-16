@@ -86,7 +86,8 @@
    #f)
 
 (define (toString)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "String.toString"
+	   ()
 	   (if (not (Js-String? this))
 	       (type-error (string-append
 			    "String-toString applied to "
@@ -94,7 +95,8 @@
 	       (Js-String-str this))))
 	   
 (define (valueOf)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "String.valueOf"
+	   ()
 	   (if (not (Js-String? this))
 	       (type-error (string-append
 			    "String-valueOf applied to "
@@ -103,4 +105,5 @@
 
 (define (replace)
    ;; TODO
-   (js-fun this #f #f (seachValue replaceValue) (any->string this)))
+   (js-fun this #f #f "String.replace"
+	   (seachValue replaceValue) (any->string this)))

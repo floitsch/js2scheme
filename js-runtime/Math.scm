@@ -29,13 +29,16 @@
    (globals-tmp-add! (lambda () (global-runtime-add! 'Math *js-Math*)))
    (js-property-safe-set! *js-Math*
 			  "abs"
-			  (js-fun #f #f #f (val)
+			  (js-fun #f #f #f "Math.abs"
+				  (val)
 				  (abs val)))
    (js-property-safe-set! *js-Math*
 			  "floor"
-			  (js-fun #f #f #f (val)
+			  (js-fun #f #f #f "Math.floor"
+				  (val)
 				  (floor val)))
    (js-property-safe-set! *js-Math*
 			  "pow"
-			  (js-fun #f #f #f (x power)
+			  (js-fun #f #f #f "Math.pow"
+				  (x power)
 				  (expt x power))))

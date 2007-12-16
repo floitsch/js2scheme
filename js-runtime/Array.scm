@@ -174,14 +174,17 @@
 			  (+ 1 i))))))))
    
 (define (toString)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "Array.toString"
+	   ()
 	   (if (not (Js-Array? this))
 	       (type-error (string-append "Array-toString applied to "
 					  (any->safe-string this)))
 	       (join-array this (js-undefined)))))
 
 (define (join)
-   (js-fun this #f #f (sep) (join-array this sep)))
+   (js-fun this #f #f "Array.join"
+	   (sep)
+	   (join-array this sep)))
 
 (define (arrays-concat nb-arrays get-array)
    (define (add-els new-a offset a)
@@ -218,7 +221,8 @@
 			     (+ new-length 1)))))))))
 
 (define (concat)
-   (js-fun this #f (nb-args get-arg) (first-arg)
+   (js-fun this #f (nb-args get-arg) "Array.concat"
+	   (first-arg)
 	   (arrays-concat (+ nb-args 1)
 			  (lambda (i)
 			     (if (zero? i)

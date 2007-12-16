@@ -127,24 +127,18 @@
    "Error")
 
 (define (Error-lambda)
-   (letrec ((error-proc (js-fun-lambda
-			 #f
-			 #f
-			 #f
-			 (msg)
-			 (js-new error-proc msg))))
+   (letrec ((error-proc (js-fun-lambda #f #f #f
+				       (msg)
+				       (js-new error-proc msg))))
       error-proc))
 
 (define (Error-new)
-   (js-fun-lambda
-    this
-    #f
-    #f
-    (msg)
-    (unless (js-undefined? msg)
-       (js-property-safe-set! this "message"
-			      (any->safe-string msg)))
-    this))
+   (js-fun-lambda this #f #f
+		  (msg)
+		  (unless (js-undefined? msg)
+		     (js-property-safe-set! this "message"
+					    (any->safe-string msg)))
+		  this))
 
 (define (Error-construct::Js-Error f-o::Js-Function)
    (instantiate::Js-Error
@@ -152,13 +146,15 @@
       (proto (js-property-safe-get f-o "prototype"))))
 
 (define (toString)
-   (js-fun
-    this #f #f ()
-    (if (not (Js-Error? this))
-	"ERROR"
-	(string-append (any->safe-string (js-property-safe-get this "name"))
-		       ": "
-		       (any->safe-string (js-property-safe-get this "message"))))))
+   (js-fun this #f #f "Error.toString"
+	   ()
+	   (if (not (Js-Error? this))
+	       "ERROR"
+	       (string-append (any->safe-string
+			       (js-property-safe-get this "name"))
+			      ": "
+			      (any->safe-string
+			       (js-property-safe-get this "message"))))))
 
 (define (range-error val)
    (raise (js-new *js-Range-Error-orig* val)))
@@ -191,7 +187,9 @@
 			      (any->safe-string (&error-obj e)))))
       ((&error? e)
        (js-new *js-Error-orig*
-	       (any->safe-string (&error-msg e))))
+	       (format "~a: ~a"
+		       (any->safe-string (&error-msg e))
+		       (any->safe-string (&error-obj e)))))
       ((&exception? e)
        (js-new *js-Error-orig*
 	       "unknown exception"))

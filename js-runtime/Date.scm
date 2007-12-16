@@ -48,7 +48,8 @@
       ;; TODO: all the attributes are probably wrong
       (js-property-safe-set! prototype
 			     "getTimezoneOffset"
-			     (js-fun #f #f #f ()
+			     (js-fun #f #f #f "Date.getTimezoneOffset"
+				     ()
 				     ;; TODO: number
 				     0.0))
       (js-property-safe-set! prototype
@@ -56,18 +57,12 @@
 			     (valueOf))))
 
 (define (Date-lambda)
-   (js-fun-lambda
-    #f
-    #f
-    #f
+   (js-fun-lambda #f #f #f
     ()
     (date->string (current-date))))
 
 (define (Date-new)
-   (js-fun-lambda
-    this
-    #f
-    (nb-args get-arg)
+   (js-fun-lambda this #f (nb-args get-arg)
     ()
     (case nb-args
        ((0) (Js-Date-bdate-set! this (current-date)))
@@ -136,7 +131,8 @@
    (current-date))
 
 (define (valueOf)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "Date.valueOf"
+	   ()
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error (string-append

@@ -20,7 +20,7 @@
     (class Js-Function::Js-Object
        new::procedure       ;; when called as a function. by default raises an error.
        construct::procedure ;; when called as constructor. Usually same as 'fun'.
-       text-repr::bstring)
+       text-repr)
     (js-function-prototype)
     (register-function-object!
 	    js-lambda::procedure
@@ -64,7 +64,11 @@
       (js-property-generic-set! fun-object
 			       "prototype"
 			       prototype
-			       (prototype-attributes))))
+			       (prototype-attributes))
+      (js-property-generic-set! prototype
+			       "toString"
+			       (toString)
+			       (built-in-attributes))))
 				  
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
    (let ((proto (or (js-object (js-property-safe-get f-o "prototype"))
@@ -110,9 +114,7 @@
    (hashtable-get *js-function-objects-ht* p))
 
 (define (Function-lambda)
-   (js-fun
-    #f #f ;; don't need 'this' and 'this-callee'
-    (nb-args get-arg)
+   (js-fun-lambda #f #f (nb-args get-arg)
     ()
     (let loop ((i 0)
 	       (args "")
@@ -130,3 +132,14 @@
 	   (loop (+ i 1)
 		 (string-append args "," (any->string (get-arg i)))
 		 body))))))
+
+(define (toString)
+   (js-fun this #f #f "Function.toString"
+	   ()
+	   (if (not (Js-Function? this))
+	       (type-error (string-append "Function-toString applied to "
+					  (any->safe-string this)))
+	       (let ((str (Js-Function-text-repr this)))
+		  (if (string? str)
+		      str
+		      (substring (car str) (cadr str) (caddr str)))))))

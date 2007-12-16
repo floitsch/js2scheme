@@ -8,6 +8,7 @@
       (when (and (pair? (cdr args))
 		 (string=? (cadr args) "-v"))
 	 (hashtable-put! config-ht 'verbose #t))
+      (hashtable-put! config-ht 'function-strings #t)
       (let ((in-p (current-input-port)))
 	 (pp (js2scheme in-p config-ht))
 	 'done)))

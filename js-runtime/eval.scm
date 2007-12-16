@@ -23,6 +23,9 @@
    (if (not (string? prog))
        prog
        (let* ((config (let ((ht (make-hashtable)))
+			 ;; evaled-string is there anyways.
+			 ;; no need to hide the function-string
+			 (hashtable-put! ht 'function-strings #t)
 			 ;(hashtable-put! ht 'verbose #t)
 			 ht))
 	      (p (open-input-string prog))

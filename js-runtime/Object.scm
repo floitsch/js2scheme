@@ -104,11 +104,13 @@
 ;; Properties
 ;; ===================================
 (define (valueOf)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "Object.valueOf"
+	   ()
 	   this))
 
 (define (toString)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "Object.toString"
+	   ()
 	   (string-append "[object "
 			  (js-object->string this)
 			  "]")))

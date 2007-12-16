@@ -24,7 +24,9 @@
 	   let
 	   statements
 	   arguments
-	   scm-out)
+	   scm-out
+	   statements
+	   js-out)
    (export (js2scheme in-p config)
 	   (js2scheme-eval in-p config top-level-obj env top-level-this))
    (from verbose))
@@ -69,6 +71,8 @@
       (set! ast.top-level-obj top-level-obj)
       (set! ast.env env)
       (set! ast.top-level-this top-level-this)
+      (statements ast)
+      (js-out ast)
       (fun-bindings! ast)
       (expand4! ast)
       (symbol-resolution! ast '())

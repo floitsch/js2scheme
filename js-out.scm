@@ -8,64 +8,27 @@
 	   nodes
 	   var
 	   verbose)
-   (export (js-out tree::pobject p)))
+   (export (js-out tree::pobject . Lp)))
 
-(define (js-out tree p)
-   (verbose "js-out")
-   (overload traverse out (Node
-			   Program
-			   Block
-			   Sequence
-			   Var-decl-list
-			   Var-ref
-			   NOP
-			   If
-			   For
-			   While
-			   Do
-			   For-in
-			   Continue
-			   Break
-			   Return
-			   With
-			   Switch
-			   Case
-			   Default
-			   Throw
-			   Try
-			   Catch
-			   Labelled
-			   Fun-binding
-			   Named-fun
-			   Fun
-			   Vassig
-			   Vassig-op
-			   Accsig
-			   Accsig-op
-			   Cond
-			   Call
-			   Binary
-			   Unary
-			   Postfix
-			   New
-			   Access
-			   Dot
-			   This
-			   Literal
-			   Undefined
-			   Null
-			   Bool
-			   Number
-			   String
-			   Array
-			   Obj-init
-			   Reg-exp)
-	     (overload out out (Var)
-		       (with-output-to-port p
-			  (lambda ()
-			     (assign-priorities!)
-			     (tree.traverse #f 0 #f))))))
+;; this module has two purposes:
+;; - pretty print of JavaScript
+;; - get the function-strings. A function's toString has to return a textual
+;; representation of the function. This module generates this string.
+;;
+;; without port, js-out simply assigns a str-property to Funs.
+;; otherwise the whole program is printed into the given port.
 
+(define (js-out tree . Lp)
+   ;; procedure-body at end of file
+
+(define *generate-function-strings?* #unspecified)
+
+(define *function-out-str-port* #unspecified)
+(define *inside-function?* #f)
+(define *function-str-id* '?)
+(define *function-strings-ht* (make-hashtable))
+
+   
 (define (assign-priorities!)
    (define (assign-priority! n-sym priority)
       (set! (node n-sym).proto.priority (pmethod () priority)))
@@ -191,7 +154,9 @@
    (Block-out-without-braces this.body
 			     #f
 			     0
-			     #f))
+			     #f)
+   (when *generate-function-strings?*
+      (set! this.function-str-ids-ht *function-strings-ht*)))
 
 (define-pmethod (Sequence-out priority indent in-for-in?)
    (check-expr
@@ -238,7 +203,9 @@
 
 (define-pmethod (Var-ref-out priority indent in-for-in?)
    (check-expr
-    (this.var.out)))
+    (if this.var
+	(this.var.out)
+	(display this.id))))
 
 (define-pmethod (NOP-out priority indent in-for-in?)
    (indent! indent)
@@ -270,13 +237,13 @@
    (display "for")
    (space-out)
    (display "(")
-   (this.init.traverse #f (indent+ indent) #f)
+   (when this.init (this.init.traverse #f (indent+ indent) #f))
    (display ";")
    (space-out)
-   (this.test.traverse #f (indent+ indent) #f)
+   (when this.test (this.test.traverse #f (indent+ indent) #f))
    (display ";")
    (space-out)
-   (this.incr.traverse #f (indent+ indent) #f)
+   (when this.incr (this.incr.traverse #f (indent+ indent) #f))
    (display ")")
    (block-body this.body indent #f #t))
 
@@ -423,14 +390,41 @@
    (display ")"))
 
 (define (function-out fun name indent)
-   (display "function")
-   (if name
-       (begin
-	  (display " ")
-	  (name.traverse #f indent #f)))
-   (parameter-display fun.params indent)
-   (block-body (stmt->block fun.body)
-	       indent #f #f))
+   (define (do-function-out)
+      (display "function")
+      (if name
+	  (begin
+	     (display " ")
+	     (name.traverse #f indent #f)))
+      (parameter-display fun.params indent)
+      (block-body (stmt->block fun.body)
+		  indent #f #f))
+
+   (cond
+      ((and *generate-function-strings?*
+	    (not *inside-function?*))
+       ;; top-level function
+       (let ((str-port (open-output-string))
+	     (fun-str-id (gensym 'fun-str)))
+	  (set! *function-str-id* fun-str-id)
+	  (set! *function-out-str-port* str-port)
+	  (set! *inside-function?* #t)
+	  (with-output-to-port str-port do-function-out)
+	  (let ((str (close-output-port str-port)))
+	     (hashtable-put! *function-strings-ht*
+			     fun-str-id
+			     str)
+	     (set! fun.str (list fun-str-id 0 (string-length str)))
+	     (set! *inside-function?* #f))))
+      (*generate-function-strings?*
+       (let ((start-pos (string-length
+			 (flush-output-port *function-out-str-port*))))
+	  (do-function-out)
+	  (let ((end-pos (string-length
+			  (flush-output-port *function-out-str-port*))))
+	     (set! fun.str (list *function-str-id* start-pos end-pos)))))
+      (else
+       (do-function-out))))
 
 (define-pmethod (Fun-binding-out priority indent in-for-in?)
    (indent! indent)
@@ -640,3 +634,72 @@
 (define-pmethod (Reg-exp-out priority indent in-for-in?)
    (check-expr
     (display this.pattern)))
+
+
+;; ========================================================================
+;; main procedure starts here
+;; ========================================================================
+  (when (or (not (null? Lp))
+	    (config 'function-strings))
+   (verbose "js-out")
+   (let ((p (if (null? Lp)
+		;; (Funs will replace the port)
+		(open-output-procedure (lambda (str) 'ignore))
+		(car Lp))))
+      (set! *generate-function-strings?* (null? Lp))
+      (assign-priorities!)
+      (overload traverse out (Node
+			      Program
+			      Block
+			      Sequence
+			      Var-decl-list
+			      Var-ref
+			      NOP
+			      If
+			      For
+			      While
+			      Do
+			      For-in
+			      Continue
+			      Break
+			      Return
+			      With
+			      Switch
+			      Case
+			      Default
+			      Throw
+			      Try
+			      Catch
+			      Labelled
+			      Fun-binding
+			      Named-fun
+			      Fun
+			      Vassig
+			      Vassig-op
+			      Accsig
+			      Accsig-op
+			      Cond
+			      Call
+			      Binary
+			      Unary
+			      Postfix
+			      New
+			      Access
+			      Dot
+			      This
+			      Literal
+			      Undefined
+			      Null
+			      Bool
+			      Number
+			      String
+			      Array
+			      Obj-init
+			      Reg-exp)
+		;; Var is not always assigned yet.
+		;; if it isn't then just the Var-ref.id is used (see
+		;; Var-ref-out)
+		(overload out out (Var)
+			  (with-output-to-port p
+			     (lambda ()
+				(tree.traverse #f 0 #f))))))))

@@ -118,7 +118,7 @@
 		 (else
 		  `(begin ,@Lbody)))))))
 
-(define-macro (js-fun this this-callee arguments formals . Lbody)
+(define-macro (js-fun this this-callee arguments text-repr formals . Lbody)
    (let ((tmp-f (gensym 'f)))
       `(let* ((,tmp-f (js-fun-lambda ,this
 				     ,this-callee
@@ -132,7 +132,7 @@
 				     create-empty-object-lambda
 				     fun-prototype ;; prototype
 				     ,(length formals) ;; nb args
-				     "TODO") ;; text-representation
+				     ,text-repr) ;; text-representation
 	  ,tmp-f)))
 
 (define-macro (js-new f . Largs)

@@ -36,9 +36,9 @@
    (this.else.traverse #t))
 
 (define-pmethod (For-stmts stmt?)
-   (this.init.traverse #f)
-   (this.test.traverse #f)
-   (this.incr.traverse #f)
+   (when this.init (this.init.traverse #f))
+   (when this.test (this.test.traverse #f))
+   (when this.incr (this.incr.traverse #f))
    (this.body.traverse #t))
 
 (define-pmethod (While-stmts stmt?)

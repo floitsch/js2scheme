@@ -61,18 +61,12 @@
 			       (built-in-attributes))))
 
 (define (Bool-lambda)
-   (js-fun-lambda
-    #f
-    #f
-    #f
+   (js-fun-lambda #f #f #f
     (value)
     (any->bool value)))
 
 (define (Bool-new)
-   (js-fun-lambda
-    #f
-    #f
-    #f
+   (js-fun-lambda #f #f #f
     (value)
     (instantiate::Js-Bool
        (props (make-props-hashtable))
@@ -83,7 +77,8 @@
    #f)
 
 (define (toString)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "Boolean.toString"
+	   ()
 	   (if (not (Js-Bool? this))
 	       (type-error (string-append
 			    "Bool-toString applied to "
@@ -92,7 +87,8 @@
 		  (if val "true" "false")))))
 
 (define (valueOf)
-   (js-fun this #f #f ()
+   (js-fun this #f #f "Boolean.valueOf"
+	   ()
 	   (if (not (Js-Bool? this))
 	       (type-error (string-append
 			    "Bool-valueOf applied to "

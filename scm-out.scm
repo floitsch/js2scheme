@@ -3,6 +3,7 @@
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))
    (import parser
+	   config
 	   protobject
 	   nodes
 	   var
@@ -269,7 +270,11 @@
 		     (not (inherits-from? var (node 'This-var))))
 		  this.declared-globals)))
       (if (not in-eval?)
-	  `(let ((this ,tl-this))
+	  `(let ((this ,tl-this)
+		 ,@(if (config 'function-strings)
+		       (hashtable-map this.function-str-ids-ht
+				      list)
+		       '()))
 	      ,@(map (lambda (var)
 			`(define ,(var.compiled-id) (js-undefined)))
 		     declared-globals-w/o-this)
@@ -289,7 +294,11 @@
 	  ;; declared globals: if the var is a declared function, than it
 	  ;; must replace the original entry (including the attributes).
 	  ;; otherwise just make sure there is an entry.
-	  `(let ((this ,tl-this))
+	  `(let ((this ,tl-this)
+		 ,@(if (config 'function-strings)
+		       (hashtable-map this.function-str-ids-ht
+				      list)
+		       '()))
 	      ,@(map (lambda (var)
 			(let ((id-str (symbol->string var.id)))
 			   (if var.fun?
@@ -528,6 +537,9 @@
       `(js-fun ,compiled-this
 	       #f ;; no this-fun (only accessible through arguments)
 	       ,compiled-arguments
+	       ,(if (config 'function-strings)
+		    `(list ,@this.str)
+		    (symbol->string (gensym "function")))
 	       (,@compiled-params)
 	       ,compiled-body)))
 
