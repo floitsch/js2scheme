@@ -46,7 +46,10 @@
 (define-inline (-infinity? v) (eqv? v *-infinity*))
 (define *NaN* (/fl 0.0 0.0))
 (define-inline (NaN) *NaN*)
-(define-inline (NaN? v) (eqv? *NaN* v))
+;; HACK: NaN?
+(define-inline (NaN? v) (and (real? v)
+			     (not (equal? v (*fl v 1.0)))))
+;;(define-inline (NaN? v) (eqv? *NaN* v))
 
 (define-inline (js-property-safe-get o::Js-Object prop::bstring)
    ;(write-circle o)(print)

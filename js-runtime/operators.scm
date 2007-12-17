@@ -14,61 +14,195 @@
 	   jsre-global-object
 	   jsre-scope-object
 	   jsre-globals-tmp)
-   (export (inline jsop-+ v1 v2)
-	   (inline jsop-- v1 v2)
+   (export
+	   (inline jsop-property-delete! obj prop)
+	   (inline jsop-typeof v)
 	   (inline jsop-unary-- v)
 	   (inline jsop-unary-+ v)
-	   (inline jsop-/ v1 v2)
+	   (inline jsop-~ v)
+	   (inline jsop-! v)
 	   (inline jsop-* v1 v2)
+	   (inline jsop-/ v1 v2)
 	   (inline jsop-% v1 v2)
-	   (inline jsop-=== v1 v2)
-	   (inline jsop-== v1 v2)
-	   (inline jsop-!= v1 v2)
+	   (inline jsop-+ v1 v2)
+	   (inline jsop-- v1 v2)
+	   (inline jsop-<< v1 v2)
+	   (inline jsop->> v1 v2)
+	   (inline jsop->>> v1 v2)
 	   (inline jsop-< v1 v2)
 	   (inline jsop-> v1 v2)
-	   (inline jsop->= v1 v2)
 	   (inline jsop-<= v1 v2)
-	   (inline jsop-! v)
-	   (inline jsop-&& v1 v2)
-	   (inline jsop-OR v1 v2)
-	   (inline jsop-typeof v)
+	   (inline jsop->= v1 v2)
+	   (jsop-instanceof v1 v2)
+	   (jsop-in v1 v2)
+	   (inline jsop-!= v1 v2)
+	   (inline jsop-== v1 v2)
+	   (inline jsop-!== v1 v2)
+	   (inline jsop-=== v1 v2)
+	   (inline jsop-& v1 v2)
+	   (inline jsop-^ v1 v2)
+	   (inline jsop-BIT_OR v1 v2)
+	   
+	   ;; && and || are in macros.sch
+	   ;; (macro jsop-&& e1 e2)
+	   ;; (macro jsop-OR e1 e2)
+
 	   (inline jsop-any->object expr)
-	   (inline jsop-property-delete! obj prop)))
+	   ))
 
-;; TODO: operators are not yet spec-conform
+;; base must not be undefined or null (which can only happen for
+;; undeclared variables anyways.
+(define-inline (jsop-property-delete! base prop)
+   ;; mostly similar to js-property-get
+   (let ((o-typed (any->object base))
+	 (prop-typed (any->string prop)))
+      (js-property-safe-delete! o-typed prop-typed)))
 
-(define-inline (jsop-+ v1 v2)
+(define-inline (jsop-typeof v)
    (cond
-      ((string? v1)
-       (if (string? v2)
-	   (string-append v1 v2)
-	   (string-append v1 (any->string v2))))
-      ((string? v2)
-       (string-append (any->string v1) v2))
+      ((string? v) "string")
+      ((number? v) "number")
+      ((boolean? v) "boolean")
+      ((procedure? v) "function")
+      ((js-undefined? v) "undefined")
+      ((js-null? v) "object")
+      ((js-undeclared? v) "undefined")
+      ((Js-Object? v) "object")
       (else
-       (+fl (any->number v1) (any->number v2)))))
-
-(define-inline (jsop-- v1 v2)
-   (-fl (any->number v1) (any->number v2)))
-
-(define-inline (jsop-/ v1 v2)
-   (/ v1 v2))
-
-(define-inline (jsop-* v1 v2)
-   (* v1 v2))
-
-(define-inline (jsop-% v1 v2)
-   (let ((tmp (inexact->exact (/ v1 v2))))
-      (- v1 (* tmp v2))))
+       (print)
+       (display "-*")
+       (write-circle v)
+       (print "*-")
+       (error "jsop-typeof" "missed type " v))))
 
 (define-inline (jsop-unary-- v)
-   (- v))
+   (-fl 0.0 (any->number v)))
 
 (define-inline (jsop-unary-+ v)
-   v)
+   (any->number v))
 
-(define-inline (jsop-=== v1 v2)
-   (eq? v1 v2))
+(define-inline (jsop-~ v)
+   (let ((i (any->int32 v)))
+      (exact->inexact (bit-not i))))
+
+(define-inline (jsop-! v)
+   (not (any->bool v)))
+
+(define-inline (jsop-* v1 v2)
+   (let* ((n1 (any->number v1))
+	  (n2 (any->number v2)))
+      (*fl v1 v2)))
+
+(define-inline (jsop-/ v1 v2)
+   (let* ((n1 (any->number v1))
+	  (n2 (any->number v2)))
+      (/fl v1 v2)))
+
+(define-inline (jsop-% v1 v2)
+   (let* ((n1 (any->number v1))
+	  (n2 (any->number v2)))
+      (cond
+	 ((or (NaN? n1)
+	      (NaN? n2)
+	      (+infinity? n1)
+	      (-infinity? n1)
+	      ;; TODO: numbers (+- 0)
+	      (=fl n2 0.0))
+	  (NaN))
+	 ((=fl n1 0.0) ;; TODO: or (-0)
+	  n1)
+	 (else
+	  (let ((tmp (inexact->exact (/fl n1 n2))))
+	     (- n1 (* tmp n2)))))))
+
+(define-inline (jsop-+ v1 v2)
+   (let* ((lhs (any->primitive v1 #f))
+	  (rhs (any->primitive v2 #f)))
+      (cond
+	 ((string? lhs)
+	  (if (string? rhs)
+	      (string-append lhs rhs)
+	      (string-append lhs (any->string rhs))))
+	 ((string? rhs)
+	  (string-append (any->string lhs) rhs))
+	 (else
+	  (let* ((n1 (any->number lhs))
+		 (n2 (any->number rhs)))
+	     ;; TODO: numbers +- 0
+	     (+fl n1 n2))))))
+
+(define-inline (jsop-- v1 v2)
+   (let* ((n1 (any->number v1))
+	  (n2 (any->number v2)))
+      (-fl n1 n2)))
+
+(define-inline (jsop-<< v1 v2)
+   (let* ((n1 (any->int32 v1))
+	  (n2 (any->uint32 v2)))
+      (exact->inexact (bit-lsh n1 n2))))
+
+(define-inline (jsop->> v1 v2)
+   (let* ((n1 (any->int32 v1))
+	  (n2 (any->uint32 v2)))
+      (exact->inexact (bit-rsh n1 n2))))
+
+(define-inline (jsop->>> v1 v2)
+   (let* ((n1 (any->uint32 v1))
+	  (n2 (any->uint32 v2)))
+      (exact->inexact (bit-ursh n1 n2))))
+
+(define-inline (jsop-< v1 v2)
+   (let* ((p1 (any->primitive v1 'number))
+	  (p2 (any->primitive v2 'number)))
+      (if (and (string? p1) (string? p2))
+	  (string<? p1 p2)
+	  (let* ((n1 (any->number p1))
+		 (n2 (any->number p2)))
+	     (cond
+		((or (NaN? n1) (NaN? n2))
+		 (js-undefined))
+		(else
+		 (<fl v1 v2)))))))
+
+(define-inline (jsop-> v1 v2)
+   (let ((tmp (jsop-< v2 v1)))
+      (if (js-undefined? tmp)
+	  #f
+	  tmp)))
+
+(define-inline (jsop-<= v1 v2)
+   (not (jsop-< v2 v1)))
+
+(define-inline (jsop->= v1 v2)
+   (not (jsop-< v1 v2)))
+
+(define (jsop-instanceof v1 v2)
+   (unless (procedure? v2)
+      (type-error v2))
+   (let ((obj1 (js-object v1)))
+      (unless obj1
+	 (type-error v1))
+      (let* ((prototype (js-property-safe-get (js-object v2) "prototype"))
+	     (prototype-obj (js-object prototype)))
+	 (unless prototype-obj
+	    (type-error prototype))
+	 (let loop ((obj1 obj1))
+	    (let ((proto (Js-Object-proto obj1)))
+	       (cond
+		  ((js-null? proto)
+		   #f)
+		  ((eq? proto prototype-obj)
+		   #t)
+		  (else
+		   (loop proto))))))))
+
+(define (jsop-in v1 v2)
+   (let ((obj2 (js-object v2)))
+      (unless obj2
+	 (type-error v2))
+      (let ((str1 (any->string v1)))
+	 (and (js-property-contains obj2 str1)
+	      #t))))
 
 (define-inline (jsop-== v1 v2)
    (cond
@@ -113,51 +247,36 @@
 (define-inline (jsop-!= v1 v2)
    (not (jsop-== v1 v2)))
 
-(define-inline (jsop-< v1 v2)
-   (< v1 v2))
-
-(define-inline (jsop-> v1 v2)
-   (> v1 v2))
-
-(define-inline (jsop-<= v1 v2)
-   (<= v1 v2))
-
-(define-inline (jsop->= v1 v2)
-   (>= v1 v2))
-
-(define-inline (jsop-! v)
-   (not (any->bool v)))
-
-(define-inline (jsop-&& v1 v2)
-   (and (any->bool v1) v2))
-
-(define-inline (jsop-OR v1 v2)
-   (or (any->bool v1) v2))
-
-(define-inline (jsop-typeof v)
+(define-inline (jsop-=== v1 v2)
    (cond
-      ((string? v) "string")
-      ((number? v) "number")
-      ((boolean? v) "boolean")
-      ((procedure? v) "function")
-      ((js-undefined? v) "undefined")
-      ((js-null? v) "object")
-      ((js-undeclared? v) "undefined")
-      ((Js-Object? v) "object")
+      ((eq? v1 v2) #t)
+      ((string? v1)
+       (and (string? v2)
+	    (string=? v1 v2)))
+      ((real? v1)
+       (and (real? v2)
+	    (equal? v1 v2))) ;; TODO: verify. shouldn't eqv? be sufficient
+      ;; TODO: handle +-0
       (else
-       (print)
-       (display "-*")
-       (write v)
-       (print "*-")
-       (error "jsop-typeof" "missed type " v))))
+       #f)))
 
-;; base must not be undefined or null (which can only happen for
-;; undeclared variables anyways.
-(define-inline (jsop-property-delete! base prop)
-   ;; mostly similar to js-property-get
-   (let ((o-typed (any->object base))
-	 (prop-typed (any->string prop)))
-      (js-property-safe-delete! o-typed prop-typed)))
+(define-inline (jsop-!== v1 v2)
+   (not (jsop-=== v1 v2)))
+
+(define-inline (jsop-& v1 v2)
+   (let* ((n1 (any->int32 v1))
+	  (n2 (any->int32 v2)))
+      (exact->inexact (bit-and n1 n2))))
+
+(define-inline (jsop-^ v1 v2)
+   (let* ((n1 (any->int32 v1))
+	  (n2 (any->int32 v2)))
+      (exact->inexact (bit-xor n1 n2))))
+
+(define-inline (jsop-BIT_OR v1 v2)
+   (let* ((n1 (any->int32 v1))
+	  (n2 (any->int32 v2)))
+      (exact->inexact (bit-or n1 n2))))
 
 (define-inline (jsop-any->object expr)
    (any->object expr))

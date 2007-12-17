@@ -212,3 +212,12 @@
 				    ,ref
 				    ,attributes))))
 
+(define-macro (jsop-&& e1 e2)
+   `(and (any->bool ,e1) ,e2))
+
+(define-macro (jsop-OR e1 e2)
+   (let ((tmp (gensym 'tmp)))
+      `(let ((,tmp ,e1))
+	  (if (any->bool ,tmp)
+	      ,tmp
+	      ,e2))))

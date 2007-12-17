@@ -67,7 +67,7 @@
    (let loop ((bindings '()))
       (let ((expr (read)))
 	 (if (eof-object? expr)
-	     (print `(define *runtime-variables* ',bindings))
+	     (pp `(define *runtime-variables* ',bindings))
 	     (loop (append
 		    (if (pair? expr)
 			(cond
@@ -76,7 +76,7 @@
 			   ((eq? (car expr) 'define-inline)
 			    (extract-operator expr))
 			   ((eq? (car expr) 'define-macro)
-			    '())
+			    (extract-operator expr))
 			   (else
 			    (search-for-global-adds expr)))
 			'())

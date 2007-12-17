@@ -593,9 +593,23 @@
 		(inherits-from? (car this.args) (node 'Var-ref)))
 	   ;; we need to use .typeof to avoid undeclared error
 	   `(,(this.op.var.compiled-id) ,((car this.args).var.typeof)))
-	  (else
+	  ((or (eq? this.op.var.id '&&)
+	       (eq? this.op.var.id 'OR))
+	   ;; not really operator calls, but macros.
+	   ;; do not add the 'let'.
 	   `(,(this.op.var.compiled-id) ;; operator call.
-	     ,@(map-node-compile this.args))))
+	     ,@(map-node-compile this.args)))
+	  (else
+	   (let* ((compiled-args (map-node-compile this.args))
+		  (tmp-ids (map (lambda (arg) (gensym 'tmp))
+				compiled-args))
+		  (bindings (map (lambda (tmp-id arg)
+				    (list tmp-id arg))
+				 tmp-ids
+				 compiled-args)))
+	   `(let* ,bindings
+	       (,(this.op.var.compiled-id) ;; operator call.
+		,@tmp-ids)))))
        `(js-call ,(this.op.traverse)
 		 #f
 		 ,@(map-node-compile this.args))))

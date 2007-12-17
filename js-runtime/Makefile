@@ -36,8 +36,8 @@ targets: $(TARGETNAMES) #j$(TARGETNAME)
 extract-globals: extract-globals.scm
 	$(BIGLOO) -g -o $@ $^
 
-runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
-	cat $(RUNTIME_SOURCES) | ./extract-globals > $@
+runtime-variables.sch: extract-globals $(RUNTIME_SOURCES) macros.sch
+	cat $(RUNTIME_SOURCES) macros.sch | ./extract-globals > $@
 
 repl: $(RUNTIME_OBJECTS) $(REPL_OBJECTS)
 	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
