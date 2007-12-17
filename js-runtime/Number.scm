@@ -39,9 +39,22 @@
    (globals-tmp-add! (lambda () (global-runtime-add! 'Number *js-Number*)))
    ;; TODO: add other properties (like prototype...) ?
    (let ((o (js-object *js-Number*)))
-      (js-property-safe-set! o
-			     "POSITIVE_INFINITY"
-			     (+infinity))))
+      (js-property-generic-set! o
+				"POSITIVE_INFINITY"
+				(+infinity)
+				(prototype-attributes))
+      (js-property-generic-set! o
+				"NEGATIVE_INFINITY"
+				(-infinity)
+				(prototype-attributes))
+      (js-property-generic-set! o
+				"NEGATIVE_INFINITY"
+				(-infinity)
+				(prototype-attributes))
+      (js-property-generic-set! o
+				"NaN"
+				(NaN)
+				(prototype-attributes))))
 
 (define (Number-lambda)
    (js-fun-lambda
