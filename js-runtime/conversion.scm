@@ -57,7 +57,7 @@
       ((js-undefined? any) #f)
       ((js-null? any) #f)
       ((string? any) (not (string=? any "")))
-      ((number? any) ;; TODO
+      ((real? any) ;; TODO
        (and (not (=fl any 0.0))
 	    (not (NaN? any))))
       (else #t)))
