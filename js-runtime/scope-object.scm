@@ -32,6 +32,17 @@
 (define-method (js-object->string::bstring o::Js-Scope-Object)
    "scope-object should never be seen")
 
+(define-method (js-property-one-level-contains? o::Js-Scope-Object
+						prop::bstring)
+   (js-scope-one-level-property-contains? o prop))
+(define-method (js-property-is-enumerable? o::Js-Scope-Object
+					   prop::bstring)
+   (if (js-scope-one-level-property-contains? o prop)
+       (with-access::Js-Object o (props)
+	  (with-access::Property-entry (hashtable-get props prop) (attr)
+	     (with-access::Attributes attr (enumerable)
+		enumerable)))
+       #f))
 (define-method (js-property-contains o::Js-Scope-Object prop::bstring)
    (with-access::Js-Object o (props proto)
       (let ((ht-entry (hashtable-get props prop)))

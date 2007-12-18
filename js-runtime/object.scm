@@ -12,6 +12,8 @@
     (class Js-Object
        (props read-only) ;; hashtable
        (proto::Js-Object read-only)) ;; prototype
+    (generic js-property-one-level-contains?::bool o::Js-Object prop::bstring)
+    (generic js-property-is-enumerable? o::Js-Object prop::bstring)
     (generic js-property-contains o::Js-Object prop::bstring)
     (generic js-property-generic-set!
 	     o::Js-Object prop::bstring
@@ -19,6 +21,7 @@
     (generic js-property-update! o::Js-Object prop::bstring new-val)
     (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
     (generic js-object->string::bstring o::Js-Object)
+    (generic add-enumerables o::Js-Object enumerables-ht shadowed-ht)
 
     (inline make-props-hashtable)
     (default-attributes)    ;; default attributes for common properties.
@@ -103,6 +106,20 @@
 (define (dont-enum-dont-delete-attributes)
    *dont-enum-dont-delete-attributes*)
 
+(define-generic (js-property-one-level-contains?::bool o::Js-Object
+						       prop::bstring)
+   (with-access::Js-Object o (props)
+      (and (hashtable-get props prop)
+	   #t)))
+(define-generic (js-property-is-enumerable? o::Js-Object
+					    prop::bstring)
+   (with-access::Js-Object o (props)
+      (let ((ht-entry (hashtable-get props prop)))
+	 (if ht-entry
+	     (with-access::Property-entry ht-entry (attr)
+		(with-access::Attributes attr (enumerable)
+		   enumerable))
+	     #f))))
 (define-generic (js-property-contains o::Js-Object prop::bstring)
    (with-access::Js-Object o (props proto)
       (let* ((ht-entry (hashtable-get props prop))
@@ -169,17 +186,22 @@
    ;; TODO
    "Object")
 
-(define-generic (add-enumerables o::Js-Object ht)
+(define-generic (add-enumerables o::Js-Object enumerables-ht shadowed-ht)
    (with-access::Js-Object o (props proto)
-      (hashtable-for-each props
-			  (lambda (key obj)
-			     (with-access::Attributes (cdr obj) (enumerable)
-				(if enumerable
-				    (hashtable-put! ht key #t)))))
-      (unless (eq? proto 'null)
-	 (add-enumerables proto ht))))
+      (hashtable-for-each
+       props
+       (lambda (key obj)
+	  (unless (hashtable-get shadowed-ht key)
+	     (hashtable-put! shadowed-ht key #t)
+	     (with-access::Property-entry obj (attr)
+		(with-access::Attributes attr (enumerable)
+		   (if enumerable
+		       (hashtable-put! enumerables-ht key #t)))))))
+      ;; no need to test for null. null overloads add-enumerables
+      (add-enumerables proto enumerables-ht shadowed-ht)))
 
 (define-inline (js-properties-list::pair-nil o::Js-Object)
-   (let ((ht (make-string-hashtable)))
-      (add-enumerables o ht)
-      (hashtable-key-list ht)))
+   (let ((enumerables-ht (make-string-hashtable))
+	 (shadowed-ht (make-string-hashtable)))
+      (add-enumerables o enumerables-ht shadowed-ht)
+      (hashtable-key-list enumerables-ht)))

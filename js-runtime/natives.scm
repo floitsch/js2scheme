@@ -48,6 +48,12 @@
 			     (proto undeclared))))
       undeclared))
 
+(define-method (js-property-one-level-contains? o::Js-Undefined prop::bstring)
+   #f)
+(define-method (js-property-is-enumerable? o::Js-Undefined prop::bstring)
+   #f)
+(define-method (add-enumerables o::Js-Undefined enumerables-ht shadowed-ht)
+   'do-nothing)
 (define-method (js-property-contains o::Js-Undefined prop::bstring)
    #f) ;; when null is the prototype, then it should simply return #f
 (define-method (js-property-generic-set! o::Js-Undefined prop::bstring
@@ -61,6 +67,12 @@
    "undefined")
 
 
+(define-method (js-property-one-level-contains? o::Js-Null prop::bstring)
+   #f)
+(define-method (js-property-is-enumerable? o::Js-Null prop::bstring)
+   #f)
+(define-method (add-enumerables o::Js-Null enumerables-ht shadowed-ht)
+   'do-nothing)
 (define-method (js-property-contains o::Js-Null prop::bstring)
    #f) ;; when null is the prototype, then it should simply return #f
 (define-method (js-property-generic-set! o::Js-Null prop::bstring
@@ -74,6 +86,12 @@
    "null")
 
 
+(define-method (js-property-one-level-contains? o::Js-Undeclared prop::bstring)
+   (undeclared-error #f))
+(define-method (js-property-is-enumerable? o::Js-Undeclared prop::bstring)
+   (undeclared-error #f))
+(define-method (add-enumerables o::Js-Undeclared enumerables-ht shadowed-ht)
+   (undeclared-error #f))
 (define-method (js-property-contains o::Js-Undeclared prop::bstring)
    (undeclared-error #f))
 (define-method (js-property-generic-set! o::Js-Undefined prop::bstring

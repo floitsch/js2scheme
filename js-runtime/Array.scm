@@ -25,10 +25,22 @@
 (define *js-Array* (tmp-js-object))
 (define *js-Array-prototype* (tmp-js-object))
 
+(define-method (js-property-one-level-contains? o::Js-Array prop::bstring)
+   (if (string=? prop "length")
+       #t
+       (call-next-method)))
+(define-method (js-property-is-enumerable? o::Js-Array prop::bstring)
+   (if (string=? prop "length")
+       #f
+       (call-next-method)))
 (define-method (js-property-contains o::Js-Array prop::bstring)
    (if (string=? prop "length")
        (exact->inexact (Js-Array-length o))
        (call-next-method)))
+
+(define-method (add-enumerables o::Js-Array enumerables-ht shadowed-ht)
+   (hashtable-put! shadowed-ht "length" #t)
+   (call-next-method))
 
 (define-method (js-property-generic-set! o::Js-Array prop::bstring
 					 new-val attributes)

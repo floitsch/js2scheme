@@ -27,15 +27,15 @@
 	   ))
 
 (define jsg-NaN (NaN))
-(global-special-add! 'NaN
+(global-special-add! 'NaN ;; 15.1.1.1
 		     jsg-NaN
 		     (dont-enum-dont-delete-attributes))
 (define jsg-Infinity (+infinity))
-(global-special-add! 'Infinity
+(global-special-add! 'Infinity ;; 15.1.1.2
 		     jsg-Infinity
 		     (dont-enum-dont-delete-attributes))
 (define jsg-undefined (js-undefined))
-(global-special-add! 'undefined
+(global-special-add! 'undefined ;; 15.1.1.3
 		     jsg-undefined
 		     (dont-enum-dont-delete-attributes))
 
@@ -45,16 +45,16 @@
    (define (scmprint to-print)
       (write-circle to-print)
       (print))
-   (define (eval prog)
+   (define (eval prog) ;; 15.1.2.1
       (eval-error prog))
-   (define (isNaN number)
+   (define (isNaN number) ;; 15.1.2.4
       (NaN? (any->number number)))
-   (define (isFinite number)
+   (define (isFinite number) ;; 15.1.2.5
       (let ((n (any->number number)))
 	 (not (or (NaN? n)
 		  (+infinity? n)
 		  (-infinity? n)))))
-   (define (parseInt string radix)
+   (define (parseInt string radix) ;; 15.1.2.2
       (let* ((s (any->string string))
 	     (str-len (string-length s))
 	     (sign (if (or (string-null? s)
