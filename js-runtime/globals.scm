@@ -55,6 +55,10 @@
 		  (+infinity? n)
 		  (-infinity? n)))))
    (define (parseInt string radix) ;; 15.1.2.2
+      (define (white-space? c)
+	 ;; TODO: not spec-conform
+	 (char-whitespace? c))
+      
       (let* ((s (any->string string))
 	     (str-len (string-length s))
 	     (sign (if (or (string-null? s)
@@ -108,10 +112,17 @@
 				   (+fx 10 (-fx ci (char->integer #\A))))
 				  (else
 				   99)))) ;; some big value
-		       (if (<fx cv R)
+		       (cond
+			  ((<fx cv R)
 			   (loop (+ i 1)
 				 (+ (* R res) cv)
-				 #t)
-			   (loop str-len ;; let the first case do its job.
+				 #t))
+			  ((and (not found-char)
+				(white-space? c))
+			   (loop (+ i 1)
 				 res
-				 found-char))))))))))
+				 found-char))
+			  (else ;; loop with i == str-len. -> finishes
+			   (loop str-len
+				 res
+				 found-char)))))))))))
