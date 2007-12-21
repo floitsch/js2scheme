@@ -51,7 +51,9 @@
       (let ((token (consume-any!)))
 	 (if (eq? (car token) type)
 	     (cdr token)
-	     (error token "unexpected token. expected " type))))
+	     (error token
+		    (format "unexpected token. expected ~a got: " type)
+		    (car token)))))
    
    (define (consume-statement-semicolon!)
       (cond
@@ -521,22 +523,28 @@
 		(else
 		 expr))
 	     expr)))
-   
+
+   ;; we start by getting all news (new-expr)
+   ;; the remaining access and calls are then caught by the access-or-call
+   ;; invocation allowing call-parenthesis.
+   ;;
+   ;; the access-or-call in new-expr does not all any parenthesis to be
+   ;; consumed as they would be part of the new-expr.
    (define (lhs)
-      (new-expr #t))
-   
-   (define (new-expr call-allowed?)
+      (access-or-call (new-expr) #t))
+
+   (define (new-expr)
       (if (eq? (peek-token-type) 'new)
 	  (let* ((ignore (consume-any!))
-		 (class (new-expr #f))
+		 (class (new-expr))
 		 (args (if (eq? (peek-token-type) 'LPAREN)
 			   (arguments)
 			   '())))
 	     (new-node New class args))
-	  (access-or-call call-allowed?)))
+	  (access-or-call (primary) #f)))
    
-   (define (access-or-call call-allowed?)
-      (let loop ((expr (primary)))
+   (define (access-or-call expr call-allowed?)
+      (let loop ((expr expr))
 	 (case (peek-token-type)
 	    ((LBRACKET) (let* ((ignore (consume-any!))
 			       (field (expression #f))
