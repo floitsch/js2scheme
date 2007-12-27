@@ -195,7 +195,8 @@
 	  (obj w.obj)
 	  (intercepted this.intercepted))
       `(if (js-property-contains ,(obj.traverse) ,id-str)
-	   (js-property-safe-set! ,(obj.traverse) ,id-str ,val)
+	   ;; do not use generic-set! here
+	   (js-property-update! ,(obj.traverse) ,id-str ,val)
 	   ,(intercepted.set! val))))
 (define-pmethod (This-var-set! val)
    (error "Var-set!"
@@ -626,20 +627,9 @@
 			   ,((cadr this.args).traverse)))
 
 (define-pmethod (Method-call-out)
-   (let ((tmp-o (gensym 'o))
-	 (tmp-field (gensym 'field))
-	 (tmp-object-o (gensym 'object-o))
-	 (tmp-string-field (gensym 'string-field)))
-      ;; we need all these tmp-variables, to ensure the correct order of
-      ;; evaluation.
-      `(let* ((,tmp-o ,(this.op.obj.traverse))
-	      (,tmp-field ,(this.op.field.traverse))
-	      (,tmp-object-o (any->object ,tmp-o))
-	      (,tmp-string-field (any->string ,tmp-field)))
-	  (js-call (js-property-safe-get ,tmp-object-o
-					 ,tmp-string-field)
-		   ,tmp-object-o
-		   ,@(map-node-compile this.args)))))
+   `(js-method-call ,(this.op.obj.traverse)
+		    ,(this.op.field.traverse)
+		    ,@(map-node-compile this.args)))
 
 (define-pmethod (Eval-call-out)
    (let* ((t (gensym 'tmp))

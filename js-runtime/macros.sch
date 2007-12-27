@@ -28,6 +28,29 @@
 		   ,@named-params
 		   ,(list 'quasiquote rest-vec))))))
 
+(define-macro (js-method-call o m . Largs)
+   (if (and (symbol? o)
+	    (string? m))
+       (let ((tmp-o (gensym 'o)))
+	  `(let ((,tmp-o (any->object ,o)))
+	      (js-call (js-property-safe-get ,tmp-o ,m)
+		       ,tmp-o
+		       ,@Largs)))
+       (let ((tmp-o (gensym 'o))
+	     (tmp-field (gensym 'field))
+	     (tmp-object-o (gensym 'object-o))
+	     (tmp-string-field (gensym 'string-field)))
+	  ;; we need all these tmp-variables, to ensure the correct order of
+	  ;; evaluation.
+	  `(let* ((,tmp-o ,o)
+		  (,tmp-field ,m)
+		  (,tmp-object-o (any->object ,tmp-o))
+		  (,tmp-string-field (any->string ,tmp-field)))
+	      (js-call (js-property-safe-get ,tmp-object-o
+					     ,tmp-string-field)
+		       ,tmp-object-o
+		       ,@Largs)))))
+
 (define-macro (js-fun-lambda maybe-this
 			     maybe-this-callee
 			     arguments
