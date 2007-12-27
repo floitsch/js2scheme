@@ -59,8 +59,6 @@
 (define-method (js-property-generic-set! o::Js-Undefined prop::bstring
 					 new-val attributes)
    (type-error "undefined"))
-(define-method (js-property-update! o::Js-Undefined prop::bstring new-val)
-   #f)
 (define-method (js-property-safe-delete! o::Js-Undefined prop::bstring)
    #t) ;; property is not in Object -> return true
 (define-method (js-object->string::bstring o::Js-Undefined)
@@ -78,8 +76,6 @@
 (define-method (js-property-generic-set! o::Js-Null prop::bstring
 					 new-val attributes)
    (type-error "null"))
-(define-method (js-property-update! o::Js-Null prop::bstring new-val)
-   #f)
 (define-method (js-property-safe-delete! o::Js-Null prop::bstring)
    #t) ;; property is not in Object -> return true
 (define-method (js-object->string::bstring o::Js-Null)
@@ -97,8 +93,6 @@
 (define-method (js-property-generic-set! o::Js-Undefined prop::bstring
 					 new-val attributes)
    (undeclared-error #f))
-(define-method (js-property-update! o::Js-Undeclared prop::bstring new-val)
-   #f)
 (define-method (js-property-safe-delete! o::Js-Undeclared prop::bstring)
    (undeclared-error #f))
 (define-method (js-object->string::bstring o::Js-Undeclared)

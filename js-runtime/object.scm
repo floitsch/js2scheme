@@ -18,7 +18,6 @@
     (generic js-property-generic-set!
 	     o::Js-Object prop::bstring
 	     new-val attributes)
-    (generic js-property-update! o::Js-Object prop::bstring new-val)
     (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
     (generic js-object->string::bstring o::Js-Object)
     (generic add-enumerables o::Js-Object enumerables-ht shadowed-ht)
@@ -153,18 +152,6 @@
        (instantiate::Property-entry
 	  (val new-value)
 	  (attr (or attributes (default-attributes)))))))
-
-;; if no attributes are given, the default-attributes are used.
-(define-generic (js-property-update! o::Js-Object prop::bstring new-value)
-   (with-access::Js-Object o (props proto)
-      (let* ((entry (hashtable-get props prop)))
-	 (if entry
-	     (with-access::Property-entry entry (attr val)
-		(with-access::Attributes attr (read-only)
-		   (when (not read-only)
-		      (set! val new-value))
-		   #t)) ;; return true: we knew how to handle this.
-	     (js-property-update! proto prop new-value)))))
 
 (define-generic (js-property-safe-delete!::bool o::Js-Object prop::bstring)
    (with-access::Js-Object o (props)

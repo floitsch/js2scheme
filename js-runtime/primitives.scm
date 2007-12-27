@@ -16,6 +16,7 @@
 	   (inline js-property-safe-get o::Js-Object prop::bstring)
 	   ;; returns the given value
 	   (inline js-property-safe-set! o::Js-Object prop::bstring new-val)
+	   (js-property-update! o::Js-Object prop::bstring new-val)
 	   (inline +infinity::double)
 	   (inline -infinity::double)
 	   (inline NaN::double)
@@ -64,3 +65,14 @@
 (define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)
    (js-property-generic-set! o prop (mangle-false new-value) #f)
    new-value)
+
+(define (js-property-update! o::Js-Object prop::bstring new-value)
+   (cond
+      ((js-null? o) #f)
+      ((js-property-one-level-contains? o prop)
+       (js-property-generic-set! o prop new-value #f)
+       #t)
+      (else
+       (with-access::Js-Object o (proto)
+	  (js-property-update! proto prop new-value)))))
+
