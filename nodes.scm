@@ -254,12 +254,19 @@
 (set! Return.proto (empty-pobject Node))
 (proto-traverses Return expr)
 
-(define-node (With obj body)
-   (set! this.obj obj)
-   (set! this.intercepted '())
+;; should never be used directly
+(define-node (Intercept body)
+   (set! this.obj-id (gensym 'intercepted))
    (set! this.body body))
-(set! With.proto (empty-pobject Node))
-(proto-traverses With obj (intercepted) body)
+(set! Intercept.proto (empty-pobject Node))
+(proto-traverses Intercept body)
+   
+(define-node (With obj body)
+   (set! this.obj-id (gensym 'with))
+   (set! this.obj obj)
+   (set! this.body body))
+(set! With.proto (empty-pobject Intercept))
+(proto-traverses With obj body)
 
 (define-node (Obj-init props)
    (set! this.props props))
@@ -274,14 +281,12 @@
 ;; possible as neither the Named-Fun nor the exception can be
 ;; deleted. (Otherwise a delete would remove the scope-object element and then
 ;; 'show' the object-element.).
-(define-node (Decl-With decl body)
+(define-node (Decl-Intercept decl body)
+   (set! this.obj-id (gensym 'decl-with))
    (set! this.decl decl)
-   ;; this.obj will be replaced in expand1.
-   (set! this.obj (new Obj-init '()))
-   (set! this.intercepted '())
    (set! this.body body))
-(set! Decl-With.proto (empty-pobject With))
-(proto-traverses Decl-With decl obj (intercepted) body)
+(set! Decl-Intercept.proto (empty-pobject Intercept))
+(proto-traverses Decl-Intercept decl body)
 
 (define-node (Switch key cases)
    (set! this.key key)
@@ -322,12 +327,11 @@
 (proto-traverses Try body ?catch ?finally)
 
 (define-node (Catch exception body)
+   (set! this.obj-id (gensym 'catch))
    (set! this.decl exception)
-   (set! this.obj (new Obj-init '()))
-   (set! this.intercepted '())
    (set! this.body body))
-(set! Catch.proto (empty-pobject Decl-With))
-(proto-traverses Catch decl obj (intercepted) body)
+(set! Catch.proto (empty-pobject Decl-Intercept))
+(proto-traverses Catch decl body)
 
 (define-node (Labelled id body)
    (set! this.id id)
@@ -378,12 +382,11 @@
 (proto-traverses Fun-binding lhs val)
 
 (define-node (Named-fun decl fun)
-   (set! this.obj (new Obj-init '()))
-   (set! this.intercepted '())
+   (set! this.obj-id (gensym 'named-fun))
    (set! this.decl decl)
    (set! this.body fun))
-(set! Named-fun.proto (empty-pobject Decl-With))
-(proto-traverses Named-fun decl obj (intercepted) body)
+(set! Named-fun.proto (empty-pobject Decl-Intercept))
+(proto-traverses Named-fun decl body)
 
 (define-node (Fun params body)
    (set! this.params params)

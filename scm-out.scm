@@ -58,24 +58,24 @@
 			   Bind-exit
 			   Bind-exit-invoc)
 	     (overload access access (Var
-				      With-var
+				      Intercepted-var
 				      This-var
 				      Imported-var)
 	     (overload typeof typeof (Var
-				      With-var
+				      Intercepted-var
 				      This-var
 				      Imported-var)
              ;; set! must return the val (which is an expr!)
 	     (overload set! set! (Var
-				  With-var
+				  Intercepted-var
 				  This-var
 				  Imported-var)
 	     (overload delete delete (Var
-				      With-var
+				      Intercepted-var
 				      This-var
 				      Imported-var)
 	     (overload compiled-id compiled-id (Var
-						With-var
+						Intercepted-var
 						This-var
 						Imported-var)
 		       (overload traverse out (Label)
@@ -114,14 +114,13 @@
 	       (undeclared-error ',this.id)))
 	 (else
 	  scm-id))))
-(define-pmethod (With-var-access)
-   (let* ((w this.with)
-	  (id this.id)
+(define-pmethod (Intercepted-var-access)
+   (let* ((id this.id)
 	  (id-str (symbol->string id))
-	  (obj w.obj)
+	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,(obj.traverse) ,id-str)
-	   (js-property-safe-get ,(obj.traverse) ,id-str)
+      `(if (js-property-contains ,obj-id ,id-str)
+	   (js-property-safe-get ,obj-id ,id-str)
 	   ,(intercepted.access))))
 (define-pmethod (This-var-access)
    'this)
@@ -148,14 +147,13 @@
 	       ,(this.eval-next-var.typeof)))
 	 (this.global? scm-id)
 	 (else scm-id))))
-(define-pmethod (With-var-typeof)
-   (let* ((w this.with)
-	  (id this.id)
+(define-pmethod (Intercepted-var-typeof)
+   (let* ((id this.id)
 	  (id-str (symbol->string id))
-	  (obj w.obj)
+	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,(obj.traverse) ,id-str)
-	   (js-property-safe-get ,(obj.traverse) ,id-str)
+      `(if (js-property-contains ,obj-id ,id-str)
+	   (js-property-safe-get ,obj-id ,id-str)
 	   ,(intercepted.typeof))))
 (define-pmethod (This-var-typeof)
    'this)
@@ -188,15 +186,14 @@
 	  `(begin (set! ,scm-id ,val) ,scm-id))
 	 (else
 	  `(begin (set! ,scm-id ,val) ,scm-id)))))
-(define-pmethod (With-var-set! val)
-   (let* ((w this.with)
-	  (id this.id)
+(define-pmethod (Intercepted-var-set! val)
+   (let* ((id this.id)
 	  (id-str (symbol->string id))
-	  (obj w.obj)
+	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,(obj.traverse) ,id-str)
+      `(if (js-property-contains ,obj-id ,id-str)
 	   ;; do not use generic-set! here
-	   (js-property-update! ,(obj.traverse) ,id-str ,val)
+	   (js-property-update! ,obj-id ,id-str ,val)
 	   ,(intercepted.set! val))))
 (define-pmethod (This-var-set! val)
    (error "Var-set!"
@@ -215,20 +212,18 @@
 			,(symbol->string this.id)))
 	 (this.local-eval?
 	  `(if (not (js-undeclared? ,scm-id))
-	       (js-property-delete!
-		,(symbol->string (this.eval-obj-var.compiled-id))
-		',this.id)
+	       (js-property-delete! ,this.eval-obj-id
+				    ,(symbol->string this.id))
 	       ,(this.eval-next-var.delete)))
 	 (else
 	  #f))))
-(define-pmethod (With-var-delete)
-   (let* ((w this.with)
-	  (id this.id)
+(define-pmethod (Intercepted-var-delete)
+   (let* ((id this.id)
 	  (id-str (symbol->string id))
-	  (obj w.obj)
+	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,(obj.traverse) ,id-str)
-	   (jsop-property-delete! ,(obj.traverse) ,id-str)
+      `(if (js-property-contains ,obj-id ,id-str)
+	   (jsop-property-delete! ,obj-id ,id-str)
 	   ,(intercepted.delete))))
 (define-pmethod (This-var-delete)
    (error "Var-delete"
@@ -241,9 +236,9 @@
 
 (define-pmethod (Var-compiled-id)
    (get/assign-scm-id! this))
-(define-pmethod (With-var-compiled-id)
+(define-pmethod (Intercepted-var-compiled-id)
    (error "scm-out"
-	  "With-vars don't have any id. (internal error)"
+	  "Intercepted-vars don't have any id. (internal error)"
 	  this.id))
 (define-pmethod (This-var-compiled-id)
    'this)
@@ -362,13 +357,9 @@
 	      (object-for-in-attributes ,(this.obj.traverse))))
 
 (define-pmethod (With-out)
-   ;; the obj has already been replaced by a variable (expand1), but
    ;; the obj is not yet transformed to an object.
-   ;; shadow the old object-var with a variable of similar name, but with
-   ;; any->object applied:
-   (let ((obj-id (this.obj.var.compiled-id)))
-      `(let ((,obj-id (any->object ,obj-id)))
-	  ,(this.body.traverse))))
+   `(let ((,this.obj-id (any->object ,(this.obj.traverse))))
+       ,(this.body.traverse)))
 
 (define (make-clause default-clause? body-id expr body)
    (list default-clause? body-id expr body))
@@ -464,7 +455,7 @@
 (define-pmethod (Catch-out)
    (let ((exc-scm-id (this.decl.var.compiled-id))
 	 (exc-js-id this.decl.var.id)
-	 (obj-id (this.obj.var.compiled-id))
+	 (obj-id this.obj-id)
 	 (compiled-body (this.body.traverse)))
       ;; the exc-scm-id is assigned in the Try-clause.
       `(lambda (,exc-scm-id)
@@ -480,7 +471,7 @@
 (define-pmethod (Named-fun-out)
    (let ((fun-scm-id (this.decl.var.compiled-id))
 	 (fun-js-id this.decl.var.id)
-	 (obj-id (this.obj.var.compiled-id))
+	 (obj-id this.obj-id)
 	 (compiled-body (this.body.traverse)))
       `(let ((,obj-id (js-create-scope-object (js-object-literal '()))))
 	  (letrec ((,fun-scm-id ,compiled-body))
@@ -506,7 +497,7 @@
 				(hashtable->list this.locals-table)))
 	     (local-vars (filter (lambda (var) (not var.param?))
 				 fun-vars))
-	     (eval-obj-id (this.eval-obj-var.compiled-id)))
+	     (eval-obj-id this.eval-obj-id))
 	 `(let ((,eval-obj-id (js-create-scope-object))
 		,@(map (lambda (var)
 			  `(,(var.compiled-id) (js-undefined)))
@@ -645,8 +636,7 @@
 	      ;; we have a real eval here
 	      (js-eval ,((car this.args).traverse)
 		       ,tlo-id/obj this ,next-env
-		       ,@(map (lambda (v) (v.compiled-id))
-			      env-vars))
+		       ,@env-vars)
 	      (js-call ,t #f ,@(map-node-compile this.args))))))
 
 (define-pmethod (New-out)

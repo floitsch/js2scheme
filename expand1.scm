@@ -17,9 +17,6 @@
 ;; - replace x += exp with x = x + exp ...
 ;; - replace Calls that are actually method calls with Method-call
 ;; - replace void x; with (begin x, undefined)
-;; - (with expr body) is transformed into
-;;          (let ((tmp expr)) (with tmp body))
-;; - Decl-Withs however receive just a new decl.
 ;; - delete X is transformed to
 ;;    * delete o f (Delete-property-call) if X is of form o[f]
 ;;    * delete v   (Delete-call) otherwise
@@ -35,9 +32,7 @@
 				Call
 				Vassig-op
 				Accsig-op
-				Unary
-				With
-				Decl-With)
+				Unary)
 	     (tree.traverse!)))
 
 (define-pmethod (Node-expand!)
@@ -165,25 +160,3 @@
 			expr))))
 	 (else
 	  this))))
-
-(define-pmethod (With-expand!)
-   (this.traverse0!)
-   (let ((tmp-decl (Decl-of-new-Var (gensym 'with)))
-	 (old-expr this.obj))
-      (set! tmp-decl.var.internal? #t)
-      (set! this.obj (tmp-decl.var.reference))
-      (new-node Sequence
-	   `(,(new-node Vassig
-			tmp-decl
-			old-expr)
-	     ;; the tmp-variable is not yet an object.
-	     ;; scm-out still has to do that.
-	     ,this))))
-
-(define-pmethod (Decl-With-expand!)
-   (this.traverse0!)
-   (let ((decl (Decl-of-new-Var (gensym 'with))))
-      (set! decl.var.internal? #t)
-      (set! decl.var.no-let? #t)
-      (set! this.obj decl)
-      this))

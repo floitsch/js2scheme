@@ -19,7 +19,7 @@
 					 Program
 					 Fun
 					 With
-					 Decl-With
+					 Decl-Intercept
 					 Var-ref)
 	     (tree.traverse #f '())))
 
@@ -36,38 +36,45 @@
       (this.traverse2 symbol-table '())))
 
 (define-pmethod (Fun-with-interception symbol-table surrounding-withs)
-   (let ((extended-symbol-table (add-scope symbol-table
-					   this.locals-table)))
-      (when this.local-eval?
-	 (hashtable-for-each this.locals-table
-			     (lambda (id var)
-				(when (not (inherits-from? var
-							   (node 'This-var)))
-				   (set! var.eval-next-var
-					 (update-var id var.eval-next-var
-						     symbol-table
-						     surrounding-withs))))))
-      (this.traverse2 extended-symbol-table surrounding-withs)))
+   (if this.local-eval?
+       (begin
+	  ;; fun intercepts all variables.
+	  ;; this is necessary, as evals might create new variables inside the
+	  ;; function
+	  ;; also we need to update the 'eval-next-vars'
+	  (hashtable-for-each this.locals-table
+			      (lambda (id var)
+				 (when (not (inherits-from? var
+							    (node 'This-var)))
+				    (set! var.eval-next-var
+					  (update-var id var.eval-next-var
+						      symbol-table
+						      surrounding-withs)))))
+	  (set! this.intercepted-ht (make-hashtable))
+	  (set! this.obj-id this.eval-obj-id)
+	  (this.traverse2 (add-scope (make-symbol-table)
+				     this.locals-table)
+			  (cons (cons this symbol-table)
+				surrounding-withs))
+	  (delete! this.intercepted-ht)
+	  (delete! this.obj-id))
+      (this.traverse2 (add-scope symbol-table this.locals-table)
+		      surrounding-withs)))
        
 (define-pmethod (With-with-interception symbol-table surrounding-withs)
    (set! this.intercepted-ht (make-hashtable))
    (this.traverse2 (make-symbol-table) (cons (cons this symbol-table)
 					     surrounding-withs))
-   (hashtable-for-each this.intercepted-ht
-		       (lambda (ignored var)
-			  (set! var.intercepted? #t))))
+   (delete! this.intercepted-ht))
 
 ;; nearly the same as before. but this time we add the symbol-table.
-(define-pmethod (Decl-With-with-interception symbol-table surrounding-withs)
+(define-pmethod (Decl-Intercept-with-interception symbol-table surrounding-withs)
    (set! this.intercepted-ht (make-hashtable))
    (this.traverse2 (add-scope (make-symbol-table)
 			      this.locals-table)
 		   (cons (cons this symbol-table)
 			 surrounding-withs))
-   (hashtable-for-each this.intercepted-ht
-		       (lambda (ignored var)
-			  (set! var.intercepted? #t))))
-   
+   (delete! this.intercepted-ht))
 
 ;; note: the id is redundant...
 (define (update-var id orig-var symbol-table surrounding-withs)
@@ -87,19 +94,18 @@
 		 ;; created intercepted var.
 		 entry
 		 ;; first interception.
-		 ;; build pseudo-decl and put it into With-interceptions.
 		 ;; continue recursively: the intercepted var might be
 		 ;; intercepted several times...
-		 (let* ((decl (new-node Decl id))
-			(fake-var (new-node With-var
-				       id
-				       surrounding-with
-				       ;; continue recursively
-				       (update-var id
-						   orig-var
-						   (cdar surrounding-withs)
-						   (cdr surrounding-withs)))))
-		    (set! decl.var fake-var)
+		 (let* ((fake-var (new-node
+				   Intercepted-var
+				   id
+				   surrounding-with.obj-id
+				   ;; continue recursively
+				   (update-var id
+					       orig-var
+					       (cdar surrounding-withs)
+					       (cdr surrounding-withs)))))
+		    (set! fake-var.intercepted? #t)
 		    (hashtable-put! intercepted-ht id fake-var)
 		    fake-var))))))
 

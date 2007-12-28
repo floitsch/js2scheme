@@ -15,7 +15,7 @@
 
 ;; functions that (may) call 'eval' are marked as '.local-eval?'.
 ;; functions that have (maybe somewhere in a nested funcion) an eval are marked
-;; as '.eval?'. They also have a .eval-obj-var which must be used to construct a
+;; as '.eval?'. They also have a .eval-obj-id which must be used to construct a
 ;; scope-object containing all local variables (including the parameters).
 ;; same is true for local variables.
 ;; variables that are marked as '.local-eval?' furthermore receive a
@@ -28,7 +28,7 @@
 			      Program
 			      Fun
 			      With
-			      Decl-With
+			      Decl-Intercept
 			      Call)
 	     (tree.traverse! #f '() #f)))
 
@@ -54,12 +54,12 @@
 (define-pmethod (Fun-ewal! symbol-table surrounding-scopes implicit-proc)
    (let ((extended-symbol-table (add-scope symbol-table
 					   this.locals-table))
-	 (eval-obj-var (new-node Var (gensym 'eval))))
-      (set! this.eval-obj-var eval-obj-var)
+	 (eval-obj-id (gensym 'eval)))
+      (set! this.eval-obj-id eval-obj-id)
       (this.traverse3! extended-symbol-table
 		       (cons this surrounding-scopes)
 		       implicit-proc)
-      (unless this.eval? (delete! this.eval-obj-var))
+      (unless this.eval? (delete! this.eval-obj-id))
       (when this.eval?
 	 (let ((local-eval? this.local-eval?))
 	    (hashtable-for-each
@@ -69,7 +69,7 @@
 		   (set! var.eval? #t)
 		   (when local-eval?
 		      (set! var.local-eval? #t)
-		      (set! var.eval-obj-var eval-obj-var)
+		      (set! var.eval-obj-id eval-obj-id)
 		      ;; this may create new implicit globals.
 		      (let ((next-var (symbol-var symbol-table id)))
 			 (if next-var
@@ -83,19 +83,19 @@
    this)
 
 (define-pmethod (With-ewal! symbol-table surrounding-scopes implicit-proc)
-   (set! this.eval-obj-var this.obj.var)
+   (set! this.eval-obj-id this.obj-id)
    (this.traverse3! symbol-table
 		    (cons this surrounding-scopes)
 		    implicit-proc)
-   (delete! this.eval-obj-var)
+   (delete! this.eval-obj-id)
    this)
 
-(define-pmethod (Decl-With-ewal! symbol-table surrounding-scopes implicit-proc)
-   (set! this.eval-obj-var this.obj.var)
+(define-pmethod (Decl-Intercept-ewal! symbol-table surrounding-scopes implicit-proc)
+   (set! this.eval-obj-id this.obj-id)
    (this.traverse3! (add-scope symbol-table this.locals-table)
 		    (cons this surrounding-scopes)
 		    implicit-proc)
-   (delete! this.eval-obj-var)
+   (delete! this.eval-obj-id)
    this)
    
 
@@ -113,8 +113,8 @@
 	      (top-level-object (if (inherits-from? surrounding-fun/prog-scope
 						    (node 'Program))
 				    (thread-parameter 'top-level-object)
-				    surrounding-fun/prog-scope.eval-obj-var))
-	      (env-vars (map (lambda (scope) scope.eval-obj-var)
+				    surrounding-fun/prog-scope.eval-obj-id))
+	      (env-vars (map (lambda (scope) scope.eval-obj-id)
 			    (filter (lambda (scope)
 				       (not (inherits-from? scope
 							    (node 'Program))))

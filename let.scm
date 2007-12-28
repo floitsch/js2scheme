@@ -61,7 +61,7 @@
       (set! node.live-ends (cons var (or node.live-ends '()))))
 
    (define (transitive-with-var var)
-      (if (inherits-from? var (node 'With-var))
+      (if (inherits-from? var (node 'Intercepted-var))
 	  (transitive-with-var var.intercepted)
 	  var))
       
@@ -71,7 +71,7 @@
       (cond
 	 (var.global? ;; we are printing those directly in Program-out.
 	  'do-nothing)
-	 (var.no-let? ;; in particular Decl-With variables.
+	 (var.no-let? ;; in particular Decl-Intercept variables.
 	  'do-nothing)
 	 ((not begin-stack) ;; imported, runtime or whatever...
 	  'do-nothing)

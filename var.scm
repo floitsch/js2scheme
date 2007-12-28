@@ -25,11 +25,11 @@
 (define-node (This-var)
    (set! this.id 'this))
 
-(define-node (With-var id with intercepted-var)
+(define-node (Intercepted-var id obj-id intercepted-var)
    (set! this.id id)
-   (set! this.with with)
+   (set! this.obj-id obj-id)
    (set! this.intercepted intercepted-var))
-(set! With-var.proto (empty-pobject Var))
+(set! Intercepted-var.proto (empty-pobject Var))
 
 (define-node (Runtime-var id scm-id)
    (set! this.external? #t)

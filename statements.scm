@@ -8,6 +8,8 @@
 	   verbose)
    (export (statements tree::pobject)))
 
+;; simply marks all nodes as statements, that are used as statements.
+;; expressions that are used as statements need a ';' in later passes.
 (define (statements tree)
    (verbose "statements")
    (overload traverse stmts (Node

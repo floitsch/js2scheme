@@ -155,7 +155,7 @@
 
 (define-pmethod (Var-ref-live nesting)
    (define (transitive-with-var var)
-      (if (inherits-from? var (node 'With-var))
+      (if (inherits-from? var (node 'Intercepted-var))
 	  (transitive-with-var var.intercepted)
 	  var))
 

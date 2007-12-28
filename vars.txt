@@ -35,7 +35,7 @@ evaled code.
 - params: are similar to local variables.
 
 - implicit globals: are added with attribute "deletable".
-- with variables: access only through the object.
+- intercepted variables: access only through the object.
 
 ================================================================================
 
@@ -70,7 +70,7 @@ In the case of 'eval' directly in the function: mostly similar to above
  (if (not (undeclared? v))
      v
      (next-v.getter))
-like for 'with'-variables.
+like for 'intercepted'-variables.
 
 
 
@@ -91,12 +91,12 @@ are short-cut using scope-objects. They remain however quite expensive.
 
 ================================================================================
 
-With-variables intercept normal access to variables, and test first, if the
+Intercepted-variables intercept normal access to variables, and test first, if the
 property exists inside the object.
 
-With-variables don't need to have their liveness calculated. Instead the
+Intercepted-variables don't need to have their liveness calculated. Instead the
 intercepted variable needs to be used instead.
-The with-variables themselves must not be in lets, but the intercepted one
+The intercepted-variables themselves must not be in lets, but the intercepted one
 needs to be. This can lead to the following construction:
 
 with(o) {
