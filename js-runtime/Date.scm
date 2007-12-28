@@ -135,9 +135,7 @@
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
-	       (type-error (string-append
-			    "Date-valueOf applied to "
-			    (any->safe-string this))))
+	       (type-error "Date-valueOf applied to" this))
 	      ((not (date? (Js-Date-bdate this)))
 	       (NaN))
 	      (else

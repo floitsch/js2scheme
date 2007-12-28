@@ -27,7 +27,7 @@
 	   (Error-init)
 	   (class Js-Error::Js-Object)
 	   (range-error val)
-	   (type-error val)
+	   (type-error msg val)
 	   (undeclared-error id)
 	   (syntax-error msg)
 	   (eval-error msg)
@@ -159,8 +159,9 @@
 (define (range-error val)
    (raise (js-new *js-Range-Error-orig* val)))
 
-(define (type-error val)
-   (raise (js-new *js-Type-Error-orig* val)))
+(define (type-error msg val)
+   (raise (js-new *js-Type-Error-orig*
+		  (format "~a: ~a" msg (any->safe-string val)))))
 
 (define (undeclared-error id)
    ;; TODO: is undeclared-error really a reference-error?

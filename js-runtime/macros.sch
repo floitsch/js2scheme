@@ -167,7 +167,7 @@
 	 (o-res (gensym 'o-res)))
       `(let ((,f-eval ,f))
 	  (if (not (procedure? ,f-eval))
-	      (type-error ,f-eval)
+	      (type-error "not a procedure" ,f-eval)
 	      (let* ((,(symbol-append c '::Js-Function) (procedure-object ,f-eval))
 		     (,construct (Js-Function-construct ,c))
 		     (,new (Js-Function-new ,c))

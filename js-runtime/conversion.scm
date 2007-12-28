@@ -85,11 +85,13 @@
    (define (toString)
       (let ((toString-prop (js-property-contains o "toString")))
 	 (if (procedure? toString-prop)
-	     (js-call toString-prop o))))
+	     (js-call toString-prop o)
+	     o)))
    (define (valueOf)
       (let ((valueOf-prop (js-property-contains o "valueOf")))
 	 (if (procedure? valueOf-prop)
-	     (js-call valueOf-prop o))))
+	     (js-call valueOf-prop o)
+	     o)))
    (case hint
       ((number)
        (let ((valueOf-prim (valueOf)))
@@ -98,11 +100,8 @@
 	      (let ((toString-prim (toString)))
 		 (if (primitive? toString-prim)
 		     toString-prim
-		     (type-error (string-append
-				  "could not convert to primitive type: "
-				  (with-output-to-string
-				     (lambda ()
-					(write-circle o))))))))))
+		     (type-error "could not convert to primitive type: "
+				 o))))))
       ((string)
        (let ((toString-prim (toString)))
 	  (if (primitive? toString-prim)
@@ -110,11 +109,8 @@
 	      (let ((valueOf-prim (valueOf)))
 		 (if (primitive? valueOf-prim)
 		     valueOf-prim
-		     (type-error (string-append
-				  "could not convert to primitive type: "
-				  (with-output-to-string
-				     (lambda ()
-					(write-circle o))))))))))))
+		     (type-error "could not convert to primitive type"
+				 o))))))))
 
 ;; hint may be either #f, 'string or 'number
 (define (any->primitive any hint)
@@ -178,7 +174,7 @@
 	  0)
 	 (else
 	  ;; TODO
-	  0))))
+	  (inexact->exact nb)))))
 
 
 (define (any->string::bstring any)
@@ -221,11 +217,11 @@
    (cond
       ((or (eq? any *js-Null*)
 	   (eq? any *js-Undefined*))
-       (type-error any))
+       (type-error "can't convert to object" any))
       ((Js-Object? any) any)
       ((string? any) (js-new *js-String-orig* any))
       ((number? any) (js-new *js-Number-orig* any))
       ((procedure? any) (procedure-object any))
       ((boolean? any) (js-new *js-Bool-orig* any))
       (else
-       (type-error any))))
+       (type-error "could not convert to object" any))))

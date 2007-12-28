@@ -178,14 +178,14 @@
 
 (define (jsop-instanceof v1 v2)
    (unless (procedure? v2)
-      (type-error v2))
+      (type-error "not a procedure" v2))
    (let ((obj1 (js-object v1)))
       (unless obj1
-	 (type-error v1))
+	 (type-error "not an object" v1))
       (let* ((prototype (js-property-safe-get (js-object v2) "prototype"))
 	     (prototype-obj (js-object prototype)))
 	 (unless prototype-obj
-	    (type-error prototype))
+	    (type-error "prototype is not an object" prototype))
 	 (let loop ((obj1 obj1))
 	    (let ((proto (Js-Object-proto obj1)))
 	       (cond
@@ -199,7 +199,7 @@
 (define (jsop-in v1 v2)
    (let ((obj2 (js-object v2)))
       (unless obj2
-	 (type-error v2))
+	 (type-error "not an object" v2))
       (let ((str1 (any->string v1)))
 	 (and (js-property-contains obj2 str1)
 	      #t))))

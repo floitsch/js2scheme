@@ -137,8 +137,7 @@
    (js-fun this #f #f "Function.toString"
 	   ()
 	   (if (not (Js-Function? this))
-	       (type-error (string-append "Function-toString applied to "
-					  (any->safe-string this)))
+	       (type-error "Function-toString applied to" this)
 	       (let ((str (Js-Function-text-repr this)))
 		  (if (string? str)
 		      str

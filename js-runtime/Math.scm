@@ -28,6 +28,9 @@
    
    (globals-tmp-add! (lambda () (global-runtime-add! 'Math *js-Math*)))
    (js-property-safe-set! *js-Math*
+			  "PI"
+			  3.1415)
+   (js-property-safe-set! *js-Math*
 			  "abs"
 			  (js-fun #f #f #f "Math.abs"
 				  (val)

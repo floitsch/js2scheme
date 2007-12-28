@@ -80,9 +80,7 @@
    (js-fun this #f #f "Boolean.toString"
 	   ()
 	   (if (not (Js-Bool? this))
-	       (type-error (string-append
-			    "Bool-toString applied to "
-			    (any->safe-string this)))
+	       (type-error "Bool-toString applied to" this)
 	       (let ((val (Js-Bool-val this)))
 		  (if val "true" "false")))))
 
@@ -90,7 +88,5 @@
    (js-fun this #f #f "Boolean.valueOf"
 	   ()
 	   (if (not (Js-Bool? this))
-	       (type-error (string-append
-			    "Bool-valueOf applied to "
-			    (any->safe-string this)))
+	       (type-error "Bool-valueOf applied to" this)
 	       (Js-Bool-val this))))

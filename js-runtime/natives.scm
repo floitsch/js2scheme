@@ -58,7 +58,7 @@
    #f) ;; when null is the prototype, then it should simply return #f
 (define-method (js-property-generic-set! o::Js-Undefined prop::bstring
 					 new-val attributes)
-   (type-error "undefined"))
+   (type-error "can't set property of undefined" "undefined"))
 (define-method (js-property-safe-delete! o::Js-Undefined prop::bstring)
    #t) ;; property is not in Object -> return true
 (define-method (js-object->string::bstring o::Js-Undefined)
@@ -75,7 +75,7 @@
    #f) ;; when null is the prototype, then it should simply return #f
 (define-method (js-property-generic-set! o::Js-Null prop::bstring
 					 new-val attributes)
-   (type-error "null"))
+   (type-error "can't set property of null" "null"))
 (define-method (js-property-safe-delete! o::Js-Null prop::bstring)
    #t) ;; property is not in Object -> return true
 (define-method (js-object->string::bstring o::Js-Null)

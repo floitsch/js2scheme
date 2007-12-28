@@ -69,15 +69,15 @@
 	  (begin-stack var.live-begin-stack)
 	  (end-stack var.live-end-stack))
       (cond
-	 (var.escapes?
-	  (mark-live-begin surrounding-fun.body var)
-	  (mark-live-end surrounding-fun.body var))
 	 (var.global? ;; we are printing those directly in Program-out.
 	  'do-nothing)
 	 (var.no-let? ;; in particular Decl-With variables.
 	  'do-nothing)
 	 ((not begin-stack) ;; imported, runtime or whatever...
 	  'do-nothing)
+	 (var.escapes?
+	  (mark-live-begin surrounding-fun.body var)
+	  (mark-live-end surrounding-fun.body var))
 	 ((inherits-from? (cadr begin-stack) (node 'Begin))
 	  (mark-live-begin (car begin-stack) var)
 	  (mark-live-end (car end-stack) var))

@@ -682,10 +682,21 @@
    (if this.val #t #f))
 
 (define-pmethod (Number-out)
-   (let ((nb (string->number this.val)))
-      (if (exact? nb)
-	  (exact->inexact nb)
-	  nb)))
+   (let* ((str this.val)
+	  (hex? (or (string-prefix? "0x" str)
+		    (string-prefix? "0X" str)))
+	  (nb (if hex?
+		  (string->number (substring str 2 (string-length str)) 16)
+		  (string->number str))))
+      (cond
+	 ((exact? nb)
+	  (exact->inexact nb))
+	 ((real? nb)
+	  nb)
+	 (else
+	  (error "Number-out"
+		 "could not transform to number:"
+		 str)))))
 
 (define-pmethod (String-out)
    ;; TODO: fix strings. (escaping always correct?)

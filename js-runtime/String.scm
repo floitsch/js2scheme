@@ -3,6 +3,7 @@
    (import jsre-object
 	   jsre-Object
 	   jsre-Date
+	   jsre-Array
 	   jsre-Function
 	   jsre-Number
 	   jsre-Bool
@@ -47,9 +48,10 @@
 				"prototype"
 				prototype
 				(prototype-attributes))
-;      (js-property-generic-set! string-object
-;			        "fromCharCode"
-;			        TODO)
+      (js-property-generic-set! string-object
+			        "fromCharCode"
+				(fromCharCode)
+				(built-in-attributes))
       (js-property-generic-set! prototype
 				"toString"
 				(toString)
@@ -57,6 +59,10 @@
       (js-property-generic-set! prototype
 				"valueOf"
 				(valueOf)
+				(built-in-attributes))
+      (js-property-generic-set! prototype
+				"split"
+				(split)
 				(built-in-attributes))
       (js-property-generic-set! prototype
 				"replace"
@@ -85,25 +91,35 @@
 (define (String-construct f-o::Js-Function)
    #f)
 
+(define (fromCharCode)
+   (js-fun this #f (nb-args get-arg) "String.fromCharCode"
+	   (c0) ;; length 1
+	   (list->string (map (lambda (i)
+				 (integer->char
+				  (any->uint16 (get-arg i))))
+			      (iota nb-args)))))
+
 (define (toString)
    (js-fun this #f #f "String.toString"
 	   ()
 	   (if (not (Js-String? this))
-	       (type-error (string-append
-			    "String-toString applied to "
-			    (any->safe-string this)))
+	       (type-error "String-toString applied to" this)
 	       (Js-String-str this))))
 	   
 (define (valueOf)
    (js-fun this #f #f "String.valueOf"
 	   ()
 	   (if (not (Js-String? this))
-	       (type-error (string-append
-			    "String-valueOf applied to "
-			    (any->safe-string this)))
+	       (type-error "String-valueOf applied to" this)
 	       (Js-String-str this))))
 
+(define (split)
+   (js-fun this #f #f "String.split"
+	   (delimiter)
+	   (let* ((splitted (string-split (Js-String-str this) delimiter))
+		  (len (length splitted)))
+	      (js-array-literal len (map list (iota len) splitted)))))
+
 (define (replace)
-   ;; TODO
    (js-fun this #f #f "String.replace"
 	   (seachValue replaceValue) (any->string this)))

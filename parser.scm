@@ -142,7 +142,8 @@
 		      (new-node Var-decl-list rev-vars))))
 	    (else (if (and (not in-for-init?)
 			   (not (null? rev-vars))
-			   (at-new-line-token?))
+			   (or (at-new-line-token?)
+			       (eq? (peek-token-type) 'EOF)))
 		      (new-node Var-decl-list (reverse! rev-vars))
 		      (error #f
 			     "unexpected token, error or EOF"

@@ -55,12 +55,13 @@
    (unless (js-null? o)
       (with-access::Js-Object o (props proto)
 	 (hashtable-for-each props
-			     (lambda (key val)
+			     (lambda (key entry)
 				(let ((index (key->index key)))
 				   (when (and index
 					      (not (hashtable-get ht index)))
-				      (hashtable-put! ht index (cons key
-								     val))))))
+				      (with-access::Property-entry entry (val)
+				      (hashtable-put! ht index
+						      (cons key val)))))))
 	 (when go-into-prototypes?
 	    (extract-index-els-in-range proto ht start end go-into-prototypes?)))))
    
@@ -122,8 +123,7 @@
 			      (js-function-prototype) ;; 15.4.3
 			      1                       ;; 15.4.3
 			      "TODO [native]")
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Array
-						     *js-Array*)))
+   (globals-tmp-add! (lambda () (global-runtime-add! 'Array *js-Array*)))
    (let ((array-object (procedure-object *js-Array*))
 	 (prototype (instantiate::Js-Array            ;; 15.4.4
 		       (props (make-props-hashtable))
@@ -232,7 +232,9 @@
       (for-each (lambda (el)
 		   (let ((index (car el))
 			 (val (cadr el)))
-		      (js-property-safe-set! a index val)))
+		      (js-property-safe-set! a
+					     (integer->string index)
+					     val)))
 		els)
       a))
 
@@ -264,8 +266,7 @@
    (js-fun this #f #f "Array.toString"
 	   ()
 	   (if (not (Js-Array? this))
-	       (type-error (string-append "Array-toString applied to "
-					  (any->safe-string this)))
+	       (type-error "Array-toString applied to" this)
 	       (join-array this (js-undefined) any->string))))
 
 (define (toLocaleString)
@@ -273,8 +274,7 @@
    (js-fun this #f #f "Array.toLocaleString"
 	   ()
 	   (if (not (Js-Array? this))
-	       (type-error (string-append "Array-toLocaleString applied to "
-					  (any->safe-string this)))
+	       (type-error "Array-toLocaleString applied to" this)
 	       (join-array this
 			   "," ;; locale-specific way of separating elements
 			   (lambda (el)
@@ -409,7 +409,8 @@
 				 (js-property-safe-delete! this
 							   (car key/val1))))
 			     (else
-			      (loop (cdr indices)))))))
+			      'do-nothing))
+			  (loop (cdr indices)))))
 		 this))))
 
 ;; shift to the left or right by given nb starting at given number.
@@ -538,7 +539,10 @@
 			      ((js-undefined? y)
 			       1)
 			      (else
-			       (js-call compare-fn #f x y))))))
+			       (let ((tmp (js-call compare-fn #f x y)))
+				  (if (real? tmp)
+				      (inexact->exact tmp)
+				      0)))))))
 	      (sorted (sort comp els-strs)))
 	  (let loop ((i 0)
 		     (sorted sorted))

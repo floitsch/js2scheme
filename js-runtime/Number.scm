@@ -18,7 +18,6 @@
 	      (value::double read-only))
 	   *js-Number* ;; can be modified by user -> can't be ::procedure
 	   *js-Number-orig*::procedure
-	   *js-Number-prototype*::Js-Object
 	   (Number-init)))
 
 (define *js-Number* #unspecified)
@@ -37,24 +36,36 @@
 			      1
 			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Number *js-Number*)))
-   ;; TODO: add other properties (like prototype...) ?
-   (let ((o (js-object *js-Number*)))
-      (js-property-generic-set! o
+   (let ((number-object (procedure-object *js-Number*))
+	 (prototype (instantiate::Js-Number       ;; 15.7.4
+		       (props (make-props-hashtable))
+		       (proto (js-object-prototype))
+		       (value 0.0)))) ;; TODO: +0.0
+      (set! *js-Number-prototype* prototype)
+      (js-property-generic-set! number-object
+				"prototype"
+				prototype
+				(prototype-attributes))
+      (js-property-generic-set! number-object
 				"POSITIVE_INFINITY"
 				(+infinity)
 				(prototype-attributes))
-      (js-property-generic-set! o
+      (js-property-generic-set! number-object
 				"NEGATIVE_INFINITY"
 				(-infinity)
 				(prototype-attributes))
-      (js-property-generic-set! o
+      (js-property-generic-set! number-object
 				"NEGATIVE_INFINITY"
 				(-infinity)
 				(prototype-attributes))
-      (js-property-generic-set! o
+      (js-property-generic-set! number-object
 				"NaN"
 				(NaN)
-				(prototype-attributes))))
+				(prototype-attributes))
+      (js-property-generic-set! prototype
+				"valueOf"
+				(valueOf)
+				(built-in-attributes))))
 
 (define (Number-lambda)
    (js-fun-lambda
@@ -85,3 +96,10 @@
    ;; so we can ignore this one.
    #f)
 
+(define (valueOf)
+   ;; 15.7.4.4
+   (js-fun this #f #f "Number.valueOf"
+	   ()
+	   (if (not (Js-Number? this))
+	       (type-error "Number.valueOf applied to" this)
+	       (Js-Number-value this))))
