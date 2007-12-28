@@ -20,7 +20,7 @@
     (class Js-Array::Js-Object
        length::bint) ;; TODO: bint is too small.
     (Array-init)
-    (js-array-literal length::int els::pair-nil)))
+    (js-array-literal length::bint els::pair-nil)))
 
 (define *js-Array* (tmp-js-object))
 (define *js-Array-prototype* (tmp-js-object))
@@ -526,23 +526,23 @@
 			   (cond
 			      ((and (car x) (car y))
 			       (string<? (car x) (car y)))
-			      ((car x) 1)
-			      ((car y) -1)
-			      (else 0)))
+			      ((car x) #t)
+			      ((car y) #f)
+			      (else #f)))
 			(lambda (x y)
 			   (cond
 			      ((and (js-undefined? x)
 				    (js-undefined? y))
-			       0)
+			       #f)
 			      ((js-undefined? x)
-			       -1)
+			       #f)
 			      ((js-undefined? y)
-			       1)
+			       #t)
 			      (else
 			       (let ((tmp (js-call compare-fn #f x y)))
-				  (if (real? tmp)
-				      (inexact->exact tmp)
-				      0)))))))
+				  (if (and (real? tmp) (<fl tmp 0.0))
+				      #t ;; less
+				      #f)))))))
 	      (sorted (sort comp els-strs)))
 	  (let loop ((i 0)
 		     (sorted sorted))
