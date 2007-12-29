@@ -676,11 +676,11 @@
 	  (hex? (or (string-prefix? "0x" str)
 		    (string-prefix? "0X" str)))
 	  (nb (if hex?
-		  (string->number (substring str 2 (string-length str)) 16)
-		  (string->number str))))
+		  (llong->flonum
+		   (string->llong
+		    (substring str 2 (string-length str)) 16))
+		  (string->real str))))
       (cond
-	 ((exact? nb)
-	  (exact->inexact nb))
 	 ((real? nb)
 	  nb)
 	 (else
