@@ -220,7 +220,7 @@
       ((Js-Bool? any) (if (Js-Bool-val any)
 			  "Bool<true>"
 			  "Bool<false>"))
-      ((Js-Date? any) (format "Date<~a>" any))
+      ((Js-Date? any) (format "Date<~a>" (Js-Date-bdate any)))
       ((Js-Function? any) "Function-object")
       ((Js-Math? any) "Math")
       ((Js-Number? any) (format "Number<~a>" (Js-Number-value any)))
