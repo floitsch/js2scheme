@@ -58,9 +58,46 @@
       (define (white-space? c)
 	 ;; TODO: not spec-conform
 	 (char-whitespace? c))
+
+      (define (parseIntR s i R sign)
+	 (let ((str-len (string-length s)))
+	    (let loop ((i i)
+		       (res 0.0)
+		       (found-char #f))
+	       (if (>= i str-len)
+		   (if found-char
+		       (*fl res sign)
+		       (NaN))
+		   (let* ((c (string-ref s i))
+			  (ci (char->integer (string-ref s i)))
+			  (cv (cond
+				 ((and (char>=? c #\0)
+				       (char<=? c #\9))
+				  (-fx ci (char->integer #\0)))
+				 ((and (char>=? c #\a)
+				       (char<=? c #\z))
+				  (+fx 10 (-fx ci (char->integer #\a))))
+				 ((and (char>=? c #\A)
+				       (char<=? c #\Z))
+				  (+fx 10 (-fx ci (char->integer #\A))))
+				 (else
+				  99)))) ;; some big value
+		      (cond
+			 ((<fx cv R)
+			  (loop (+ i 1)
+				(+ (* R res) cv)
+				#t))
+			 ((and (not found-char)
+			       (white-space? c))
+			  (loop (+ i 1)
+				res
+				found-char))
+			 (else ;; loop with i == str-len. -> finishes
+			  (loop str-len
+				res
+				found-char))))))))
       
       (let* ((s (any->string string))
-	     (str-len (string-length s))
 	     (sign (if (or (string-null? s)
 			   (not (char=? #\- (string-ref s 0))))
 		       1.0
@@ -71,58 +108,31 @@
 			(char=? #\+ (string-ref s 0)))
 		    1)
 		   (else 0)))
-	     (tmp-R (any->int32 radix))
-	     (R (cond
-		   ((and (zero? tmp-R)
-			 (or (substring-at? s "0x" i)
-			     (substring-at? s "0X" i)))
-		    ;; i will be increased by two at init of loop.
-		    16)
-		   ((zero? tmp-R)
-		    10)
+	     (tmp-R (any->int32 radix)))
+	 (if (or (<fl tmp-R 2.0)
+		 (>fl tmp-R 36.0))
+	     (NaN)
+	     (let* ((fix-R (flonum->fixnum tmp-R))
+		    (R (cond
+			  ((and (zero? fix-R)
+				(or (substring-at? s "0x" i)
+				    (substring-at? s "0X" i)))
+			   ;; i will be increased by two at call to parseIntR.
+			   16)
+			  ((zero? fix-R)
+			   10)
+			  (else
+			   fix-R))))
+		(cond
+		   ((<fx R 2)
+		    (NaN))
+		   ((>fx R 36)
+		    (NaN))
 		   (else
-		    tmp-R))))
-	 (cond
-	    ((<fx R 2)
-	     (NaN))
-	    ((>fx R 36)
-	     (NaN))
-	    (else
-	     (let loop ((i (if (and (=fx R 16)
-				    (=fx tmp-R 0))
-			       (+fx i 2)
-			       i))
-			   (res 0.0)
-			   (found-char #f))
-		(if (>= i str-len)
-		    (if found-char
-			(*fl res sign)
-			(NaN))
-		    (let* ((c (string-ref s i))
-			   (ci (char->integer (string-ref s i)))
-			   (cv (cond
-				  ((and (char>=? c #\0)
-					(char<=? c #\9))
-				   (-fx ci (char->integer #\0)))
-				  ((and (char>=? c #\a)
-					(char<=? c #\z))
-				   (+fx 10 (-fx ci (char->integer #\a))))
-				  ((and (char>=? c #\A)
-					(char<=? c #\Z))
-				   (+fx 10 (-fx ci (char->integer #\A))))
-				  (else
-				   99)))) ;; some big value
-		       (cond
-			  ((<fx cv R)
-			   (loop (+ i 1)
-				 (+ (* R res) cv)
-				 #t))
-			  ((and (not found-char)
-				(white-space? c))
-			   (loop (+ i 1)
-				 res
-				 found-char))
-			  (else ;; loop with i == str-len. -> finishes
-			   (loop str-len
-				 res
-				 found-char)))))))))))
+		    (parseIntR s
+			       (if (and (=fx R 16)
+					(=fx fix-R 0))
+				   (+fx i 2)
+				   i)
+			       R
+			       sign))))))))

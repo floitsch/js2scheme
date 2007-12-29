@@ -30,10 +30,10 @@
 	   (js-string->number str)
 	   (any->number any)
 	   (any->primitive any hint)
-	   (any->integer any)
-	   (any->int32 any)
-	   (any->uint32 any)
-	   (any->uint16 any)
+	   (any->integer::real any)
+	   (any->int32::real any)
+	   (any->uint32::real any)
+	   (any->uint16::real any)
 	   (any->string::bstring any)
 	   (any->object::Js-Object any)
 	   (js-object any) ;; TODO we really need a better name...
@@ -66,19 +66,21 @@
    (js-boolify any))
 
 (define (js-string->number str) ;; TODO: number
-   (let ((n (string->number str)))
+   (let ((n (string->real str)))
       (cond
 	 ((not n) (NaN))
-	 ((exact? n) (exact->inexact n))
 	 (else n))))
 
 (define (any->number any)
    (cond
-      ((number? any) (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
+      ((real? any) any)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
       ((js-undefined? any) (NaN))
       ((js-null? any) 0.0)
       ((string? any) (js-string->number any))
+      ((number? any)
+       (warning "exact number in any->number. should not happen" any)
+       (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
       (else (any->number (any->primitive any 'number)))))
 
 (define (js-object->primitive o::Js-Object hint::symbol)
@@ -129,13 +131,14 @@
       (if (>=fl n 0.0)
 	  1.0
 	  -1.0))
-   
+
    (let ((nb (any->number any)))
       (cond
-	 ((NaN? nb) 0.0)
+	 ((NaN? nb) +0.0)
 	 ((or (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl 0.0 nb))
+	      (=fl -0.0 nb)
+	      (=fl +0.0 nb))
 	  nb)
 	 (else
 	  (*fl (sign nb) (floor nb))))))
@@ -146,11 +149,11 @@
 	 ((or (NaN? nb)
 	      (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl 0.0 nb))
-	  0)
+	      (=fl -0.0 nb)
+	      (=fl +0.0 nb))
+	  +0.0)
 	 (else
-	  ;; TODO
-	  (inexact->exact nb)))))
+	  (elong->flonum (flonum->elong nb))))))
 
 (define (any->uint32 any)
    (let ((nb (any->number any)))
@@ -158,11 +161,13 @@
 	 ((or (NaN? nb)
 	      (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl 0.0 nb))
-	  0)
+	      (=fl -0.0 nb)
+	      (=fl +0.0 nb))
+	  +0.0)
 	 (else
-	  ;; TODO
-	  (inexact->exact nb)))))
+	  (let ((tmp (flonum->llong nb)))
+	     (llong->flonum
+	      (bit-andllong tmp #lxffffffff))))))) ;; 32 bits
    
 (define (any->uint16 any)
    (let ((nb (any->number any)))
@@ -170,12 +175,13 @@
 	 ((or (NaN? nb)
 	      (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl 0.0 nb))
-	  0)
+	      (=fl -0.0 nb)
+	      (=fl +0.0 nb))
+	  +0.0)
 	 (else
-	  ;; TODO
-	  (inexact->exact nb)))))
-
+	  (let ((tmp (flonum->llong nb)))
+	     (llong->flonum
+	      (bit-andllong tmp #lxffff))))))) ;; 16 bits
 
 (define (any->string::bstring any)
    (define (any->string2::bstring any)

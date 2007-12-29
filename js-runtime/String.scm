@@ -67,6 +67,10 @@
       (js-property-generic-set! prototype
 				"replace"
 				(replace)
+				(built-in-attributes))
+      (js-property-generic-set! prototype
+				"substring"
+				(str-substring)
 				(built-in-attributes))))
 
 (define (String-lambda)
@@ -81,12 +85,18 @@
     #f
     (nb-args get-arg)
     (value)
-    (instantiate::Js-String
-       (props (make-props-hashtable))
-       (proto *js-String-prototype*)
-       (str (if (zero? nb-args)
-		""
-		(any->string value))))))
+    (let* ((str (if (zero? nb-args)
+		    ""
+		    (any->string value)))
+	   (str-len (string-length str))
+	   (o (instantiate::Js-String
+		 (props (make-props-hashtable))
+		 (proto *js-String-prototype*)
+		 (str str))))
+       (js-property-generic-set! o "length"
+				 (fixnum->flonum str-len)
+				 (length-attributes))
+       o)))
 
 (define (String-construct f-o::Js-Function)
    #f)
@@ -96,7 +106,7 @@
 	   (c0) ;; length 1
 	   (list->string (map (lambda (i)
 				 (integer->char
-				  (any->uint16 (get-arg i))))
+				  (flonum->fixnum (any->uint16 (get-arg i)))))
 			      (iota nb-args)))))
 
 (define (toString)
@@ -123,3 +133,19 @@
 (define (replace)
    (js-fun this #f #f "String.replace"
 	   (seachValue replaceValue) (any->string this)))
+
+(define (str-substring)
+   ;; 15.5.4.15
+   (js-fun this #f #f "String.substring"
+	   (start-any end-any)
+	   (let* ((str (any->string this))
+		  (str-len (string-length str))
+		  (start (flonum->fixnum (any->integer start-any)))
+		  (end (if (js-undefined? end-any)
+			   str-len
+			   (flonum->fixnum (any->integer end-any))))
+		  (start-bounded (minfx (maxfx start 0) str-len))
+		  (end-bounded (minfx (maxfx end 0) str-len)))
+	      (if (<fx start-bounded end-bounded)
+		  (substring str start-bounded end-bounded)
+		  (substring str end-bounded start-bounded)))))

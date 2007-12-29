@@ -82,8 +82,9 @@
    (any->number v))
 
 (define-inline (jsop-~ v)
-   (let ((i (any->int32 v)))
-      (exact->inexact (bit-not i))))
+   (let* ((f (any->int32 v))
+	  (i (flonum->elong f)))
+      (elong->flonum (bit-notelong i))))
 
 (define-inline (jsop-! v)
    (not (any->bool v)))
@@ -137,19 +138,30 @@
       (-fl n1 n2)))
 
 (define-inline (jsop-<< v1 v2)
-   (let* ((n1 (any->int32 v1))
-	  (n2 (any->uint32 v2)))
-      (exact->inexact (bit-lsh n1 n2))))
+   ;; 11.7.1
+   (let* ((n1 (flonum->elong (any->int32 v1)))
+	  (n2 (any->uint32 v2))
+	  (by (bit-and #x1F (flonum->fixnum n2))))
+      (elong->flonum (bit-lshelong n1 by))))
 
 (define-inline (jsop->> v1 v2)
-   (let* ((n1 (any->int32 v1))
-	  (n2 (any->uint32 v2)))
-      (exact->inexact (bit-rsh n1 n2))))
+   ;; 11.7.2
+   (let* ((n1 (flonum->elong (any->int32 v1)))
+	  (n2 (any->uint32 v2))
+	  (by (bit-and #x1F (flonum->fixnum n2))))
+      (elong->flonum (bit-rshelong n1 by))))
 
 (define-inline (jsop->>> v1 v2)
-   (let* ((n1 (any->uint32 v1))
-	  (n2 (any->uint32 v2)))
-      (exact->inexact (bit-ursh n1 n2))))
+   ;; 11.7.3
+   (let* ((n1 (flonum->elong (any->int32 v1)))
+	  (n2 (any->uint32 v2))
+	  (by (bit-and #x1F (flonum->fixnum n2))))
+      (if (zero? by)
+	  n1
+	  (let* ((tmp (bit-rshelong n1 1))
+		 ;; clear bit31 (in case nb was negative)
+		 (tmp2 (bit-andelong tmp #ex80000000)))
+	     (bit-rshelong tmp2 (-fx by 1))))))
 
 (define-inline (jsop-< v1 v2)
    (let* ((p1 (any->primitive v1 'number))
@@ -264,19 +276,22 @@
    (not (jsop-=== v1 v2)))
 
 (define-inline (jsop-& v1 v2)
-   (let* ((n1 (any->int32 v1))
-	  (n2 (any->int32 v2)))
-      (exact->inexact (bit-and n1 n2))))
+   ;; 11.10
+   (let* ((n1 (flonum->elong (any->int32 v1)))
+	  (n2 (flonum->elong (any->int32 v2))))
+      (elong->flonum (bit-andelong n1 n2))))
 
 (define-inline (jsop-^ v1 v2)
-   (let* ((n1 (any->int32 v1))
-	  (n2 (any->int32 v2)))
-      (exact->inexact (bit-xor n1 n2))))
+   ;; 11.10
+   (let* ((n1 (flonum->elong (any->int32 v1)))
+	  (n2 (flonum->elong (any->int32 v2))))
+      (elong->flonum (bit-xorelong n1 n2))))
 
 (define-inline (jsop-BIT_OR v1 v2)
-   (let* ((n1 (any->int32 v1))
-	  (n2 (any->int32 v2)))
-      (exact->inexact (bit-or n1 n2))))
+   ;; 11.10
+   (let* ((n1 (flonum->elong (any->int32 v1)))
+	  (n2 (flonum->elong (any->int32 v2))))
+      (elong->flonum (bit-orelong n1 n2))))
 
 (define-inline (jsop-any->object expr)
    (any->object expr))
