@@ -53,6 +53,9 @@
 				     ;; TODO: number
 				     0.0))
       (js-property-safe-set! prototype
+			     "toString"
+			     (toString))
+      (js-property-safe-set! prototype
 			     "valueOf"
 			     (valueOf))))
 
@@ -74,7 +77,9 @@
 		      (ms (time-clip v)))
 		  (Js-Date-bdate-set! this
 				      (and ms
-					   (seconds->date (/ ms 1000))))))))
+					   (seconds->date
+					    (elong->fixnum (/elong ms #e1000)))))))
+	   this))
        (else
 	(let* ((year (any->number (get-arg 0)))
 	       (month (any->number (get-arg 1)))
@@ -129,6 +134,17 @@
 (define (string->date str::bstring)
    ;; TODO
    (current-date))
+
+(define (toString)
+   (js-fun this #f #f "Date.toString"
+	   ()
+	   (cond
+	      ((not (Js-Date? this))
+	       (type-error "Date-toString applied to" this))
+	      ((not (date? (Js-Date-bdate this)))
+	       "")
+	      (else
+	       (format "~a" (Js-Date-bdate this))))))
 
 (define (valueOf)
    (js-fun this #f #f "Date.valueOf"
