@@ -174,7 +174,7 @@
 		((or (NaN? n1) (NaN? n2))
 		 (js-undefined))
 		(else
-		 (<fl v1 v2)))))))
+		 (<fl n1 n2)))))))
 
 (define-inline (jsop-> v1 v2)
    (let ((tmp (jsop-< v2 v1)))
