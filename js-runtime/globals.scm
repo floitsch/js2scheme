@@ -27,17 +27,22 @@
 	   ))
 
 (define jsg-NaN (NaN))
-(global-special-add! 'NaN ;; 15.1.1.1
-		     jsg-NaN
-		     (dont-enum-dont-delete-attributes))
+(globals-tmp-add! (lambda ()
+		     (global-special-add! 'NaN ;; 15.1.1.1
+					  jsg-NaN
+					  (dont-enum-dont-delete-attributes))))
 (define jsg-Infinity (+infinity))
-(global-special-add! 'Infinity ;; 15.1.1.2
-		     jsg-Infinity
-		     (dont-enum-dont-delete-attributes))
+(globals-tmp-add!
+ (lambda ()
+    (global-special-add! 'Infinity ;; 15.1.1.2
+			 jsg-Infinity
+			 (dont-enum-dont-delete-attributes))))
 (define jsg-undefined (js-undefined))
-(global-special-add! 'undefined ;; 15.1.1.3
-		     jsg-undefined
-		     (dont-enum-dont-delete-attributes))
+(globals-tmp-add!
+ (lambda ()
+    (global-special-add! 'undefined ;; 15.1.1.3
+			 jsg-undefined
+			 (dont-enum-dont-delete-attributes))))
 
 (define-runtime-globals
    (define (print to-print)
