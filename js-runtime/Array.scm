@@ -119,6 +119,11 @@
 		(set! length (+fl index 1.0)))
 	     (call-next-method)))))
 
+(define-method (js-property-safe-delete! o::Js-Array prop::bstring)
+   (if (string=? prop "length")
+       #f
+       (call-next-method)))
+
 (define-method (js-object->string::bstring o::Js-Array)
    "Array")
 
