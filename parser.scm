@@ -121,13 +121,13 @@
    
    (define (var-decl-list in-for-init?)
       (consume! 'var)
-      (let loop ((rev-vars (list (var))))
+      (let loop ((rev-vars (list (var in-for-init?))))
 	 (case (peek-token-type)
 	    ((SEMICOLON) (if (not in-for-init?)
 			     (consume-any!))
 			 (new-node Var-decl-list (reverse! rev-vars)))
 	    ((COMMA) (consume-any!)
-		     (loop (cons (var) rev-vars)))
+		     (loop (cons (var in-for-init?) rev-vars)))
 	    ((in) (cond
 		     ((not in-for-init?)
 		      (error "var-decl-list"
@@ -149,11 +149,11 @@
 			     "unexpected token, error or EOF"
 			     (cdr (consume-any!))))))))
    
-   (define (var)
+   (define (var in-for-init?)
       (let ((id (consume! 'ID)))
 	 (case (peek-token-type)
 	    ((=) (consume-any!)
-		 (let ((expr (expression #f)))
+		 (let ((expr (assig-expr in-for-init?)))
 		    (new-node Init (new-node Decl id) expr)))
 	    (else (new-node Decl id)))))
    
