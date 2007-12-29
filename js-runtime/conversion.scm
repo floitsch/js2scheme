@@ -199,15 +199,37 @@
 
    ;; TODO: not correct!
    (define (double->string::bstring v::double)
+      (define (add-e+ str)
+	 (let ((pos (string-contains str "e")))
+	    (if (and pos
+		     (not (char=? (string-ref str (+fx pos 1))
+				  #\-)))
+		(string-append (substring str 0 (+fx pos 1))
+			       "+"
+			       (substring str (+fx pos 1)
+					  (string-length str)))
+		str)))
       (cond
 	 ((NaN? v) "NaN")
 	 ((<fl v 0.0)
 	  (string-append "-" (double->string (-fl 0.0 v))))
 	 ((+infinity? v) "Infinity")
 	 ((=fl (floorfl v) v)
-	  (llong->string (flonum->llong v)))
+	  (let* ((str (real->string v))
+		 (pos (string-contains str ".0")))
+	     (if (not pos)
+		 (begin
+		    (warning "double->string"
+			     "could not find .0"
+			     str)
+		    str)
+		 (add-e+ (string-append (substring str 0 pos)
+					(substring str
+						   (+fx pos 2)
+						   (string-length str)))))))
 	 (else
-	  (number->string v))))
+	  (add-e+ (number->string v)))))
+   
    (cond
       ((string? any) any)
       ((eq? any *js-Null*) "null")
