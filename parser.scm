@@ -214,7 +214,24 @@
       (let ((obj (expression #f))
 	    (ignore-RPAREN (consume! 'RPAREN))
 	    (body (statement)))
-	 (new-node For-in lhs obj body)))
+	 (cond
+	    ((inherits-from? lhs (node 'Var-decl-list))
+	     (let ((lhs-vars lhs.els))
+		(unless (null? (cdr lhs-vars))
+		   (error #f
+			  "Only one variable allowed in 'for ... in' loop"
+			  (cadr lhs-vars).id))
+		(new-node For-in (car lhs-vars) obj body)))
+	    ((or (inherits-from? lhs (node 'Sequence))
+		 (inherits-from? lhs (node 'Assig))
+		 (inherits-from? lhs (node 'Binary))
+		 (inherits-from? lhs (node 'Unary))
+		 (inherits-from? lhs (node 'Postfix)))
+	     (error #f
+		    "Bad left-hand side in 'for ... in' loop construct"
+		    (pobject-name lhs)))
+	    (else
+	     (new-node For-in lhs obj body)))))
    
    (define (while)
       (consume! 'while)
