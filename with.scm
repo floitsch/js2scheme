@@ -63,8 +63,9 @@
        
 (define-pmethod (With-with-interception symbol-table surrounding-withs)
    (set! this.intercepted-ht (make-hashtable))
-   (this.traverse2 (make-symbol-table) (cons (cons this symbol-table)
-					     surrounding-withs))
+   (this.obj.traverse symbol-table surrounding-withs)
+   (this.body.traverse (make-symbol-table) (cons (cons this symbol-table)
+						 surrounding-withs))
    (delete! this.intercepted-ht))
 
 ;; nearly the same as before. but this time we add the symbol-table.
