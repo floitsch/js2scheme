@@ -29,40 +29,41 @@
 
 (define (Number-init)
    (set! *js-Number* (Number-lambda))
-   (register-function-object! *js-Number*
-			      (Number-new)
-			      Number-construct
-			      (js-function-prototype)
-			      1
-			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Number *js-Number*)))
-   (let ((number-object (procedure-object *js-Number*))
-	 (prototype (instantiate::Js-Number       ;; 15.7.4
-		       (props (make-props-hashtable))
-		       (proto (js-object-prototype))
-		       (value 0.0)))) ;; TODO: +0.0
+   
+   (let* ((number-object (create-function-object *js-Number*
+						 (Number-new)
+						 Number-construct
+						 "TODO [native]"))
+	  (prototype (instantiate::Js-Number       ;; 15.7.4
+			(props (make-props-hashtable))
+			(proto (js-object-prototype))
+			(value 0.0)))) ;; TODO: +0.0
       (set! *js-Number-prototype* prototype)
-      (js-property-generic-set! number-object
+
+      (js-property-generic-set! number-object ;; 15.7.3
+				"length"
+				1.0
+				(length-attributes))
+      (js-property-generic-set! number-object ;; 15.7.3.1
 				"prototype"
 				prototype
 				(prototype-attributes))
-      (js-property-generic-set! number-object
-				"POSITIVE_INFINITY"
-				(+infinity)
-				(prototype-attributes))
-      (js-property-generic-set! number-object
-				"NEGATIVE_INFINITY"
-				(-infinity)
-				(prototype-attributes))
-      (js-property-generic-set! number-object
-				"NEGATIVE_INFINITY"
-				(-infinity)
-				(prototype-attributes))
-      (js-property-generic-set! number-object
+      ;; TODO: MAX_VALUE MIN_VALUE
+      (js-property-generic-set! number-object ;; 15.7.3.4
 				"NaN"
 				(NaN)
 				(prototype-attributes))
-      (js-property-generic-set! prototype
+      (js-property-generic-set! number-object ;; 15.7.3.5
+				"NEGATIVE_INFINITY"
+				(-infinity)
+				(prototype-attributes))
+      (js-property-generic-set! number-object ;; 15.7.3.6
+				"POSITIVE_INFINITY"
+				(+infinity)
+				(prototype-attributes))
+      
+      (js-property-generic-set! prototype     ;; 15.7.4.4
 				"valueOf"
 				(valueOf)
 				(built-in-attributes))))

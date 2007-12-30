@@ -142,21 +142,13 @@
 		  `(begin ,@Lbody)))))))
 
 (define-macro (js-fun this this-callee arguments text-repr formals . Lbody)
-   (let ((tmp-f (gensym 'f)))
-      `(let* ((,tmp-f (js-fun-lambda ,this
-				     ,this-callee
-				     ,arguments
-				     ,formals
-				     ,@Lbody))
-	      ;; may fail, as Object can be modified by user
-	      (fun-prototype (js-new *js-Object*)))
-	  (register-function-object! ,tmp-f ;; lambda
-				     ,tmp-f ;; new
-				     create-empty-object-lambda
-				     fun-prototype ;; prototype
-				     ,(length formals) ;; nb args
-				     ,text-repr) ;; text-representation
-	  ,tmp-f)))
+   (let ((f (gensym 'f)))
+      `(let ((,f (js-fun-lambda ,this ,this-callee ,arguments ,formals
+				,@Lbody)))
+	  (create-function ,f
+			   ,(length formals)
+			   ,text-repr)
+	  ,f)))
 
 (define-macro (js-new f . Largs)
    (let ((c (gensym 'class))
@@ -168,7 +160,8 @@
       `(let ((,f-eval ,f))
 	  (if (not (procedure? ,f-eval))
 	      (type-error "not a procedure" ,f-eval)
-	      (let* ((,(symbol-append c '::Js-Function) (procedure-object ,f-eval))
+	      (let* ((,(symbol-append c '::Js-Function)
+		      (procedure-object ,f-eval))
 		     (,construct (Js-Function-construct ,c))
 		     (,new (Js-Function-new ,c))
 		     (,o (,construct ,c))

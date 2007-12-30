@@ -57,59 +57,82 @@
 (define *js-URI-Error-orig* #unspecified)
 
 (define (Error-init)
-   (define (create-Error-class name)
-      (let ((proc (Error-lambda)))
-	 (register-function-object! proc
-				    (Error-new)
-				    Error-construct
-				    (js-function-prototype)
-				    1
-				    "TODO [native]")
-	 (let ((error-object (procedure-object proc))
-	       (prototype (instantiate::Js-Error
-			     (props (make-props-hashtable))
-			     (proto (js-object-prototype)))))
-	    (js-property-generic-set! error-object
-				      "prototype"
-				      prototype
-				      (prototype-attributes))
-	    (js-property-generic-set! prototype
-				      "constructor"
-				      *js-Error*
-				      (built-in-attributes))
-	    (js-property-generic-set! prototype
-				      "name"
-				      name
-				      (built-in-attributes))
-	    (js-property-generic-set! prototype
-				      "message"
-				      ""
-				      (built-in-attributes))
-	    (js-property-generic-set! prototype
+   (define *error-prototype* #unspecified)
+   
+   (define (create-Error-class name native-error?)
+      (let* ((proc (Error-lambda))
+	     (text-repr (string-append "function(msg) { /* native "
+				       name
+				       " */ throw 'native'; }"))
+	     (error-object (create-function-object proc
+						   (Error-new)
+						   Error-construct
+						   text-repr))
+	     (prototype (instantiate::Js-Error
+			   (props (make-props-hashtable))
+			   ;; prototype is either object-prototype (15.11.4) or
+			   ;; the Error-prototype (15.11.7.7)
+			   (proto (if native-error?
+				      *error-prototype*
+				      (js-object-prototype))))))
+	 
+	 (unless native-error? (set! *error-prototype* prototype))
+
+	 (js-property-generic-set! error-object ;; 15.11.3 / 15.11.7 assumed
+				   "length"
+				   1.0
+				   (length-attributes))
+	 (js-property-generic-set! error-object ;; 15.11.3.1 / 15.11.7.6
+				   "prototype"
+				   prototype
+				   (prototype-attributes))
+
+	 (js-property-generic-set! prototype    ;; 15.11.4.1 / 15.11.7.8
+				   "constructor"
+				   proc
+				   (constructor-attributes))
+	 
+	 (js-property-generic-set! prototype  ;; 15.11.4.2 / 15.11.7.9
+				   "name"
+				   name
+				   (built-in-attributes))
+	 (js-property-generic-set! prototype  ;; 15.11.4.3 / 15.11.7.10
+				   "message"
+				   ""
+				   (built-in-attributes))
+	 (unless native-error?
+	    (js-property-generic-set! prototype  ;; 15.11.4.4 
 				      "toString"
 				      (toString)
-				      (built-in-attributes))
-	    proc)))
-   
-   (set! *js-Error* (create-Error-class "Error"))
+				      (built-in-attributes)))
+	 proc))
+
+   ;; 15.11
+   (set! *js-Error* (create-Error-class "Error" #f))
    (set! *js-Error-orig* *js-Error*)
 
-   (set! *js-Eval-Error* (create-Error-class "EvalError"))
+   ;; 15.11.6.1
+   (set! *js-Eval-Error* (create-Error-class "EvalError" #t))
    (set! *js-Eval-Error-orig* *js-Eval-Error*)
 
-   (set! *js-Range-Error* (create-Error-class "RangeError"))
+   ;; 15.11.6.2
+   (set! *js-Range-Error* (create-Error-class "RangeError" #t))
    (set! *js-Range-Error-orig* *js-Range-Error*)
 
-   (set! *js-Reference-Error* (create-Error-class "ReferenceError"))
+   ;; 15.11.6.3
+   (set! *js-Reference-Error* (create-Error-class "ReferenceError" #t))
    (set! *js-Reference-Error-orig* *js-Reference-Error*)
 
-   (set! *js-Syntax-Error* (create-Error-class "SyntaxError"))
+   ;; 15.11.6.4
+   (set! *js-Syntax-Error* (create-Error-class "SyntaxError" #t))
    (set! *js-Syntax-Error-orig* *js-Syntax-Error*)
 
-   (set! *js-Type-Error* (create-Error-class "TypeError"))
+   ;; 15.11.6.5
+   (set! *js-Type-Error* (create-Error-class "TypeError" #t))
    (set! *js-Type-Error-orig* *js-Type-Error*)
 
-   (set! *js-URI-Error* (create-Error-class "URIError"))
+   ;; 15.11.6.6
+   (set! *js-URI-Error* (create-Error-class "URIError" #t))
    (set! *js-URI-Error-orig* *js-URI-Error*)
 
    (globals-tmp-add!
@@ -127,12 +150,14 @@
    "Error")
 
 (define (Error-lambda)
+   ;; 15.11.1.1 / 15.11.7.1
    (letrec ((error-proc (js-fun-lambda #f #f #f
 				       (msg)
 				       (js-new error-proc msg))))
       error-proc))
 
 (define (Error-new)
+   ;; 15.11.2.1 / 15.11.7.4
    (js-fun-lambda this #f #f
 		  (msg)
 		  (unless (js-undefined? msg)

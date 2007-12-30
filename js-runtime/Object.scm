@@ -39,23 +39,31 @@
 
 (define (Object-init)
    (set! *js-Object* (Object-lambda))
-   (register-function-object! *js-Object*
-			      (Object-new)
-			      Object-construct
-			      (js-function-prototype)
-			      1 ;; TODO
-			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Object *js-Object*)))
 
-   (let ((proc-object (procedure-object *js-Object*))
-	 (prototype (js-object-prototype)))
+   (let* ((text-repr "function(v) {/* native Object */ throw 'native'; }")
+	  (proc-object (create-function-object *js-Object*
+					       (Object-new)
+					       Object-construct
+					       text-repr))
+	  (prototype (js-object-prototype)))
+
       ;; no need to safe the prototype in *js-object-prototype*. that's already
       ;; done.
 
+      (js-property-generic-set! proc-object ;; 15.2.3
+				"length"
+				1.0
+				(length-attributes))
       (js-property-generic-set! proc-object ;; 15.2.3.1
 				"prototype"
 				prototype
 				(prototype-attributes))
+      
+      (js-property-generic-set! prototype  ;; 15.2.4.1
+				"constructor"
+				*js-Object*
+				(constructor-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.2
 				"toString"
 				(toString)

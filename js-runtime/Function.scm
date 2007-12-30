@@ -21,20 +21,19 @@
        new::procedure       ;; when called as a function. by default raises an error.
        construct::procedure ;; when called as constructor. Usually same as 'fun'.
        text-repr)
-    (js-function-prototype)
-    (register-function-object!
-	    js-lambda::procedure
-	    new
-	    construct
-	    prototype-object
-	    length
-	    text-repr)
+    (create-function::procedure js-lambda::procedure
+				length::bint text-repr)
+    (create-function-object js-lambda::procedure
+			    new::procedure
+			    construct::procedure
+			    text-repr)
     (procedure-object::Js-Object p::procedure)
     (Function-init)
     (inline create-empty-object-lambda::Js-Object f-o::Js-Function)))
 
 (define *js-Function* (tmp-js-object))
-(define *js-Function-prototype* (tmp-js-object))
+(define *js-Function-prototype* #unspecified)
+(define *js-Function-prototype-object* #unspecified)
 
 (define-method (js-object->string::bstring o::Js-Function)
    "Function")
@@ -42,33 +41,71 @@
 (define *function-prototype-initialized?* #f)
 
 (define (js-function-prototype)
+   ;; 15.3.4
    (unless *function-prototype-initialized?*
-       (let ((proto (instantiate::Js-Object
-		       (props (make-props-hashtable))
-		       (proto (js-object-prototype)))))
-	  (set! *js-Function-prototype* proto)
+       (let* ((f (lambda L (js-undefined))) ;; simply returns 'undefined'
+	      (fun-obj (instantiate::Js-Function
+			  (props (make-props-hashtable))
+			  ;; The only function with object-prototype!
+			  (proto (js-object-prototype))
+			  (new f)
+			  (construct create-empty-object-lambda)
+			  (text-repr "function() {/*Function.prototype*/}"))))
+	  (hashtable-put! *js-function-objects-ht* f fun-obj)
+	  (set! *js-Function-prototype* f)
+	  (set! *js-Function-prototype-object* fun-obj)
 	  (set! *function-prototype-initialized?* #t)))
    *js-Function-prototype*)
 
+(define (js-function-prototype-object)
+   (unless *function-prototype-initialized?*
+      (js-function-prototype))
+   *js-Function-prototype-object*)
+
 (define (Function-init)
    (set! *js-Function* (Function-lambda))
-   (register-function-object! *js-Function*
-			      *js-Function* ;; new == lambda
-			      (lambda (ignored) 'ignored)
-			      (js-function-prototype)
-			      1 ;; TODO
-			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Function *js-Function*)))
-   (let ((fun-object (procedure-object *js-Function*))
-	 (prototype (js-function-prototype)))
-      (js-property-generic-set! fun-object
-			       "prototype"
-			       prototype
-			       (prototype-attributes))
-      (js-property-generic-set! prototype
-			       "toString"
-			       (toString)
-			       (built-in-attributes))))
+   (let* ((fun-text "function(b) {/* native Function */ throw 'native'; }")
+	  (fun-obj (create-function-object *js-Function*
+					   *js-Function* ;; new == lambda
+					   (lambda (ignored) 'ignored)
+					   fun-text))
+	  (prototype (js-function-prototype))
+	  (prototype-obj (js-function-prototype-object)))
+      
+      (js-property-generic-set! fun-obj       ;; 15.3.3
+				"length"
+				1.0
+				(length-attributes))
+      (js-property-generic-set! fun-obj       ;; 15.3.3.1
+				"prototype"
+				prototype
+				(prototype-attributes))
+
+      ;; prototype is itself a function -> it should have constructor, length
+      ;; and prototype properties. These are not mentioned in the spec, but we
+      ;; simply assume, that they follow default rules.
+      (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
+				"constructor"
+				prototype
+				(constructor-attributes))
+      (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
+				"length"
+				0.0
+				(length-attributes))
+      (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
+				"prototype"
+				(js-new *js-Object*)
+				(dont-delete-attributes))
+				
+      (js-property-generic-set! prototype-obj ;; 15.3.4.1
+				"constructor"
+				*js-Function*
+				(built-in-attributes))
+      (js-property-generic-set! prototype-obj ;; 15.3.4.2
+				"toString"
+				(toString)
+				(built-in-attributes))))
 				  
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
    (let ((proto (or (js-object (js-property-safe-get f-o "prototype"))
@@ -79,24 +116,24 @@
 
 (define *js-function-objects-ht* (make-hashtable #unspecified #unspecified eq?))
 
-;; ECMA 13.2
-(define (register-function-object! js-lambda
-				   new
-				   construct
-				   prototype-object
-				   length
-				   text-repr)
-   (let ((fun-obj (instantiate::Js-Function
-		     (props (make-props-hashtable))
-		     (proto *js-Function-prototype*)
-		     (new new)
-		     (construct construct)
-		     (text-repr text-repr))))
-      (hashtable-put! *js-function-objects-ht* js-lambda fun-obj)
-      (js-property-generic-set! prototype-object
+;; implements default function creation (as in ECMA 13.2)
+;; more sophisticated functions (Array, Bool, ...) might want to do most of
+;; this by hand.
+;; text-repr should either be a bstring or a list of form: (str start end) such
+;; that (substring start end) gives a correct representation.
+(define (create-function js-lambda length text-repr)
+   ;; 13.2
+   (let* ((fun-prototype (js-new *js-Object*))
+	  (fun-obj (create-function-object js-lambda ;; lambda
+					   js-lambda ;; new
+					   create-empty-object-lambda
+					   text-repr)))
+      
+      (js-property-generic-set! fun-prototype
 			       "constructor"
 			       js-lambda
 			       (constructor-attributes))
+      
       (js-property-generic-set! fun-obj
 			       "length"
 			       (if (exact? length)
@@ -106,9 +143,27 @@
       
       (js-property-generic-set! fun-obj
 			       "prototype"
-			       prototype-object
+			       (js-new *js-Object*)
 			       ;; ECMA 15.3.5.2
-			       (dont-delete-attributes))))
+			       (dont-delete-attributes))
+      js-lambda))
+
+;; creates a Function-object and registers it in hashtable.
+;; Automatically uses function-prototype as prototype.
+;; text-repr should either be a bstring or a list of form: (str start end) such
+;; that (substring start end) gives a correct representation.
+(define (create-function-object js-lambda
+				new
+				construct
+				text-repr)
+   (let ((fun-obj (instantiate::Js-Function
+		     (props (make-props-hashtable))
+		     (proto (js-function-prototype-object))
+		     (new new)
+		     (construct construct)
+		     (text-repr text-repr))))
+      (hashtable-put! *js-function-objects-ht* js-lambda fun-obj)
+      fun-obj))
 
 (define (procedure-object::Js-Object p::procedure)
    (hashtable-get *js-function-objects-ht* p))

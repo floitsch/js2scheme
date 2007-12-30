@@ -31,19 +31,24 @@
 (define (String-init)
    (set! *js-String* (String-lambda))
    (set! *js-String-orig* *js-String*)
-   (register-function-object! *js-String*
-			      (String-new)
-			      String-construct
-			      (js-function-prototype)
-			      1
-			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'String *js-String*)))
-   (let ((string-object (procedure-object *js-String*))
-	 (prototype (instantiate::Js-String
-		       (props (make-props-hashtable))
-		       (proto (js-object-prototype))
-		       (str ""))))
+
+   (let* ((text-repr "function(v) {/* native String */ throw 'native';}")
+	  (string-object (create-function-object *js-String*
+						 (String-new)
+						 String-construct
+						 text-repr))
+	  (prototype (instantiate::Js-String
+			(props (make-props-hashtable))
+			(proto (js-object-prototype))
+			(str ""))))
+
       (set! *js-String-prototype* prototype)
+
+      (js-property-generic-set! string-object
+				"length"
+				1.0
+				(length-attributes))
       (js-property-generic-set! string-object
 				"prototype"
 				prototype
@@ -52,6 +57,11 @@
 			        "fromCharCode"
 				(fromCharCode)
 				(built-in-attributes))
+
+      (js-property-generic-set! prototype
+				"constructor"
+				*js-String*
+				(constructor-attributes))
       (js-property-generic-set! prototype
 				"toString"
 				(toString)

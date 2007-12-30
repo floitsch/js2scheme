@@ -129,75 +129,78 @@
 
 (define (Array-init)
    (set! *js-Array* (Array-lambda))
-   (register-function-object! *js-Array*
-			      (Array-new)
-			      Array-construct
-			      (js-function-prototype) ;; 15.4.3
-			      1                       ;; 15.4.3
-			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Array *js-Array*)))
-   (let ((array-object (procedure-object *js-Array*))
-	 (prototype (instantiate::Js-Array            ;; 15.4.4
+   (let* ((text-repr "function(v) { /* native Array */ throw 'native'; }")
+	  (array-object (create-function-object *js-Array*
+						(Array-new)
+						Array-construct
+						text-repr))
+	  (prototype (instantiate::Js-Array            ;; 15.4.4
 		       (props (make-props-hashtable))
 		       (proto (js-object-prototype))
 		       (length 0.0))))
-      (set! *js-Array-prototype* prototype)
-      (js-property-generic-set! array-object            ;; 15.4.3.1
+      
+      (js-property-generic-set! array-object ;; 15.4.3
+				"length"
+				1.0
+				(length-attributes))
+      (js-property-generic-set! array-object ;; 15.4.3.1
 				"prototype"
 				prototype
 				(prototype-attributes))
+      
       (js-property-generic-set! prototype               ;; 15.4.4.1
 				"constructor"
 				*js-Array*
-				(built-in-attributes))
+				(constructor-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.2
-			       "toString"
-			       (toString)
-			       (built-in-attributes))
+				"toString"
+				(toString)
+				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.3
-			       "toLocaleString"
-			       (toLocaleString)
-			       (built-in-attributes))
+				"toLocaleString"
+				(toLocaleString)
+				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.4
-			       "concat"
-			       (concat)
-			       (built-in-attributes))
+				"concat"
+				(concat)
+				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.5
-			       "join"
-			       (join)
-			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.6
- 			       "pop"
- 			       (pop)
- 			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.7
- 			       "push"
- 			       (push)
- 			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.8
- 			       "reverse"
- 			       (reverse)
- 			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.9
- 			       "shift"
- 			       (shift)
- 			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.10
- 			       "slice"
- 			       (slice)
- 			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.11
- 			       "sort"
- 			       (array-sort)
- 			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.12
- 			       "splice"
- 			       (splice)
- 			       (built-in-attributes))
-       (js-property-generic-set! prototype               ;; 15.4.4.13
- 			       "unshift"
- 			       (unshift)
- 			       (built-in-attributes))))
+				"join"
+				(join)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.6
+				"pop"
+				(pop)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.7
+				"push"
+				(push)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.8
+				"reverse"
+				(reverse)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.9
+				"shift"
+				(shift)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.10
+				"slice"
+				(slice)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.11
+				"sort"
+				(array-sort)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.12
+				"splice"
+				(splice)
+				(built-in-attributes))
+      (js-property-generic-set! prototype               ;; 15.4.4.13
+				"unshift"
+				(unshift)
+				(built-in-attributes))))
 
 
 (define (fill-Array a nb-args get-arg)

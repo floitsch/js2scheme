@@ -27,25 +27,27 @@
 
 (define (Date-init)
    (set! *js-Date* (Date-lambda))
-   (register-function-object! *js-Date*
-			      (Date-new)
-			      Date-construct
-			      (js-function-prototype)
-			      1 ;; TODO
-			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Date *js-Date*)))
-
-   (let ((date-object (procedure-object *js-Date*))
+   (let ((date-object (create-function-object *js-Date*
+					      (Date-new)
+					      Date-construct
+					      "TODO [native]"))
 	 (prototype (instantiate::Js-Date
 		       (props (make-props-hashtable))
 		       (proto (js-object-prototype))
 		       (bdate #f))))
+
       (set! *js-Date-prototype* prototype)
+
+      (js-property-generic-set! date-object
+				"length"
+				7.0
+				(length-attributes))
       (js-property-generic-set! date-object
 				"prototype"
 				prototype
 				(prototype-attributes))
-      ;; TODO: all the attributes are probably wrong
+      
       (js-property-safe-set! prototype
 			     "getTimezoneOffset"
 			     (js-fun #f #f #f "Date.getTimezoneOffset"

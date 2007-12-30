@@ -15,7 +15,7 @@
 	   jsre-globals-tmp
 	   )
    (export *js-Bool* ;; can be modified by user -> can't be ::procedure
-	   *js-Bool-orig*::procedure
+	   *js-Bool-orig* ; ::procedure ;; Bigloo recently had bugs with types
 	   (class Js-Bool::Js-Object
 	      val::bool)
 	   (Bool-init)))
@@ -30,42 +30,50 @@
 (define (Bool-init)
    (set! *js-Bool* (Bool-lambda))
    (set! *js-Bool-orig* *js-Bool*)
-   (register-function-object! *js-Bool*
-			      (Bool-new)
-			      Bool-construct
-			      (js-function-prototype) ;; TODO: what's the proto?
-			      1
-			      "TODO [native]")
    (globals-tmp-add! (lambda () (global-runtime-add! 'Boolean *js-Bool*)))
-   (let ((bool-object (procedure-object *js-Bool*))
-	 (prototype (instantiate::Js-Bool
+
+   (let* ((text-repr "function(v) { /* native Boolean */ throw 'native'; }")
+	  (bool-object (create-function-object *js-Bool*
+					       (Bool-new)
+					       Bool-construct
+					       text-repr))
+	  (prototype (instantiate::Js-Bool ;; 15.6.4
 		       (props (make-props-hashtable))
 		       (proto (js-object-prototype))
 		       (val #f))))
+      
       (set! *js-Bool-prototype* prototype)
-      (js-property-generic-set! bool-object
-			       "prototype"
-			       prototype
-			       (prototype-attributes))
-      (js-property-generic-set! prototype
-			       "constructor"
-			       *js-Bool*
-			       (built-in-attributes))
-      (js-property-generic-set! prototype
-			       "toString"
-			       (toString)
-			       (built-in-attributes))
-      (js-property-generic-set! prototype
-			       "valueOf"
-			       (valueOf)
-			       (built-in-attributes))))
+
+      (js-property-generic-set! bool-object ;; 15.6.3
+				"length"
+				1.0
+				(length-attributes))
+      (js-property-generic-set! bool-object ;; 15.6.3.1
+				"prototype"
+				prototype
+				(prototype-attributes))
+
+      (js-property-generic-set! prototype    ;; 15.6.4.1
+				"constructor"
+				*js-Bool*
+				(constructor-attributes))
+      (js-property-generic-set! prototype    ;; 15.6.4.2
+				"toString"
+				(toString)
+				(built-in-attributes))
+      (js-property-generic-set! prototype    ;; 15.6.4.3
+				"valueOf"
+				(valueOf)
+				(built-in-attributes))))
 
 (define (Bool-lambda)
+   ;; 15.6.1.1
    (js-fun-lambda #f #f #f
     (value)
     (any->bool value)))
 
 (define (Bool-new)
+   ;; 15.6.2.1
    (js-fun-lambda #f #f #f
     (value)
     (instantiate::Js-Bool
@@ -77,6 +85,7 @@
    #f)
 
 (define (toString)
+   ;; 15.6.4.1
    (js-fun this #f #f "Boolean.toString"
 	   ()
 	   (if (not (Js-Bool? this))
@@ -85,6 +94,7 @@
 		  (if val "true" "false")))))
 
 (define (valueOf)
+   ;; 15.6.4.3
    (js-fun this #f #f "Boolean.valueOf"
 	   ()
 	   (if (not (Js-Bool? this))
