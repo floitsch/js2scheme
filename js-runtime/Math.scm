@@ -19,7 +19,7 @@
 	   *js-Math* ;; can be modified by user -> can't be ::Js-Object
 	   (Math-init)))
 
-(define *js-Math* (tmp-js-object))
+(define *js-Math* #unspecified)
 
 (define (Math-init)
    (set! *js-Math* (instantiate::Js-Math

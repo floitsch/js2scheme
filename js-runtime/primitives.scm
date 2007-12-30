@@ -25,19 +25,10 @@
 	   *NaN*
 	   (inline +infinity?::bool v)
 	   (inline -infinity?::bool v)
-	   (inline NaN?::bool v)
-	   (tmp-js-object)))
+	   (inline NaN?::bool v)))
 
 (define-inline (primitive? v)
    (not (Js-Object? v)))
-
-(define *tmp-object* #f)
-(define (tmp-js-object)
-   (co-instantiate ((tmp (instantiate::Js-Object
-			    (props (make-props-hashtable))
-			    (proto tmp))))
-      (set! *tmp-object* tmp)
-      tmp))
 
 (define *+infinity* (/fl 1.0 0.0))
 (define-inline (+infinity) *+infinity*)

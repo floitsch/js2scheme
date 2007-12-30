@@ -63,8 +63,8 @@
 
 
 (define *js-global-env* #unspecified)
-(define *js-global-this* (tmp-js-object))
-(define *js-global-object* (tmp-js-object))
+(define *js-global-this* (js-undeclared))
+(define *js-global-object* (js-undeclared)) ;; alias for *js-global-this*
 
 (define-method (js-object->string::bstring o::Js-Global)
    "global")

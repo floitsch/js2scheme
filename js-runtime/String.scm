@@ -23,7 +23,7 @@
 
 (define *js-String* #unspecified)
 (define *js-String-orig* (lambda () #f))
-(define *js-String-prototype* (tmp-js-object))
+(define *js-String-prototype*::Js-Object (js-undeclared))
 
 (define-method (js-object->string::bstring o::Js-String)
    "String")

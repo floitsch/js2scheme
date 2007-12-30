@@ -15,17 +15,13 @@
 	   jsre-globals-tmp
 	   )
    (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
-	   *js-Object-prototype*::Js-Object
 	   (js-object-prototype::Js-Object)
 	   (Object-init)
 	   (js-object-literal properties::pair-nil)
 	   (object-for-in-attributes o)))
 
-(define *js-Object* (tmp-js-object))
-(define *js-Object-prototype* (tmp-js-object))
-
-(define-method (js-object->string::bstring o::Js-Object)
-   "Object")
+(define *js-Object* #unspecified)
+(define *js-Object-prototype*::Js-Object (js-undeclared))
 
 (define *object-prototype-initialized?* #f)
 (define (js-object-prototype)
@@ -36,6 +32,9 @@
 	 (set! *js-Object-prototype* proto)
 	 (set! *object-prototype-initialized?* #t)))
    *js-Object-prototype*)
+
+(define-method (js-object->string::bstring o::Js-Object)
+   "Object")
 
 (define (Object-init)
    (set! *js-Object* (Object-lambda))

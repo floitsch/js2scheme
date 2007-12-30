@@ -22,7 +22,7 @@
 
 (define *js-Number* #unspecified)
 (define *js-Number-orig* (lambda () #f))
-(define *js-Number-prototype* (tmp-js-object))
+(define *js-Number-prototype*::Js-Object (js-undeclared))
 
 (define-method (js-object->string::bstring o::Js-Number)
    "Number")

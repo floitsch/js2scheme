@@ -20,8 +20,8 @@
 ;	      value::double)
 	   (Date-init)))
 
-(define *js-Date* (tmp-js-object))
-(define *js-Date-prototype* (tmp-js-object))
+(define *js-Date* #unspecified)
+(define *js-Date-prototype*::Js-Object (js-undeclared))
 
 ;; TODO: js-object->string
 

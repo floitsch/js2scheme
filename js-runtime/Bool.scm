@@ -22,7 +22,7 @@
 
 (define *js-Bool* #unspecified)
 (define *js-Bool-orig* (lambda () #f))
-(define *js-Bool-prototype* (tmp-js-object))
+(define *js-Bool-prototype*::Js-Object (js-undeclared))
 
 (define-method (js-object->string::bstring o::Js-Bool)
    "Boolean")

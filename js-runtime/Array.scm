@@ -25,8 +25,8 @@
 ;; TODO: Array is really not optimal: number operations are bad, and
 ;;       the array implementation based on hashtables is slow.
 
-(define *js-Array* (tmp-js-object))
-(define *js-Array-prototype* (tmp-js-object))
+(define *js-Array* #unspecified)
+(define *js-Array-prototype*::Js-Object (js-undeclared))
 
 ;; extracts requested indices from object o and prototypes (if requested).
 ;; works, as indices can't be Ref-elements...
@@ -139,6 +139,8 @@
 		       (props (make-props-hashtable))
 		       (proto (js-object-prototype))
 		       (length 0.0))))
+
+      (set! *js-Array-prototype* prototype)
       
       (js-property-generic-set! array-object ;; 15.4.3
 				"length"
@@ -267,7 +269,7 @@
 	      (js-null? el))
 	  ""
 	  (el->string el)))
-   
+
    (let* ((len (any->uint32 (js-property-safe-get a "length")))
 	  (llen (flonum->llong len))
 	  (sep-str (if (js-undefined? sep)

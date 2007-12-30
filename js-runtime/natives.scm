@@ -12,11 +12,11 @@
     *js-Null*::Js-Null
     *js-Undeclared*::Js-Undeclared
     
-    (inline js-undefined)
+    (inline js-undefined::Js-Object)
     (inline js-undefined? v)
-    (inline js-null)
+    (inline js-null::Js-Object)
     (inline js-null? v)
-    (inline js-undeclared)
+    (inline js-undeclared::Js-Object)
     (inline js-undeclared? v)))
 ;   (eval (class Js-Undefined)))
 

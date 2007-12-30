@@ -31,9 +31,9 @@
     (Function-init)
     (inline create-empty-object-lambda::Js-Object f-o::Js-Function)))
 
-(define *js-Function* (tmp-js-object))
-(define *js-Function-prototype* #unspecified)
-(define *js-Function-prototype-object* #unspecified)
+(define *js-Function* #unspecified)
+(define *js-Function-prototype*::procedure (lambda L (js-undefined))) ;; 15.3.4
+(define *js-Function-prototype-object*::Js-Object (js-undeclared))
 
 (define-method (js-object->string::bstring o::Js-Function)
    "Function")
@@ -43,7 +43,7 @@
 (define (js-function-prototype)
    ;; 15.3.4
    (unless *function-prototype-initialized?*
-       (let* ((f (lambda L (js-undefined))) ;; simply returns 'undefined'
+       (let* ((f *js-Function-prototype*)
 	      (fun-obj (instantiate::Js-Function
 			  (props (make-props-hashtable))
 			  ;; The only function with object-prototype!
@@ -52,7 +52,6 @@
 			  (construct create-empty-object-lambda)
 			  (text-repr "function() {/*Function.prototype*/}"))))
 	  (hashtable-put! *js-function-objects-ht* f fun-obj)
-	  (set! *js-Function-prototype* f)
 	  (set! *js-Function-prototype-object* fun-obj)
 	  (set! *function-prototype-initialized?* #t)))
    *js-Function-prototype*)
