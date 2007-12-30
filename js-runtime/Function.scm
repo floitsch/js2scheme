@@ -22,7 +22,7 @@
        construct::procedure ;; when called as constructor. Usually same as 'fun'.
        text-repr)
     (create-function::procedure js-lambda::procedure
-				length::bint text-repr)
+				length text-repr)
     (create-function-object js-lambda::procedure
 			    new::procedure
 			    construct::procedure
@@ -119,6 +119,7 @@
 ;; implements default function creation (as in ECMA 13.2)
 ;; more sophisticated functions (Array, Bool, ...) might want to do most of
 ;; this by hand.
+;; length can be either floating-point or bint.
 ;; text-repr should either be a bstring or a list of form: (str start end) such
 ;; that (substring start end) gives a correct representation.
 (define (create-function js-lambda length text-repr)
