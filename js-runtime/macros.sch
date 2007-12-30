@@ -175,7 +175,8 @@
 			      callee nb-args param-vars par-vec)
    (let ((arguments (gensym 'arguments))
 	 (counter (gensym 'counter))
-	 (new-val (gensym 'new-val)))
+	 (new-val (gensym 'new-val))
+	 (nb-named (length param-vars)))
       `(let ((,arguments (instantiate::Js-Arguments
 			    (props (make-props-hashtable))
 			    (proto (js-object-prototype)))))
@@ -185,15 +186,17 @@
 	  (scope-var-add ,arguments "length" ,nb-args
 			 ; 'don-enum
 			 (built-in-attributes))
+	  ;; named vars are added as scope-vars
 	  ,@(map (lambda (id c)
 		    `(when (< ,c ,nb-args)
 			(scope-var-add ,arguments
 				       ,(number->string c)
 				       ,id
-				       ; 'don-enum
+				       ; 'dont-enum
 				       (built-in-attributes))))
 		 param-vars
-		 (iota (length param-vars)))
+		 (iota nb-named))
+	  ;; remaining ones are added as vector-refs
 	  (for-each (lambda (,counter)
 		       (js-property-generic-set!
 			,arguments
@@ -210,7 +213,7 @@
 						   ,new-val))))
 			; 'don't-enum
 			(built-in-attributes)))
-		    (iota (- ,nb-args ,(length param-vars))))
+		    (iota (- ,nb-args ,nb-named) ,nb-named))
 	  ,arguments)))
 
 ;; should be in scope-object.scm, but I can't yet export macros to eval.
