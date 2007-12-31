@@ -639,8 +639,8 @@
 ;; ========================================================================
 ;; main procedure starts here
 ;; ========================================================================
-  (when (or (not (null? Lp))
-	    (config 'function-strings))
+(when (or (not (null? Lp))
+	  (config 'function-strings))
    (verbose "js-out")
    (let ((p (if (null? Lp)
 		;; (Funs will replace the port)
