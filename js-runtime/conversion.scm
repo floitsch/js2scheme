@@ -153,7 +153,11 @@
 	      (=fl +0.0 nb))
 	  +0.0)
 	 (else
-	  (elong->flonum (flonum->elong nb))))))
+	  (let* ((tmp (flonum->llong nb))
+		 (uint32 (bit-andllong tmp #lxffffffff))) ;; 32 bits
+	     (if (>=llong uint32 #lx80000000) ;; 2^31
+		 (llong->flonum (-llong uint32 #lx100000000)) ;; 2^32
+		 (llong->flonum uint32)))))))
 
 (define (any->uint32 any)
    (let ((nb (any->number any)))
@@ -248,8 +252,13 @@
        (type-error "can't convert to object" any))
       ((Js-Object? any) any)
       ((string? any) (js-new *js-String-orig* any))
-      ((number? any) (js-new *js-Number-orig* any))
+      ((real? any) (js-new *js-Number-orig* any))
       ((procedure? any) (procedure-object any))
       ((boolean? any) (js-new *js-Bool-orig* any))
+      ((number? any)
+       (warning "exact number in any->object. should not happen" any)
+       (if (exact? any) ;; TODO (numbers)
+	   (js-new *js-Number-orig* (exact->inexact any))
+	   (js-new *js-Number-orig* any)))
       (else
        (type-error "could not convert to object" any))))
