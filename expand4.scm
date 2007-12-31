@@ -9,6 +9,7 @@
 
 ;; - replace ++x with tmp = x; x = x+1; tmp  (same for --)
 ;; - replace x++ with x = x+1;  (same for --)
+;; 11.3.1, 11.3.2, 11.4.4, 11.4.5
 (define (expand4! tree)
    (verbose " expand4")
    (overload traverse! expand! (Node
@@ -34,26 +35,32 @@
 		 (new-node Sequence
 		      `(,(new-node Vassig (new-node Decl tmp-obj) obj)
 			,(new-node Vassig (new-node Decl tmp-f) field)
-			,(new-node Accsig
-			      (new-node Access
-				   (new-node Var-ref tmp-obj)
-				   (new-node Var-ref tmp-f))
-			      (new-node Binary
-				   (new-node Access
-					(new-node Var-ref tmp-obj)
-					(new-node Var-ref tmp-f))
-				   (if (eq? op '++)
-				       (new-node Var-ref '+)
-				       (new-node Var-ref '-))
-				   ;; TODO: number as string
-				   (new-node Number "1"))))))
-	      (new-node Vassig
-		   expr ;; a variable
-		   (new-node Binary
-			(new-node Var-ref expr.id)
-			(new-node Var-ref (if (eq? op '++) '+ '-))
-			;; TODO: number as string
-			(new-node Number "1"))))
+			,(new-node
+			  Accsig
+			  (new-node Access
+				    (new-node Var-ref tmp-obj)
+				    (new-node Var-ref tmp-f))
+			  (new-node
+			   Binary
+			   (new-node Unary
+				     (new-node Var-ref 'any->number)
+				     (new-node Access
+					       (new-node Var-ref tmp-obj)
+					       (new-node Var-ref tmp-f)))
+			   (if (eq? op '++)
+			       (new-node Var-ref '+)
+			       (new-node Var-ref '-))
+			   (new-node Number "1"))))))
+	      (new-node
+	       Vassig
+	       expr ;; a variable
+	       (new-node Binary
+			 (new-node Unary
+				   (new-node Var-ref 'any->number)
+				   (new-node Var-ref expr.id))
+			 (new-node Var-ref (if (eq? op '++) '+ '-))
+			 ;; TODO: number as string
+			 (new-node Number "1"))))
 	  this)))
 
 (define-pmethod (Postfix-expand!)
@@ -70,31 +77,37 @@
 		  `(,(new-node Vassig (new-node Decl tmp-obj) obj)
 		    ,(new-node Vassig (new-node Decl tmp-f) field)
 		    ,(new-node Vassig
-			  (new-node Decl tmp-return)
-			  (new-node Access
-			       (new-node Var-ref tmp-obj)
-			       (new-node Var-ref tmp-f)))
+			       (new-node Decl tmp-return)
+			       (new-node Unary
+					 (new-node Var-ref 'any->number)
+					 (new-node Access
+						   (new-node Var-ref tmp-obj)
+						   (new-node Var-ref tmp-f))))
 		    ,(new-node Accsig
-			  (new-node Access
-			       (new-node Var-ref tmp-obj)
-			       (new-node Var-ref tmp-f))
-			  (new-node Binary
-			       (new-node Var-ref tmp-return)
-			       (new-node Var-ref
-				    (if (eq? op '++)
-					'+
-					'-))
-			       ;; TODO: number as string
-			       (new-node Number "1")))
+			       (new-node Access
+					 (new-node Var-ref tmp-obj)
+					 (new-node Var-ref tmp-f))
+			       (new-node Binary
+					 (new-node Var-ref tmp-return)
+					 (new-node Var-ref
+						   (if (eq? op '++)
+						       '+
+						       '-))
+					 ;; TODO: number as string
+					 (new-node Number "1")))
 		    ,(new-node Var-ref tmp-return))))
 	  (let ((tmp-return (gensym 'tmp))
 		(id expr.id))
 	     (new-node Sequence
-		  `(,(new-node Vassig (new-node Decl tmp-return) expr)
+		  `(,(new-node Vassig
+			       (new-node Decl tmp-return)
+			       (new-node Unary
+					 (new-node Var-ref 'any->number)
+					 (new-node Var-ref id)))
 		    ,(new-node Vassig
 			  (new-node Var-ref id)
 			  (new-node Binary
-			       (new-node Var-ref id)
-			       (new-node Var-ref (if (eq? op '++) '+ '-))
-			       (new-node Number "1")))
+				    (new-node Var-ref tmp-return)
+				    (new-node Var-ref (if (eq? op '++) '+ '-))
+				    (new-node Number "1")))
 		    ,(new-node Var-ref tmp-return)))))))

@@ -48,6 +48,7 @@
 	   ;; (macro jsop-OR e1 e2)
 
 	   (inline jsop-any->object expr)
+	   (inline jsop-any->number expr)
 	   ))
 
 ;; base must not be undefined or null (which can only happen for
@@ -295,3 +296,6 @@
 
 (define-inline (jsop-any->object expr)
    (any->object expr))
+
+(define-inline (jsop-any->number expr)
+   (any->number expr))
