@@ -22,7 +22,9 @@
     (generic js-object->string::bstring o::Js-Object)
     (generic add-enumerables o::Js-Object enumerables-ht shadowed-ht)
 
+    (js-properties-list::pair-nil o::Js-Object)
     (inline make-props-hashtable)
+    
     (default-attributes)    ;; default attributes for common properties.
     (length-attributes)     ;; default attributes for "length" properties.
     (built-in-attributes)    ;; default attributes for "built-in" properties.
@@ -187,7 +189,7 @@
       ;; no need to test for null. null overloads add-enumerables
       (add-enumerables proto enumerables-ht shadowed-ht)))
 
-(define-inline (js-properties-list::pair-nil o::Js-Object)
+(define (js-properties-list::pair-nil o::Js-Object)
    (let ((enumerables-ht (make-string-hashtable))
 	 (shadowed-ht (make-string-hashtable)))
       (add-enumerables o enumerables-ht shadowed-ht)

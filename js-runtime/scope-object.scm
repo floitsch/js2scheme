@@ -14,12 +14,14 @@
 	   jsre-conversion
 	   jsre-globals-tmp)
    (export (class Js-Scope-Object::Js-Object)
+	   (class Js-Activation-Object::Js-Scope-Object)
 	   (class Ref
 	      (getter::procedure read-only)
 	      (setter::procedure read-only))
 	   (js-scope-one-level-property-contains? scope-object::Js-Scope-Object
 						  id::bstring)
-	   (js-create-scope-object::Js-Scope-Object . Lproto))
+	   (js-create-scope-object::Js-Scope-Object . Lproto)
+	   (js-create-activation-object::Js-Activation-Object))
    (eval (class Ref)))
 
 (define (js-create-scope-object . Lproto)
@@ -28,6 +30,11 @@
       (proto (if (null? Lproto)
 		 (js-null)
 		 (car Lproto)))))
+
+(define (js-create-activation-object)
+   (instantiate::Js-Activation-Object
+      (props (make-props-hashtable))
+      (proto (js-null))))
 
 (define-method (js-object->string::bstring o::Js-Scope-Object)
    "scope-object should never be seen")
@@ -58,6 +65,22 @@
 		    val))
 	     (js-property-contains proto prop)))))
 
+(define-method (add-enumerables o::Js-Scope-Object enumerables-ht shadowed-ht)
+   (with-access::Js-Object o (props proto)
+      (hashtable-for-each
+       props
+       (lambda (key obj)
+	  (unless (hashtable-get shadowed-ht key)
+	     (with-access::Property-entry obj (attr val)
+		(with-access::Attributes attr (enumerable)
+		   (unless (and (Ref? val) ;;ignore entries that are undeclared
+				(js-undeclared? ((Ref-getter val))))
+		      (hashtable-put! shadowed-ht key #t)
+		      (when enumerable
+			 (hashtable-put! enumerables-ht key #t))))))))
+      ;; no need to test for null. null overloads add-enumerables
+      (add-enumerables proto enumerables-ht shadowed-ht)))
+	  
 (define (js-scope-one-level-property-contains? scope-object id)
    (with-access::Js-Object scope-object (props proto)
       (let ((ht-entry (hashtable-get props id)))

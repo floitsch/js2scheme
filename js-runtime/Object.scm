@@ -17,8 +17,7 @@
    (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
 	   (js-object-prototype::Js-Object)
 	   (Object-init)
-	   (js-object-literal properties::pair-nil)
-	   (object-for-in-attributes o)))
+	   (js-object-literal properties::pair-nil)))
 
 (define *js-Object* #unspecified)
 (define *js-Object-prototype*::Js-Object (js-undeclared))
@@ -120,16 +119,6 @@
 		      (js-property-safe-set! o name val)))
 		properties)
       o))
-
-(define (object-for-in-attributes o)
-   ;: TODO: (mostly?) wrong object-for-in
-   (let ((real-o (any->object o)))
-      (filter (lambda (prop) prop)
-	      (hashtable-map (Js-Object-props real-o)
-			     (lambda (name prop)
-				(let ((attr (Property-entry-attr prop)))
-				   (and (Attributes-enumerable attr)
-					name)))))))
 
 ;; Properties
 ;; ===================================
