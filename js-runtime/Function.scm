@@ -9,6 +9,8 @@
 	   jsre-Bool
 	   jsre-natives
 	   jsre-Error
+	   jsre-Arguments
+	   jsre-Array
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
@@ -18,8 +20,14 @@
    (export
     *js-Function* ;; can be modified by user -> can't be ::procedure
     (class Js-Function::Js-Object
-       new::procedure       ;; when called as a function. by default raises an error.
-       construct::procedure ;; when called as constructor. Usually same as 'fun'.
+       fun::procedure      ;;the procedure (a js-fun-lambda)
+       new::procedure      ;;when called as constructor. usually same as 'fun'.
+
+       ;; used to construct the object when called as new.
+       ;; usually create-empty-object-lambda for non-special procedures.
+       ;; exceptions are Array, Number, ....
+       construct::procedure
+       
        text-repr)
     (create-function::procedure js-lambda::procedure
 				length text-repr)
@@ -32,7 +40,8 @@
     (inline create-empty-object-lambda::Js-Object f-o::Js-Function)))
 
 (define *js-Function* #unspecified)
-(define *js-Function-prototype*::procedure (lambda L (js-undefined))) ;; 15.3.4
+(define *js-Function-prototype* ;; ::procedure
+   (lambda L (js-undefined))) ;; 15.3.4
 (define *js-Function-prototype-object*::Js-Object (js-undeclared))
 
 (define-method (js-object->string::bstring o::Js-Function)
@@ -48,6 +57,7 @@
 			  (props (make-props-hashtable))
 			  ;; The only function with object-prototype!
 			  (proto (js-object-prototype))
+			  (fun f)
 			  (new f)
 			  (construct create-empty-object-lambda)
 			  (text-repr "function() {/*Function.prototype*/}"))))
@@ -104,6 +114,10 @@
       (js-property-generic-set! prototype-obj ;; 15.3.4.2
 				"toString"
 				(toString)
+				(built-in-attributes))
+      (js-property-generic-set! prototype-obj ;; 15.3.4.3
+				"apply"
+				(fun-apply)
 				(built-in-attributes))))
 				  
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
@@ -126,6 +140,7 @@
    (let* ((fun-prototype (js-new *js-Object*))
 	  (fun-obj (create-function-object js-lambda ;; lambda
 					   js-lambda ;; new
+					   ;;constructed object will be ignored
 					   create-empty-object-lambda
 					   text-repr)))
       
@@ -159,6 +174,7 @@
    (let ((fun-obj (instantiate::Js-Function
 		     (props (make-props-hashtable))
 		     (proto (js-function-prototype-object))
+		     (fun js-lambda)
 		     (new new)
 		     (construct construct)
 		     (text-repr text-repr))))
@@ -169,6 +185,7 @@
    (hashtable-get *js-function-objects-ht* p))
 
 (define (Function-lambda)
+   ;; 15.3.2.1
    (js-fun-lambda #f #f (nb-args get-arg)
     ()
     (let loop ((i 0)
@@ -189,6 +206,7 @@
 		 body))))))
 
 (define (toString)
+   ;; 15.3.4.2
    (js-fun this #f #f "Function.toString"
 	   ()
 	   (if (not (Js-Function? this))
@@ -197,3 +215,56 @@
 		  (if (string? str)
 		      str
 		      (substring (car str) (cadr str) (caddr str)))))))
+
+(define (fun-apply)
+   ;; 15.3.4.3
+   ;; some redundancy with js-call. :(
+
+   (define *nb-named-params* 3)
+   
+   (js-fun this #f #f "Function.apply"
+	   (thisArg argArray)
+	   (cond
+	      ((not (Js-Function? this))
+	       (type-error "Function.apply applied to" this))
+	      ((not (or (Js-Array? argArray)
+			(Js-Arguments? argArray)))
+	       (type-error "argArray is neither Array nor Arguments object"
+			   argArray))
+	      (else
+	       (let* ((f (Js-Function-fun this))
+		      (call-this (if (or (js-undefined? thisArg)
+					 (js-null? thisArg))
+				     *js-global-this*
+				     (any->object thisArg)))
+		      ;; HACK: we only allow bint args.
+		      ;;  IIRC bigloo vectors can't have more elements anyways.
+		      (len (flonum->fixnum
+			    (any->uint32
+			     (js-property-safe-get argArray "length"))))
+		      (vec (make-vector (minfx (-fx len *nb-named-params*)
+					       0))))
+		  ;; start by filling the vector
+		  (let loop ((i *nb-named-params*))
+		     (unless (>=fx i len)
+			(let ((str-i (integer->string i)))
+			   (vector-set! vec (-fx i *nb-named-params*)
+					(js-property-safe-get argArray str-i))
+			   (loop (+fx i 1)))))
+		  ;; now get the named params in reverse order
+		  (let loop ((args (list vec))
+			     (i (-fx *nb-named-params* 1)))
+		     (cond
+			((<fx i 0)
+			 (apply f (cons* call-this
+					 f
+					 len
+					 args)))
+			((<fx i len)
+			 (let ((str-i (integer->string i)))
+			    (loop (cons (js-property-safe-get argArray str-i)
+					args)
+				  (-fx i 1))))
+			(else
+			 (loop (cons (js-undefined) args)
+			       (-fx i 1))))))))))
