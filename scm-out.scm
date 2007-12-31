@@ -74,12 +74,16 @@
 				      Intercepted-var
 				      This-var
 				      Imported-var)
+	     (overload access+base access+base (Var
+						Intercepted-var
+						This-var
+						Imported-var)
 	     (overload compiled-id compiled-id (Var
 						Intercepted-var
 						This-var
 						Imported-var)
 		       (overload traverse out (Label)
-				 (tree.traverse)))))))))
+				 (tree.traverse))))))))))
 
 (define (map-node-compile l)
    (map (lambda (n)
@@ -234,6 +238,56 @@
 	  "Encountered imported var"
 	  this.id))
 
+;; slightly HACKish: if the referenced var is inside an object (different from
+;; an activation object), then it updates (using 'set!') the given
+;; base-variable.
+(define-pmethod (Var-access+base base)
+   ;; mostly similar to Var-access
+   (let ((scm-id (get/assign-scm-id! this)))
+      (cond
+	 ;; don't even try to do fancy stuff, when we are in an eval. just
+	 ;; access the eval object
+	 ((and (thread-parameter 'eval?)
+	       this.global?)
+	  (let ((v (gensym 'v))
+		(o (gensym 'o)))
+	     `(multiple-value-bind (,v ,o)
+		 (env-get+object ,(thread-parameter 'eval-env)
+				 ,(symbol->string this.id))
+		 (unless (Js-Activation-Object? ,o)
+		    (set! ,base ,o))
+		 ,v)))
+	 (this.local-eval?
+	  ;; stupid thing: evals might delete local variables. If there's a
+	  ;; local eval, we need to verify first, if the variable actually
+	  ;; still exists.
+	  `(if (not (js-undeclared? ,scm-id))
+	       ,scm-id
+	       ,(this.eval-next-var.access+base base)))
+	 (this.global?
+	  `(if (not (js-undeclared? ,scm-id))
+	       ,scm-id
+	       (undeclared-error ',this.id)))
+	 (else
+	  scm-id))))
+(define-pmethod (Intercepted-var-access+base base)
+   (let* ((id this.id)
+	  (id-str (symbol->string id))
+	  (obj-id this.obj-id)
+	  (intercepted this.intercepted))
+      `(if (js-property-contains ,obj-id ,id-str)
+	   (begin
+	      (set! ,base ,obj-id)
+	      (js-property-safe-get ,obj-id ,id-str))
+	   ,(intercepted.access+base base))))
+(define-pmethod (This-var-access+base base) 'this)
+(define-pmethod (Imported-var-access+base base)
+   (error "scm-out"
+	  "Encountered imported var"
+	  this.id))
+
+
+
 (define-pmethod (Var-compiled-id)
    (get/assign-scm-id! this))
 (define-pmethod (Intercepted-var-compiled-id)
@@ -354,7 +408,7 @@
 
 (define-pmethod (For-in-out)
    `(for-each (lambda (,(this.lhs.var.compiled-id)) ,(this.body.traverse))
-	      (object-for-in-attributes ,(this.obj.traverse))))
+	      (js-properties-list ,(this.obj.traverse))))
 
 (define-pmethod (With-out)
    ;; the obj is not yet transformed to an object.
@@ -498,7 +552,7 @@
 	     (local-vars (filter (lambda (var) (not var.param?))
 				 fun-vars))
 	     (eval-obj-id this.eval-obj-id))
-	 `(let ((,eval-obj-id (js-create-scope-object))
+	 `(let ((,eval-obj-id (js-create-activation-object))
 		,@(map (lambda (var)
 			  `(,(var.compiled-id) (js-undefined)))
 		       local-vars))
@@ -574,37 +628,52 @@
 				     ,tmp-string-field
 				     ,(this.val.traverse))))))
 
+(define (Operator-out this)
+   (cond
+      ((and (eq? this.op.var.id 'typeof)
+	    (not (null? this.args))
+	    (null? (cdr this.args))
+	    (inherits-from? (car this.args) (node 'Var-ref)))
+       ;; we need to use .typeof to avoid undeclared error
+       `(,(this.op.var.compiled-id) ,((car this.args).var.typeof)))
+      ((or (eq? this.op.var.id '&&)
+	   (eq? this.op.var.id 'OR))
+       ;; not really operator calls, but macros.
+       ;; do not add the 'let'.
+       `(,(this.op.var.compiled-id) ;; operator call.
+	 ,@(map-node-compile this.args)))
+      (else
+       (let* ((compiled-args (map-node-compile this.args))
+	      (tmp-ids (map (lambda (arg) (gensym 'tmp))
+			    compiled-args))
+	      (bindings (map (lambda (tmp-id arg)
+				(list tmp-id arg))
+			     tmp-ids
+			     compiled-args)))
+	  `(let* ,bindings
+	      (,(this.op.var.compiled-id) ;; operator call.
+	       ,@tmp-ids))))))
+   
 (define-pmethod (Call-out)
-   (if (and (inherits-from? this.op (node 'Var-ref))
+   (cond
+      ((and (inherits-from? this.op (node 'Var-ref))
 	    (inherits-from? this.op.var (node 'Runtime-var))
 	    this.op.var.operator?)
-       (cond
-	  ((and (eq? this.op.var.id 'typeof)
-		(not (null? this.args))
-		(null? (cdr this.args))
-		(inherits-from? (car this.args) (node 'Var-ref)))
-	   ;; we need to use .typeof to avoid undeclared error
-	   `(,(this.op.var.compiled-id) ,((car this.args).var.typeof)))
-	  ((or (eq? this.op.var.id '&&)
-	       (eq? this.op.var.id 'OR))
-	   ;; not really operator calls, but macros.
-	   ;; do not add the 'let'.
-	   `(,(this.op.var.compiled-id) ;; operator call.
-	     ,@(map-node-compile this.args)))
-	  (else
-	   (let* ((compiled-args (map-node-compile this.args))
-		  (tmp-ids (map (lambda (arg) (gensym 'tmp))
-				compiled-args))
-		  (bindings (map (lambda (tmp-id arg)
-				    (list tmp-id arg))
-				 tmp-ids
-				 compiled-args)))
-	   `(let* ,bindings
-	       (,(this.op.var.compiled-id) ;; operator call.
-		,@tmp-ids)))))
+       (Operator-out this))
+      ((inherits-from? this.op (node 'Var-ref))
+       (let ((base (gensym 'base))
+	     (f (gensym 'f)))
+	  `(let ((,base *js-global-this*))
+	      ;; if the variable has a base, it will update the base-variable
+	      ;; we then perform (implicitely) a method-call.
+	      (let ((,f ,(this.op.var.access+base base)))
+		 (js-call ,f
+			  ,base ;; might have been updated by access+base.
+			  ,@(map-node-compile this.args))))))
+      (else
        `(js-call ,(this.op.traverse)
 		 #f
-		 ,@(map-node-compile this.args))))
+		 ,@(map-node-compile this.args)))))
 
 ; (define-pmethod (Binary-out)
 ;    `(,(this.op.traverse)

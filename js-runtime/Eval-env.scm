@@ -18,6 +18,7 @@
 	      (objs::pair-nil read-only)
 	      (next-env read-only))
 	   (env-get env::Js-Eval-env id::bstring)
+	   (env-get+object env::Js-Eval-env id::bstring)
 	   (env-typeof-get env::Js-Eval-env id::bstring)
 	   ;; returns the given new-val
 	   (env-set! env::Js-Eval-env id::bstring new-val)
@@ -35,6 +36,25 @@
 	     (env-get next-env id))
 	    (else
 	     (undeclared-error id))))))
+
+;; same as env-get but returns containing obj too.
+;; necessary for fun-calls (see 11.2.3-7)
+(define (env-get+object env id)
+   (with-access::Js-Eval-env env (objs next-env)
+      (let loop ((objs objs))
+	 (cond
+	    ((and (null? objs)
+		  next-env)
+	     (env-get+object next-env id))
+	    ((null? objs)
+	     (undeclared-error id))
+	    ((js-property-contains (car objs) id)
+	     =>
+	     (lambda (entry)
+		(values (unmangle-false entry)
+			(car objs))))
+	    (else
+	     (loop (cdr objs)))))))
 
 (define (env-typeof-get env id)
    (with-access::Js-Eval-env env (objs next-env)

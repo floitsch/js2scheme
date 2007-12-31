@@ -180,12 +180,16 @@
       `(let ((,arguments (instantiate::Js-Arguments
 			    (props (make-props-hashtable))
 			    (proto (js-object-prototype)))))
-	  (scope-var-add ,arguments "callee" ,callee
-			 ; 'don-enum
-			 (built-in-attributes))
-	  (scope-var-add ,arguments "length" ,nb-args
-			 ; 'don-enum
-			 (built-in-attributes))
+	  (js-property-generic-set! ,arguments
+				    "callee"
+				    ,callee
+				    ; 'don-enum
+				    (built-in-attributes))
+	  (js-property-generic-set! ,arguments
+				    "length"
+				    (fixnum->flonum ,nb-args)
+				    ; 'don-enum
+				    (built-in-attributes))
 	  ;; named vars are added as scope-vars
 	  ,@(map (lambda (id c)
 		    `(when (< ,c ,nb-args)
