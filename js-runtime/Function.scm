@@ -118,6 +118,10 @@
       (js-property-generic-set! prototype-obj ;; 15.3.4.3
 				"apply"
 				(fun-apply)
+				(built-in-attributes))
+      (js-property-generic-set! prototype-obj ;; 15.3.4.4
+				"call"
+				(call)
 				(built-in-attributes))))
 				  
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
@@ -143,7 +147,7 @@
 					   ;;constructed object will be ignored
 					   create-empty-object-lambda
 					   text-repr)))
-      
+
       (js-property-generic-set! fun-prototype
 			       "constructor"
 			       js-lambda
@@ -158,7 +162,7 @@
       
       (js-property-generic-set! fun-obj
 			       "prototype"
-			       (js-new *js-Object*)
+			       fun-prototype
 			       ;; ECMA 15.3.5.2
 			       (dont-delete-attributes))
       js-lambda))
@@ -242,7 +246,7 @@
 		      (len (flonum->fixnum
 			    (any->uint32
 			     (js-property-safe-get argArray "length"))))
-		      (vec (make-vector (minfx (-fx len *nb-named-params*)
+		      (vec (make-vector (maxfx (-fx len *nb-named-params*)
 					       0))))
 		  ;; start by filling the vector
 		  (let loop ((i *nb-named-params*))
@@ -268,3 +272,43 @@
 			(else
 			 (loop (cons (js-undefined) args)
 			       (-fx i 1))))))))))
+
+(define (call)
+   ;; 15.3.4.3
+   ;; some redundancy with js-call and with apply :(
+   
+   (define *nb-named-params* 3)
+
+   (js-fun this #f
+	   (nb-args get-arg)
+	   "Function.call"
+	   (thisArg)
+	   (if (not (Js-Function? this))
+	       (type-error "Function.apply applied to" this)
+	       (let* ((f (Js-Function-fun this))
+		      (call-this (if (or (js-undefined? thisArg)
+					 (js-null? thisArg))
+				     *js-global-this*
+				     (any->object thisArg)))
+		      (vec-len (- nb-args *nb-named-params* 1)) ;;rm 1 for this
+		      (vec (make-vector (maxfx vec-len 0))))
+		  ;; start by filling the vector
+		  (let loop ((i 0))
+		     (when (<fx i vec-len)
+			(vector-set! vec i (get-arg (+ i *nb-named-params* 1)))
+			(loop (+fx i 1))))
+		  ;; now get the named params in reverse order
+		  (let loop ((args (list vec))
+			     (i *nb-named-params*)) ;; do not remove 1
+		     (cond
+			((<fx i 1) ;; don't take 0th element.
+			 (apply f (cons* call-this
+					 f
+					 (-fx nb-args 1)
+					 args)))
+			((<fx i nb-args)
+			 (loop (cons (get-arg i) args)
+			       (-fx i 1)))
+			(else
+			 (loop (cons (js-undefined) args)
+			       (-fx i 1)))))))))
