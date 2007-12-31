@@ -79,6 +79,10 @@
 				(replace)
 				(built-in-attributes))
       (js-property-generic-set! prototype
+				"charAt"
+				(charAt)
+				(built-in-attributes))
+      (js-property-generic-set! prototype
 				"charCodeAt"
 				(charCodeAt)
 				(built-in-attributes))
@@ -148,22 +152,37 @@
    (js-fun this #f #f "String.replace"
 	   (seachValue replaceValue) (any->string this)))
 
+(define (js-string-ref o pos-any)
+   ;; 15.5.4.4 && 15.5.4.5
+   (let* ((str (any->string o))
+	  (str-len (string-length str))
+	  (pos (any->integer pos-any)))
+      (cond
+	 ((<fl pos 0.0)
+	  #f)
+	 ((>= pos str-len)
+	  #f)
+	 (else
+	  (string-ref str (flonum->fixnum pos))))))
+   
+(define (charAt)
+   ;; 15.5.4.4
+   (js-fun this #f #f "String.charAt"
+	   (pos-any)
+	   (let ((c (js-string-ref this pos-any)))
+	      (if c
+		  (string c)
+		  ""))))
+
 (define (charCodeAt)
    ;; 15.5.4.5
    (js-fun this #f #f "String.charCodeAt"
 	   (pos-any)
-	   (let* ((str (any->string this))
-		  (str-len (string-length str))
-		  (pos (any->integer pos-any)))
-	      (cond
-		 ((<fl pos 0.0)
-		  (NaN))
-		 ((>= pos str-len)
-		  (NaN))
-		 (else
+	   (let ((c (js-string-ref this pos-any)))
+	      (if c
 		  (fixnum->flonum
-		   (char->integer
-		    (string-ref str (flonum->fixnum pos)))))))))
+		   (char->integer c))
+		  (NaN)))))
 
 (define (str-substring)
    ;; 15.5.4.15
