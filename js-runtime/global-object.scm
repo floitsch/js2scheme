@@ -26,6 +26,15 @@
 	   (macro define-runtime-globals)
 	   (global-add! id getter::procedure setter::procedure attributes)))
 
+(define-method (object-display o::Js-Global . Lport)
+   (if (null? Lport)
+       (display '*js-global-this*)
+       (display '*js-global-this* (car Lport))))
+
+(define-method (object-write o::Js-Global . Lport)
+   (if (null? Lport)
+       (write '*js-global-this*)
+       (write '*js-global-this* (car Lport))))
 
 (define-macro (global-declared-add! id v)
    `(scope-var-add *js-global-object* ,id ,v (declared-attributes)))

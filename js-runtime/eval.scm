@@ -49,7 +49,7 @@
 			;; evaled-string is there anyways.
 			;; no need to hide the function-string
 			(hashtable-put! ht 'function-strings #t)
-;			(hashtable-put! ht 'verbose #t)
+			;(hashtable-put! ht 'verbose #t)
 			ht))
 	     (p (open-input-string src))
 	     (scm-prog (js2scheme-eval p
@@ -58,7 +58,7 @@
 				       *js-global-env*
 				       ;; we could use *js-global-this* too
 				       *js-global-object*))
+	     ;(dummy (pp scm-prog))
 	     (res (eval scm-prog)))
-;	 (write-circle scm-prog)
 	 (close-input-port p)
 	 res)))
