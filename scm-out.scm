@@ -408,7 +408,7 @@
 
 (define-pmethod (For-in-out)
    `(for-each (lambda (,(this.lhs.var.compiled-id)) ,(this.body.traverse))
-	      (js-properties-list ,(this.obj.traverse))))
+	      (js-for-in-properties-list (any->object ,(this.obj.traverse)))))
 
 (define-pmethod (With-out)
    ;; the obj is not yet transformed to an object.
