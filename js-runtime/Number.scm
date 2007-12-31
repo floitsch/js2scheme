@@ -63,6 +63,14 @@
 				(+infinity)
 				(prototype-attributes))
       
+      (js-property-generic-set! prototype     ;; 15.7.4.2
+				"toString"
+				(toString)
+				(built-in-attributes))
+      (js-property-generic-set! prototype     ;; 15.7.4.3
+				"toLocaleString"
+				(toString) ;; HACK: number locale string.
+				(built-in-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.4
 				"valueOf"
 				(valueOf)
@@ -96,6 +104,33 @@
    ;; Number-new always returns an Object.
    ;; so we can ignore this one.
    #f)
+
+(define (toString)
+   ;; 15.7.4.2 (and 15.7.4.3 toLocaleString)
+   (js-fun this #f #f "Number.valueOf"
+	   (radix)
+	   (define (convert radix)
+	      (cond
+		 ((not (Js-Number? this))
+		  (type-error "Number.toString applied to" this))
+		 ((or (js-undefined? radix)
+		      (and (real? radix)
+			   (=fl radix 10.0)))
+		  (any->string (Js-Number-value this)))
+		 ((and (real? radix)
+		       (>= radix 2.0)
+		       (<= radix 36.0)
+		       (=fl radix (any->integer radix)))
+		  (llong->string (flonum->llong (Js-Number-value this))
+				 (flonum->fixnum radix)))
+		 
+		 ;; unspecified in spec.
+		 ;; v v v v v v v v v v 
+		 ((real? radix) ;; outside boundary
+		  (any->string (Js-Number-value this)))
+		 (else
+		  (convert (any->number radix)))))
+	   (convert radix)))
 
 (define (valueOf)
    ;; 15.7.4.4
