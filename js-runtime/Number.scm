@@ -29,6 +29,7 @@
 
 (define (Number-init)
    (set! *js-Number* (Number-lambda))
+   (set! *js-Number-orig* *js-Number*)
    (globals-tmp-add! (lambda () (global-runtime-add! 'Number *js-Number*)))
    
    (let* ((number-object (create-function-object *js-Number*
