@@ -46,10 +46,14 @@
    (with-handler
       (lambda (e) (syntax-error e))
       (let* ((config (let ((ht (make-hashtable)))
+			;; evaled-string is there anyways.
+			;; no need to hide the function-string
+			(hashtable-put! ht 'function-strings #t)
 ;			(hashtable-put! ht 'verbose #t)
 			ht))
 	     (p (open-input-string src))
-	     (scm-prog (js2scheme-eval p config
+	     (scm-prog (js2scheme-eval p
+				       config
 				       *js-global-object*
 				       *js-global-env*
 				       ;; we could use *js-global-this* too
