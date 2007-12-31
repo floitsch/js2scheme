@@ -83,7 +83,7 @@
 
 (define-inline (jsop-~ v)
    (let* ((f (any->int32 v))
-	  (i (flonum->elong f)))
+          (i (flonum->elong f)))
       (elong->flonum (bit-notelong i))))
 
 (define-inline (jsop-! v)
