@@ -47,6 +47,10 @@
 	   ;; (macro jsop-&& e1 e2)
 	   ;; (macro jsop-OR e1 e2)
 
+	   ;; dummy functions for extract-globals.
+	   (jsop-++ dummy)
+	   (jsop--- dummy)
+
 	   (inline jsop-any->object expr)
 	   (inline jsop-any->number expr)
 	   ))
@@ -293,6 +297,19 @@
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (flonum->elong (any->int32 v2))))
       (elong->flonum (bit-orelong n1 n2))))
+
+;; jsop-++ and jsop--- can't be used directly. We don't have macros either.
+;; the whole purpose of the existence of both procedures here is to add them to
+;; the runtime-variables.sch file, so that the symbol-pass works as expected.
+;; They have to be expanded into x = (any->number x) +/- 1
+(define (jsop-++ dummy)
+   (error "operators"
+	  "++ prefix/postfix must be expanded in compiler."
+	  #f))
+(define (jsop--- dummy)
+   (error "operators"
+	  "-- prefix/postfix must be expanded in compiler."
+	  #f))
 
 (define-inline (jsop-any->object expr)
    (any->object expr))

@@ -20,6 +20,8 @@
 ;; - delete X is transformed to
 ;;    * delete o f (Delete-property-call) if X is of form o[f]
 ;;    * delete v   (Delete-call) otherwise
+;; - replace ++x with tmp = x; x = x+1; tmp  (same for --) 11.4.4, 11.4.5
+;; - replace x++ with x = x+1;  (same for --) 11.3.1, 11.3.2
 (define (expand1! tree)
    (verbose " expand")
    (overload traverse! expand! (Node
@@ -32,7 +34,8 @@
 				Call
 				Vassig-op
 				Accsig-op
-				Unary)
+				Unary
+				Postfix)
 	     (tree.traverse!)))
 
 (define-pmethod (Node-expand!)
@@ -158,5 +161,105 @@
 	      (new-node Delete-call
 			this.op
 			expr))))
+	 ((and (or (eq? op '++)
+		   (eq? op '--))
+	       (inherits-from? expr (node 'Access)))
+	  ;; 11.4.4, 11.4.5
+	  (let* ((obj expr.obj)
+		 (field expr.field)
+		 (tmp-obj-id (gensym 'o))
+		 (tmp-obj-decl (Decl-of-new-Var tmp-obj-id))
+		 (tmp-obj-var tmp-obj-decl.var)
+		 (tmp-prop-id (gensym 'prop))
+		 (tmp-prop-decl (Decl-of-new-Var tmp-prop-id))
+		 (tmp-prop-var tmp-prop-decl.var)
+		 (any->number-var (id->runtime-var 'any->number))
+		 (op-var (id->runtime-var (if (eq? op '++) '+ '-))))
+	     (new-node
+	      Sequence
+	      `(,(new-node Vassig tmp-obj-decl obj)
+		,(new-node Vassig tmp-prop-decl field)
+		,(new-node Accsig
+			   (new-node Access
+				     (tmp-obj-var.reference)
+				     (tmp-prop-var.reference))
+			   (new-node
+			    Binary
+			    (new-node Unary
+				      (any->number-var.reference)
+				      (new-node Access
+						(tmp-obj-var.reference)
+						(tmp-prop-var.reference)))
+			    (op-var.reference)
+			    (new-node Number "1")))))))
+	 ((or (eq? op '++)
+	      (eq? op '--))
+	  ;; 11.4.4, 11.4.5
+	  (new-node
+	   Vassig
+	   expr ;; a variable (either Var-ref or Decl)
+	   (new-node Binary
+		     (new-node Unary
+			       ((id->runtime-var 'any->number).reference)
+			       (expr.var.reference))
+		     ((id->runtime-var (if (eq? op '++) '+ '-)).reference)
+		     (new-node Number "1"))))
 	 (else
 	  this))))
+
+(define-pmethod (Postfix-expand!)
+   ;;11.3.1, 11.3.2
+   (this.traverse0!)
+   (let ((op this.op.id)
+	 (expr (car this.args)))
+      (if (inherits-from? expr (node 'Access))
+	  (let* ((obj expr.obj)
+		 (field expr.field)
+		 (tmp-return-id (gensym 'tmp))
+		 (tmp-return-decl (Decl-of-new-Var tmp-return-id))
+		 (tmp-return-var tmp-return-decl.var)
+		 (tmp-obj-id (gensym 'o))
+		 (tmp-obj-decl (Decl-of-new-Var tmp-obj-id))
+		 (tmp-obj-var tmp-obj-decl.var)
+		 (tmp-prop-id (gensym 'prop))
+		 (tmp-prop-decl (Decl-of-new-Var tmp-prop-id))
+		 (tmp-prop-var tmp-prop-decl.var)
+		 (any->number-var (id->runtime-var 'any->number))
+		 (op-var (id->runtime-var (if (eq? op '++) '+ '-))))
+	     (new-node
+	      Sequence
+	      `(,(new-node Vassig tmp-obj-decl obj)
+		,(new-node Vassig tmp-prop-decl field)
+		,(new-node Vassig
+			   tmp-return-decl
+			   (new-node Unary
+				     (any->number-var.reference)
+				     (new-node Access
+					       (tmp-obj-var.reference)
+					       (tmp-prop-var.reference))))
+		,(new-node Accsig
+			   (new-node Access
+				     (tmp-obj-var.reference)
+				     (tmp-prop-var.reference))
+			   (new-node Binary
+				     (tmp-return-var.reference)
+				     (op-var.reference)
+				     (new-node Number "1")))
+		,(tmp-return-var.reference))))
+	  (let* ((tmp-return-id (gensym 'tmp))
+		 (tmp-return-decl (Decl-of-new-Var tmp-return-id))
+		 (tmp-return-var tmp-return-decl.var)
+		 (any->number-var (id->runtime-var 'any->number))
+		 (op-var (id->runtime-var (if (eq? op '++) '+ '-))))
+	     (new-node
+	      Sequence
+	      `(,(new-node Vassig
+			   tmp-return-decl
+			   (new-node Unary
+				     (any->number-var.reference)
+				     expr))
+		,(expr.var.assig (new-node Binary
+					   (tmp-return-var.reference)
+					   (op-var.reference)
+					   (new-node Number "1")))
+		,(tmp-return-var.reference)))))))

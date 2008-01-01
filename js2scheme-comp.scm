@@ -15,7 +15,6 @@
 	   ewal
 	   label
 	   label-resolution
-	   expand4
 	   simplify-labels
 	   bind-exit
 	   escape
@@ -74,7 +73,6 @@
       (statements ast)
       (js-out ast)
       (fun-bindings! ast)
-      (expand4! ast)
       (symbol-resolution! ast '())
       (label-resolution ast)
       (simplify-labels! ast)
