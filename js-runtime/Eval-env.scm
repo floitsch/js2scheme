@@ -65,7 +65,7 @@
 	    (entry
 	     (unmangle-false entry))
 	    (next-env
-	     (env-get next-env id))
+	     (env-typeof-get next-env id))
 	    (js-undeclared)))))
 
 (define (env-set! env id new-val)
