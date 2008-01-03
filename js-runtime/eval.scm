@@ -36,9 +36,7 @@
 					   (objs Lenvs)
 					   (next-env next-env))
 					top-level-this))
-	      ;(dummy (write-circle scm-prog))
 	      (res (eval scm-prog)))
-	  ;(tprint (with-output-to-string (lambda () (write-circle scm-prog))))
 	  (close-input-port p)
 	  res)))
 
@@ -58,7 +56,6 @@
 				       *js-global-env*
 				       ;; we could use *js-global-this* too
 				       *js-global-object*))
-	     ;(dummy (pp scm-prog))
 	     (res (eval scm-prog)))
 	 (close-input-port p)
 	 res)))

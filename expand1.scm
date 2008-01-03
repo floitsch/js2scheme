@@ -60,17 +60,22 @@
 	  (new-this break-labelled))
       (set! continue-labelled.label this.continue-label)
       (set! break-labelled.label this.break-label)
+      (if this.need-result? (set! while.need-result? #t))
       (delete! this.continue-label)
       (delete! this.break-label)
       new-this))
 
 (define-pmethod (While-expand!)
-   (let ((continue-labelled (new-node Labelled *default-continue-label-id* this.body)))
+   (let ((continue-labelled (new-node Labelled
+				      *default-continue-label-id*
+				      this.body)))
       (set! continue-labelled.label this.continue-label)
       (delete! this.continue-label)
       (set! this.body continue-labelled)
       (let* ((old-this (this.traverse0!))
-	     (break-labelled (new-node Labelled *default-break-label-id* old-this)))
+	     (break-labelled (new-node Labelled
+				       *default-break-label-id*
+				       old-this)))
 	 (set! break-labelled.label this.break-label)
 	 (delete! this.break-label)
 	 break-labelled)))
@@ -89,7 +94,9 @@
    (this.traverse0!)
    (let ((return (new-node Return (new-node Undefined))))
       (set! return.label this.return-label)
-      (let ((new-body (new-node Labelled #f (new-node Block (list this.body return)))))
+      (let ((new-body (new-node Labelled
+				#f
+				(new-node Block (list this.body return)))))
 	 (set! new-body.label this.return-label)
 	 (set! this.body new-body)
 	 (delete! this.return-label)
