@@ -9,6 +9,7 @@
 	   var
 	   parser
 	   expand1
+	   stmt-result
 	   fun-bindings
 	   symbol
 	   with
@@ -74,6 +75,7 @@
       (js-out ast)
       (fun-bindings! ast)
       (symbol-resolution! ast '())
+      (stmt-result ast)
       (label-resolution ast)
       (simplify-labels! ast)
       (expand1! ast)

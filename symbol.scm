@@ -157,6 +157,7 @@
 	  ;; there exists already a decl. -> remove this one.
 	  (let ((ref (new-node Var-ref this.id)))
 	     (set! ref.var var)
+	     (set! ref.was-decl? #t)
 	     ref)
 	  (let ((new-var (new-node Var id)))
 	     (set! this.var new-var)
