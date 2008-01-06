@@ -20,6 +20,8 @@
 ;; - delete X is transformed to
 ;;    * delete o f (Delete-property-call) if X is of form o[f]
 ;;    * delete v   (Delete-call) otherwise
+;; - For-in if lhs is Access replace it with temporary variable, and put
+;;   assignment into loop.
 ;; - replace ++x with tmp = x; x = x+1; tmp  (same for --) 11.4.4, 11.4.5
 ;; - replace x++ with x = x+1;  (same for --) 11.3.1, 11.3.2
 (define (expand1! tree)
@@ -28,7 +30,7 @@
 				For
 				While
 				(Do While-expand!) ; same as for While
-				(For-in While-expand!) ; same as for While
+				For-in
 				Switch-clause
 				Fun
 				Call
@@ -79,6 +81,19 @@
 	 (set! break-labelled.label this.break-label)
 	 (delete! this.break-label)
 	 break-labelled)))
+
+(define-pmethod (For-in-expand!)
+   (when (inherits-from? this.lhs (node 'Access))
+      (let* ((tmp (Decl-of-new-Var (gensym 'tmp)))
+	     (tmp-var tmp.var)
+	     (old-lhs this.lhs))
+	 (set! this.lhs tmp)
+	 (set! this.body (new-node Block
+				   (list (new-node Accsig
+						   old-lhs
+						   (tmp-var.reference))
+					 this.body)))))
+   (pcall this While-expand!))
 
 (define-pmethod (Switch-clause-expand!)
    (this.traverse0!)
