@@ -707,9 +707,11 @@
       `(let ((,t ,(this.op.traverse)))
 	  (if (eq? ,t ,eval-id)
 	      ;; we have a real eval here
-	      (js-eval ,((car this.args).traverse)
-		       ,tlo-id/obj this ,next-env
-		       ,@env-vars)
+	      ,(if (null? this.args)
+		   `(js-undefined)
+		   `(js-eval ,((car this.args).traverse)
+			     ,tlo-id/obj this ,next-env
+			     ,@env-vars))
 	      (js-call ,t #f ,@(map-node-compile this.args))))))
 
 (define-pmethod (New-out)

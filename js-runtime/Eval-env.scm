@@ -66,7 +66,8 @@
 	     (unmangle-false entry))
 	    (next-env
 	     (env-typeof-get next-env id))
-	    (js-undeclared)))))
+	    (else
+	     (js-undeclared))))))
 
 (define (env-set! env id new-val)
    (with-access::Js-Eval-env env (objs next-env)
