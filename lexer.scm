@@ -3,7 +3,7 @@
 	   *care-future-reserved*
 	   *Reg-exp-grammar*))
 
-(define (string-without-quotes s)
+(define (unescaped-minus-quotes s)
    (define (unescape str)
       (let ((char-l (string->list str)))
 	 (let loop ((char-l char-l)
@@ -14,6 +14,7 @@
 		   ((eq? (car char-l) #\\)
 		    (loop (cddr char-l)
 			  (cons (case (cadr char-l)
+				   ((#\f) (string-ref "\f" 0))
 				   ((#\t) #\tab)
 				   ((#\n) #\newline)
 				   ((#\r) #\return)
@@ -165,10 +166,10 @@
 
       ;; TODO: probably not spec-conform
       ((: #\" (* (or (out #\" #\\ #\Newline) (: #\\ all))) #\")
-       (token 'STRING (string-without-quotes (the-string))))
+       (token 'STRING (unescaped-minus-quotes (the-string))))
        ;(token 'STRING (the-string)))
       ((: #\' (* (or (out #\' #\\ #\Newline) (: #\\ all))) #\')
-       (token 'STRING (string-without-quotes (the-string))))
+       (token 'STRING (unescaped-minus-quotes (the-string))))
        ;(token 'STRING (the-string)))
 
       ;; Identifiers and Keywords

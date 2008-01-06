@@ -50,7 +50,16 @@
 				"prototype"
 				prototype
 				(prototype-attributes))
-      ;; TODO: MAX_VALUE MIN_VALUE
+      (js-property-generic-set! number-object ;; 15.7.3.2
+				"MAX_VALUE"
+				;; for now close enough
+				1.7976931348623157E308
+				(prototype-attributes))
+      (js-property-generic-set! number-object ;; 15.7.3.3
+				"MIN_VALUE"
+				;; for now close enough
+				4.9E-324
+				(prototype-attributes))
       (js-property-generic-set! number-object ;; 15.7.3.4
 				"NaN"
 				(NaN)

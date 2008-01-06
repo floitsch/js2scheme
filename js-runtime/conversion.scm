@@ -66,10 +66,68 @@
    (js-boolify any))
 
 (define (js-string->number str) ;; TODO: number
-   (let ((n (string->real str)))
-      (cond
-	 ((not n) (NaN))
-	 (else n))))
+   ;; still not completely compliant.
+
+   ;; remove whitespaces
+   (define (strip str)
+      (let ((str-len (string-length str)))
+	 (let loop ((start 0))
+	    (cond
+	       ((>= start str-len)
+		"")
+	       ((char-whitespace? (string-ref str start))
+		(loop (+fx start 1)))
+	       (else
+		(let luup ((end (-fx str-len 1)))
+		   (cond
+		      ((char-whitespace? (string-ref str end))
+		       (luup (-fx end 1)))
+		      (else
+		       (substring str start (+fx end 1))))))))))
+
+   ;; simplified test: length at least >= 3 and all chars have to be a-fA-F
+   (define (valid-hex-string? str)
+      (let ((str-len (string-length str))
+	    (val0 (char->integer #\0))
+	    (val9 (char->integer #\9))
+	    (vala (char->integer #\a))
+	    (valf (char->integer #\f))
+	    (valA (char->integer #\A))
+	    (valF (char->integer #\F)))
+	 (and (>fx str-len 2)
+	      (let loop ((i 2))
+		 (if (>= i str-len)
+		     #t
+		     (let ((cval (char->integer (string-ref str i))))
+			(if (or (and (>=fx cval val0)
+				     (<=fx cval val9))
+				(and (>=fx cval vala)
+				     (<=fx cval valf))
+				(and (>=fx cval valA)
+				     (<=fx cval valF)))
+			    (loop (+fx i 1))
+			    #f)))))))
+
+   (let ((stripped (strip str)))
+      (if (string-null? stripped)
+	  0.0
+	  (cond
+	     ((or (string-prefix? "0x" stripped)
+		  (string-prefix? "0X" stripped))
+	      (if (valid-hex-string? stripped)
+		  (string->real stripped)
+		  (NaN)))
+	     ((or (string=? stripped "+Infinity")
+		  (string=? stripped "Infinity"))
+	      (+infinity))
+	     ((string=? stripped "-Infinity")
+	      (-infinity))
+	     (else
+	      (let ((t (string->number stripped)))
+		 (cond
+		    ((not t)    (NaN))
+		    ((exact? t) (exact->inexact t))
+		    (else       t))))))))
 
 (define (any->number any)
    (cond

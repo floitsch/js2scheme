@@ -29,10 +29,10 @@
 	   (inline jsop-<< v1 v2)
 	   (inline jsop->> v1 v2)
 	   (inline jsop->>> v1 v2)
-	   (inline jsop-< v1 v2)
-	   (inline jsop-> v1 v2)
-	   (inline jsop-<= v1 v2)
-	   (inline jsop->= v1 v2)
+	   (jsop-< v1 v2)
+	   (jsop-> v1 v2)
+	   (jsop-<= v1 v2)
+	   (jsop->= v1 v2)
 	   (jsop-instanceof v1 v2)
 	   (jsop-in v1 v2)
 	   (inline jsop-!= v1 v2)
@@ -97,12 +97,12 @@
 (define-inline (jsop-* v1 v2)
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
-      (*fl v1 v2)))
+      (*fl n1 n2)))
 
 (define-inline (jsop-/ v1 v2)
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
-      (/fl v1 v2)))
+      (/fl n1 n2)))
 
 (define-inline (jsop-% v1 v2)
    (let* ((n1 (any->number v1))
@@ -158,17 +158,19 @@
 
 (define-inline (jsop->>> v1 v2)
    ;; 11.7.3
-   (let* ((n1 (flonum->elong (any->int32 v1)))
+   (let* ((v1_32 (any->uint32 v1))
+	  (n1 (flonum->elong v1_32))
 	  (n2 (any->uint32 v2))
 	  (by (bit-and #x1F (flonum->fixnum n2))))
       (if (zero? by)
-	  n1
+	  v1_32
 	  (let* ((tmp (bit-rshelong n1 1))
 		 ;; clear bit31 (in case nb was negative)
-		 (tmp2 (bit-andelong tmp #ex80000000)))
-	     (bit-rshelong tmp2 (-fx by 1))))))
+		 (tmp2 (bit-andelong tmp #ex7FFFFFFF)))
+	     (elong->flonum (bit-rshelong tmp2 (-fx by 1)))))))
 
-(define-inline (jsop-< v1 v2)
+(define (abstract-rel v1 v2 when-NaN)
+   ;; 11.8.5
    (let* ((p1 (any->primitive v1 'number))
 	  (p2 (any->primitive v2 'number)))
       (if (and (string? p1) (string? p2))
@@ -177,21 +179,25 @@
 		 (n2 (any->number p2)))
 	     (cond
 		((or (NaN? n1) (NaN? n2))
-		 (js-undefined))
+		 when-NaN)
 		(else
 		 (<fl n1 n2)))))))
 
-(define-inline (jsop-> v1 v2)
-   (let ((tmp (jsop-< v2 v1)))
-      (if (js-undefined? tmp)
-	  #f
-	  tmp)))
+(define (jsop-< v1 v2)
+   ;; 11.8.1
+   (abstract-rel v1 v2 #f))
 
-(define-inline (jsop-<= v1 v2)
-   (not (jsop-< v2 v1)))
+(define (jsop-> v1 v2)
+   ;; 11.8.2
+   (abstract-rel v2 v1 #f))
 
-(define-inline (jsop->= v1 v2)
-   (not (jsop-< v1 v2)))
+(define (jsop-<= v1 v2)
+   ;; 11.8.3
+   (not (abstract-rel v2 v1 #t)))
+
+(define (jsop->= v1 v2)
+   ;; 11.8.4
+   (not (abstract-rel v1 v2 #t)))
 
 (define (jsop-instanceof v1 v2)
    (unless (procedure? v2)
@@ -223,28 +229,31 @@
 
 (define-inline (jsop-== v1 v2)
    (cond
-      ;; TODO: what about NaN. -0, +0
-      ((equal? v1 v2)
-       ;; covers undefined, null, numbers, strings, booleans, functions
-       ;; (at least short-cuts most of them)
+      ((NaN? v1) #f)
+      ((NaN? v2) #f)
+      ;; TODO:  -0, +0
+      ((eq? v1 v2)
+       ;; shortcuts undefined, null, some numbers, some strings, booleans,
+       ;; functions
        #t)
-      ((and (js-null? v1) (js-undefined? v2))
-       #t)
-      ((and (js-undefined? v1) (js-null? v2))
-       #t)
-      ((or (and (string? v1) (string? v2))
-	   (and (boolean? v1) (boolean? v2))
-	   (and (real? v1) (real? v2))
-	   (and (procedure? v1) (procedure? v2)))
-       #f)
-      ((and (string? v1) (real? v2))
-       (=fl (js-string->number v1) v2))
-      ((and (real? v1) (string? v2))
-       (=fl v1 (js-string->number v2)))
+
+      ;; same types:
+      ((and (real? v1)         (real? v2))         (=fl v1 v2))
+      ((and (string? v1)       (string? v2))       (string=? v1 v2))
+      ((and (boolean? v1)      (boolean? v2))      #f) ;; eq? covered other case
+      ((and (procedure? v1)    (procedure? v2))    #f) ;; eq? covered other case
+
+      ;; different types:
+      ((and (js-null? v1)      (js-undefined? v2)) #t)
+      ((and (js-undefined? v1) (js-null? v2))      #t)
+      ((and (string? v1)       (real? v2))     (=fl (js-string->number v1) v2))
+      ((and (real? v1)         (string? v2))   (=fl v1 (js-string->number v2)))
+
       ((boolean? v1)
        (if v1 (jsop-== 1.0 v2) (jsop-== 0.0 v2)))
       ((boolean? v2)
        (if v2 (jsop-== v1 1.0) (jsop-== v1 0.0)))
+
       ((and (or (string? v1) (real? v1))
 	    (js-object v2))
        => (lambda (obj)
