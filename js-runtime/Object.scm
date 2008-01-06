@@ -113,7 +113,7 @@
 (define (js-object-literal properties)
    (let ((o (js-new *js-Object*)))
       (for-each (lambda (prop)
-		   (let ((name (car prop))
+		   (let ((name (any->string (car prop)))
 			 (val (cadr prop)))
 		      ;; TODO: js-object-literal can be optimized
 		      (js-property-safe-set! o name val)))
