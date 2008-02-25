@@ -611,7 +611,9 @@
 	 ((STRING) (new-node String (consume! 'STRING)))
 	 ((EOF) (error #f "unexpected end of file" #f))
 	 ((/ /=) (let ((reg-exp (read-regexp (peek-token-type))))
-		    ;; consume-any *must* be after having read the reg-exp.
+		    ;; consume-any *must* be after having read the reg-exp,
+		    ;; so that the read-regexp works. Only then can we remove
+		    ;; the peeked token.
 		    (consume-any!) ;; the / or /=
 		    (new-node Reg-exp reg-exp)))
 	 (else

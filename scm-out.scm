@@ -784,4 +784,10 @@
    `(,(this.name.traverse) ,(list 'unquote (this.val.traverse))))
 
 (define-pmethod (Reg-exp-out)
-   ''(TODO TODO TODO reg-exp TODO TODO TODO))
+   (let* ((pattern/flags this.pattern)
+	  (last-/ (string-index-right pattern/flags #\/))
+	  (pattern (substring pattern/flags 1 last-/))
+	  (flags (substring pattern/flags
+			    (+ last-/ 1)
+			    (string-length pattern/flags))))
+      `(new *js-RegExp* ,pattern ,flags)))

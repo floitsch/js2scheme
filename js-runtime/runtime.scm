@@ -15,6 +15,7 @@
 	   jsre-Bool
 	   jsre-Date
 	   jsre-Math
+	   jsre-RegExp
 	   jsre-Eval-env
 	   jsre-operators
 	   jsre-conversion
@@ -34,6 +35,7 @@
 	 jsre-Bool
 	 jsre-Date
 	 jsre-Math
+	 jsre-RegExp
 	 jsre-Eval-env
 	 jsre-Number
 	 jsre-operators
@@ -50,5 +52,5 @@
 (Date-init)
 (Math-init)
 (Error-init)
+(RegExp-init)
 (global-object-init)
-;(eval '(print (Js-Undefined? (*js-Undefined*_fun))))
