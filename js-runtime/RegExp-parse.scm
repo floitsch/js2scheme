@@ -316,11 +316,10 @@
       (let ((chars (let loop ((rev-res '()))
 		      (let ((c (consume-char!)))
 			 (case c
-			    ((#f) (return #f))
-			    ((#\]) (back!)
-				   (reverse! rev-res))
+			    ((#f)  (return #f))
+			    ((#\]) (reverse! rev-res)) ;; leave the ']' consumed
 			    ((#\\) (loop (cons (class-escape) rev-res)))
-			    (else (loop (cons c rev-res))))))))
+			    (else  (loop (cons c rev-res))))))))
 	 ;; now build the ranges.
 	 (let loop ((res chars))
 	    (unless (or (null? res)

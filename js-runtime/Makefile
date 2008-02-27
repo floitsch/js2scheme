@@ -6,7 +6,8 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
 			natives object global-object globals globals-tmp \
 			primitives runtime operators scope-object \
-			RegExp RegExp-parse RegExp-fsm RegExp-classes
+			RegExp RegExp-parse RegExp-fsm RegExp-classes \
+			RegExp-dot RegExp-match
 
 RUNTIME_BGL_INCLUDES = macros.sch
 
@@ -61,3 +62,8 @@ o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
 
 clean:
 	rm -f $(OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
+
+REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot
+
+regexp: $(REGEXP_MODULES:%=o/%.o)
+	$(BIGLOO) -o $@ $^
