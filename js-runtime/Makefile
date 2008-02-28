@@ -63,7 +63,7 @@ o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
 clean:
 	rm -f $(OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
 
-REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot
+REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot RegExp-match
 
 regexp: $(REGEXP_MODULES:%=o/%.o)
 	$(BIGLOO) -o $@ $^

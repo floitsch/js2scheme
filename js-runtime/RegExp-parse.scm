@@ -157,8 +157,8 @@
 	 ((#\\) (atom-escape))
 	 ((#\() (cluster))
 	 ((#\[) (character-class))
-	 (else (consume-char!)
-	       `(char ,c)))))
+	 (else  (consume-char!)
+		`(char ,c)))))
 
 (define (atom-escape)
    (consume-char!)
