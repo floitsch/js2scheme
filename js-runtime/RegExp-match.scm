@@ -3,6 +3,9 @@
 	   jsre-RegExp-fsm)
    (export (regexp-run fsm::FSM str::bstring)))
 
+(define (make-eq-hashtable)
+   (make-hashtable 5 #unspecified eq?))
+
 ;; REFACTORINGS TODO:
 ;; - merge FSM-*-entry/FSM-?
 ;; - merge FSM-assert-transit and FSM-condition-transit ? (one consumes a char)
@@ -11,231 +14,330 @@
 
 ;; for a description of the process look at RegExp-fsm
 
+(define *contains-backrefs?* #f)
+
 (define (regexp-run fsm str)
-   (with-access::FSM fsm (entry exit nb-clusters)
-      (let* ((state (instantiate::FSM-state
+   (with-access::FSM fsm (entry nb-clusters nb-backref-clusters)
+      (let* ((start-node (instantiate::FSM-simple
+			    (transit (instantiate::FSM-transit
+					(target entry)))))
+	     (state (instantiate::FSM-state
 		       (clusters (make-vector (* nb-clusters 2) #f))
-		       (node entry)))
-	     (rev-init-states (propagate entry state str -1 0 '()))
-	     (init-states (reverse! rev-init-states))
-	     (match (run init-states str 0)))
+		       (backref-clusters (make-vector (* nb-backref-clusters 2)
+						      #f))
+		       (node start-node)))
+	     (match (run (list state) str 0)))
+	 (set! *contains-backrefs?* (not (zero? nb-backref-clusters)))
 	 (and match
 	      (cons (substring str 0 (FSM-state-final-index match))
 		    (FSM-state-clusters match))))))
 
-(define (run states str time) ;; index == time
+(define *frozen-states* '())
+
+;; freezes all states after (and including) the first state that collided.
+;; if the other states don't match, we come back and unfreeze them.
+;; returns #t if something has been frozen.
+(define (freeze-collided!? states index)
+   (if (null? states)
+       #f
+       ;; first cannot wait. (by construction)
+       (let loop ((states (cdr states))
+		  (last-p states))
+	  (cond
+	     ((null? states) #f)
+	     ((FSM-state-collision? (car states))
+	      (set-cdr! last-p '())
+	      (set! *frozen-states* (cons (cons states index)
+					   *frozen-states*))
+	      #t)
+	     (else
+	      (loop (cdr states)
+		    states))))))
+
+;; *frozen-states* must not be '()
+(define (restore-waiting-states!)
+   (let ((first (car *frozen-states*)))
+      (set! *frozen-states* (cdr *frozen-states*))
+      (let ((states (car first))
+	    (index (cdr first)))
+	 (with-access::FSM-state (car states) (collision?)
+	    (set! collision? #f))
+	 (freeze-collided!? states)
+	 (values states index))))
+
+;; if there is already a state in a final position we can remove all nodes that
+;; have lower priority.
+;; returns #t if it has found a final-node.
+(define (discard-low-priorities!? states)
+   (if (null? states)
+       #f
+       (let loop ((states states))
+	  (cond
+	     ((null? states) #f)
+	     ((FSM-final? (FSM-state-node (car states)))
+	      (set-cdr! states '())
+	      '#t)
+	     (else
+	      (loop (cdr states)))))))
+
+(define *rev-next-round* '())
+(define (push-state! s)
+   (set! *rev-next-round* (cons s *rev-next-round*)))
+
+(define (run states str index)
    (cond
-      ((null? states)
+      ((and (null? states)
+	    (null? *frozen-states*))
        #f) ;; no match
+      ((null? states) ;; there are still waiting states.
+       (receive (states index)
+	  (restore-waiting-states!)
+	  (run states str (+fx index 1)))) ;; next round so increment
       ((FSM-final? (FSM-state-node (car states)))
        ;; first state in priority-list is final. Can't be any better...
        (car states))
-      ((>=fx time (string-length str))
+      ((>=fx index (string-length str))
        ;; end of string. If there's a state pointing to the final-node we have
        ;; a winner.
        (let ((winner (any (lambda (state)
 			     (and (FSM-final? (FSM-state-node state))
 				  state))
 			  states)))
-	  winner))
+	  ;; if there's a winner return it. otherwise see if there are still
+	  ;; states  waiting (by rerunning the procedure).
+	  (or winner
+	      (run '() str index))))
       (else ;; advance states
-       (let loop ((states states)
-		  (rev-next-round '()))
-	  (if (null? states)
-	      (run (reverse! rev-next-round) str (+fx time 1))
-	      (with-access::FSM-state (car states) (node)
-		 (let ((rnr (node-visit node (car states) str time
-					rev-next-round)))
-		    (loop (cdr states) rnr))))))))
+       (for-each (lambda (state)
+		    (with-access::FSM-state state (node)
+		       (node-advance node state str index)))
+		 states)
+       (let ((next-round-states (reverse! *rev-next-round*)))
+	  (set! *rev-next-round* '())
+	  (discard-low-priorities!? next-round-states)
+	  (when *contains-backres?*
+	     (freeze-collided!? next-round-states index))
+	  (run next-round-states str (+fx index 1))))))
 
-(define-generic (node-visit n::FSM-node state::FSM-state
-			    str::bstring time::bint ;; time == index
-			    rev-next-states::pair-nil)
+;; clears visited-by list of node pointed to by state.
+(define (clear-visiters state)
+   (with-access::FSM-state state (node)
+      (with-access::FSM-node node (occupied-by)
+	 (set! occupied-by '()))))
+
+(define-generic (node-advance n::FSM-node state::FSM-state
+			    str::bstring index::bint)
    (error "FSM-match"
 	  "forgot node-type"
 	  n))
 
-(define-method (node-visit n::FSM-final state str time rev-next-states)
+(define-method (node-advance n::FSM-final state str index)
    ;; unless there is already somebody else on the node simply update the time
    ;; and put ourselves back in the queue.
-   (with-access::FSM-node n (last-visited)
-      (if (<fx last-visited time)
-	  (begin
-	     (set! last-visited time)
-	     (cons state rev-next-states))
-	  rev-next-states)))
+   (with-access::FSM-node n (occupied-by)
+      (when (null? occupied-by)
+	 (occupy-node! n state))))
 
-(define-method (node-visit n::FSM-simple state str time rev-next-states)
+(define-method (node-advance n::FSM-simple state str index)
    ;; don't look for O-cost-transits. They are not relevant here.
    (with-access::FSM-simple n (transit)
-      (if transit
-	  (take-transit transit state str time time rev-next-states)
-	  rev-next-states)))
+      (when transit
+	 (take-transit transit state str index))))
 
-(define-method (node-visit n::FSM-non-empty state str time rev-next-states)
+(define-method (node-advance n::FSM-non-empty state str index)
    ;; don't look for O-cost-transits. They are not relevant here.
-   (with-access::FSM-non-empty n (last-visited exit transit O-cost-transit)
+   (with-access::FSM-non-empty n (exit transit O-cost-transit)
       (let ((t0 transit) (t1 O-cost-transit))
 	 [assert (t0 t1) (not (and t0 t1))])
-      (if transit ;; should never happen
-	  (take-transit transit state str time time rev-next-states)
-	  rev-next-states)))
+      (when transit
+	  (take-transit transit state str index))))
+
+(define-method (node-advance n::FSM-backref state str index)
+   (with-access::FSM-backref n (exit)
+      (with-access::FSM-sleeping-state state (cycles-to-sleep)
+	 (if (=fx cycles-to-sleep 1)
+	     (begin
+		;; we match the last character and propagate.
+		(shrink! state)
+		(propagate exit state str (+fx index 1)))
+	     (begin
+		;; just update the sleep-cycles and put us back into the queue.
+		(set! cycles-to-sleep (-fx cycles-to-sleep 1))
+		(push-state! state))))))
 
 ;; FSM-disjunction, FSM-*-entry, FSM-*-exit and FSM-? do not
-;; have any node-visit. (propagation should never leave a state on one of these
+;; have any node-advance. (propagation should never leave a state on one of these
 ;; nodes.
 
-(define-generic (take-transit t::FSM-transit state str time index rev-next-states)
+;; target is off-limit if it is occupied by a state with same backref-cluster,
+;; or if it is forbidden.
+(define (target-off-limit? n::FSM-node state::FSM-state)
+   (with-access::FSM-node n (forbidden? occupied-by)
+      (and (not forbidden?)
+	   (with-access::FSM-state state (backref-clusters)
+	      (every? (lambda (other-state)
+			 (not (equal? (FSM-state-backref-clusters other-state)
+				      backref-clusters)))
+		      occupied-by)))))
+
+(define-generic (take-transit t::FSM-transit state str index)
    ;; O-cost-transit.
    (with-access::FSM-transit t (target)
-      (with-access::FSM-node target (last-visited)
-	 (if (<fx last-visited time)
-	     (propagate target state str time index rev-next-states)
-	     rev-next-states))))
+      (when (not (target-off-limit? target time state))
+	 (propagate target state str index))))
 
-(define-method (take-transit t::FSM-char-transit state str time index
-			     rev-next-states)
+(define-method (take-transit t::FSM-char-transit state str index)
    ;; TODO case-sensitive
-   (with-access::FSM-char-transit t (c target)
-      (with-access::FSM-node target (last-visited)
-	 (if (and (<fx last-visited time)
-		  (char=? c (string-ref str index)))
-	     (propagate target state str time (+fx index 1) rev-next-states)
-	     rev-next-states))))
+   (with-access::FSM-char-transit t (target c)
+      (when (and (not (target-off-limit? target state))
+		 (char=? c (string-ref str index)))
+	 (propagate target state str (+fx index 1)))))
 
-(define-method (take-transit t::FSM-class-transit state str time index
-			     rev-next-states)
-   (with-access::FSM-class-transit t (class target)
-      (with-access::FSM-node target (last-visited)
-	 (if (and (<fx last-visited time)
-		  (RegExp-match-c (string-ref str index) class))
-	     (propagate target state str time (+fx index 1) rev-next-states)
-	     rev-next-states))))
+(define-method (take-transit t::FSM-class-transit state str index)
+   (with-access::FSM-class-transit t (target class)
+      (when (and (not (target-off-limit? target state))
+		 (RegExp-match-c (string-ref str index) class))
+	 (propagate target state str (+fx index 1)))))
 
-(define-method (take-transit t::FSM-assert-transit state str time index
-			     rev-next-states)
-   (with-access::FSM-assert-transit t (condition target)
-      (with-access::FSM-node target (last-visited)
-	 (if (and (<fx last-visited time)
-		  (condition str 0 index)) ;; TODO: what about startpos
-	     (propagate target state str time index rev-next-states)
-	     rev-next-states))))
+(define-method (take-transit t::FSM-assert-transit state str index)
+   (with-access::FSM-assert-transit t (target condition)
+      (when (and (not (target-off-limit? target state))
+		 (condition str 0 index)) ;; TODO: what about startpos
+	     (propagate target state str index))))
 
-(define-method (take-transit t::FSM-condition-transit state str time index
-			     rev-next-states)
-   (with-access::FSM-condition-transit t (condition target)
-      (with-access::FSM-node target (last-visited)
-	 (if (and (<fx last-visited time)
-		  (condition (string-ref str index)))
-	     (propagate target state str time (+fx index 1) rev-next-states)
-	     rev-next-states))))
+(define-method (take-transit t::FSM-condition-transit state str index)
+   (with-access::FSM-condition-transit t (target condition)
+      (when (and (not (target-off-limit? target state))
+		 (condition (string-ref str index)))
+	 (propagate target state str (+fx index 1)))))
 
-(define-method (take-transit t::FSM-cluster state str time index
-			     rev-next-states)
-   (with-access::FSM-cluster-entry t (cluster-index target)
-      (with-access::FSM-node target (last-visited)
-	 (if (<fx last-visited time)
-	     (with-access::FSM-state state (clusters)
-		;; copy on write
-		(set! clusters (copy-vector clusters (vector-length clusters)))
-		(vector-set! clusters cluster-index index)
-		(propagate target state str time index rev-next-states))
-	     rev-next-states))))
+(define-method (take-transit t::FSM-cluster state str index)
+   (with-access::FSM-cluster t (target cluster-index)
+      (when (not (target-off-limit? target state))
+	 (with-access::FSM-state state (clusters)
+	    ;; copy on write
+	    (set! clusters (copy-vector clusters (vector-length clusters)))
+	    (vector-set! clusters cluster-index index)
+	    (propagate target state str index rev-next-states)))))
 
+(define-method (take-transit t::FSM-backref-cluster-exit state str index)
+   (with-access::FSM-back-ref-cluster t (target cluster-index backref-index)
+      (when (not (target-off-limit? target state))
+	 (with-access::FSM-state state (backref-clusters clusters)
+	    ;; copy on write
+	    (set! clusters (copy-vector clusters (vector-length clusters)))
+	    (set! backref-clusters
+		  (copy-vector backref-clusters
+			       (vector-length backref-clusters)))
+
+	    ;; update the exits
+	    (vector-set! clusters cluster-index index)
+	    (vector-set! backref-clusters backref-index index)
+	    ;; backref-cluster-exit has to update the backref-entry too.
+	    (vector-set! backref-clusters
+			 (-fx backref-index 1)
+			 (vector-ref clusters (-fx cluster-index 1)))
+	    
+	    (propagate target state str index)))))
+
+;; TODO: cluster-assert
 ; (define-method (take-transit t::FSM-cluster-assert state str time
 ; 			     rev-next-states)
 ;    (with-access::FSM-cluster-assert t (entry exit negative? target)
 ;       (with-access::FSM-node target (last-visited)
 ; 	 (when (<fx last-visited time)
 
-;; --------
-;; if a node is reached through "propagate" then we are sure, that there is no
-;; other node visiting here.
-(define-generic (propagate n::FSM-node state str time index rev-next-states)
+
+(define-generic (propagate n::FSM-node state::FSM-state str::bstring
+			   index::bint)
    (error "FSM-match"
 	  "forgot node-type"
 	  n))
 
-(define-method (propagate n::FSM-final state str time index rev-next-states)
-   (with-access::FSM-final n (last-visited)
-      (set! last-visited time)
-      (with-access::FSM-state state (node final-index)
+(define (occupy-node! n::FSM-node state::FSM-state)
+   (with-access::FSM-node n (occupied-by)
+      (set! occupied-by (cons state occupied-by))
+      (with-access::FSM-state state (collision? node)
 	 (set! node n)
-	 (set! final-index index))
-      (cons state rev-next-states)))
+	 (when (not (null? occupied-by))
+	    (set! collision? #t))
+	 (push-state! state))))
 
-(define-method (propagate n::FSM-simple state str time index rev-next-states)
-   (with-access::FSM-simple n (last-visited transit O-cost-transit)
-      (set! last-visited time)
-      ;; there must not be two transits.
-      (let ((t0 transit) (t1 O-cost-transit))
-	 [assert (t0 t1) (not (and t0 t1))])
+(define-method (propagate n::FSM-final state str index)
+   (with-access::FSM-state state (final-index)
+      (set! final-index index))
+   (occupy! n state))
+
+(define-method (propagate n::FSM-simple state str index)
+   (with-access::FSM-simple n (transit O-cost-transit)
       (if O-cost-transit
 	  ;; just move to the next node.
-	  (take-transit O-cost-transit state str time index rev-next-states)
-	  ;; update state and next-state-list.
-	  (with-access::FSM-state state (node)
-	     (set! node n)
-	     (cons state rev-next-states)))))
+	  (take-transit O-cost-transit state str index)
+	  (occupy-node! n state))))
 
-(define-method (propagate n::FSM-non-empty state str time index
-			  rev-next-states)
-   (with-access::FSM-non-empty n (last-visited exit transit O-cost-transit)
-      (let ((t0 transit) (t1 O-cost-transit))
-	 [assert (t0 t1) (not (and t0 t1))])
-      (set! last-visited time)
+(define-method (propagate n::FSM-non-empty state str index)
+   (with-access::FSM-non-empty n (exit transit O-cost-transit)
       (if O-cost-transit
-	  ;; we do not allow empty matches. -> mark the exit node as visited.
-	  ;; propagation will stop before the exit-node.
-	  ;; afterwards we restore the old time-value.
-	  (with-access::FSM-node exit (last-visited)
-	     (let ((old-exit-time last-visited))
-		(set! last-visited time)
-		(let ((rns (take-transit O-cost-transit state
-					 str time index rev-next-states)))
-		   (set! last-visited old-exit-time)
-		   rns)))
-	  (with-access::FSM-state state (node)
-	     (set! node n)
-	     (cons state rev-next-states)))))
+	  (with-access::FSM-node exit (forbidden)
+	     (let ((old-forbidden forbidden))
+		(set! forbidden #t)
+		(take-transit O-cost-transit state str index)
+		(set! forbidden old-forbidden)))
+	  (occupy-node! n state))))
 
-(define (propagate-in-order choices state str time index rev-next-states)
-   (if (null? choices)
-       rev-next-states
-       (with-access::FSM-node (car choices) (last-visited)
-	  (if (<fx last-visited time)
-	      (let* ((dupl (duplicate::FSM-state state))
-		     (rns (propagate (car choices) dupl
-				     str time index rev-next-states)))
-		 (propagate-in-order (cdr choices) state str time index rns))
-	      (propagate-in-order (cdr choices) state str time index
-				  rev-next-states)))))
+;; TODO: can be optimized... (RegExp: propagate-in-order)
+;; the state does not need to be always duplicated.
+(define (propagate-in-order choices state str index)
+   (for-each (lambda (choice)
+		(unless (target-off-limit? choice state)
+		   (let ((dupl (duplicate::FSM-state state)))
+		      (propagate choice dupl str index))))
+	     choices))
 
+(define-method (propagate n::FSM-disjunction state str index)
+   (with-access::FSM-disjunction n (alternatives)
+      (propagate-in-order alternatives state str index)))
 
-(define-method (propagate n::FSM-disjunction state str time index rev-next-states)
-   ;; TODO: not yet completely optimized
-   (with-access::FSM-disjunction n (last-visited alternatives)
-      (set! last-visited time)
-      (propagate-in-order alternatives state str time index rev-next-states)))
-
-(define-method (propagate n::FSM-*-entry state str time index rev-next-states)
-   (with-access::FSM-*-entry n (last-visited body *-exit greedy?)
-      (set! last-visited time)
+(define-method (propagate n::FSM-*-entry state str index)
+   (with-access::FSM-*-entry n (body *-exit greedy?)
       (let ((choices (if greedy?
 			 (list body *-exit)
 			 (list *-exit body))))
-	 (propagate-in-order choices state str time index rev-next-states))))
+	 (propagate-in-order choices state str index))))
 
-(define-method (propagate n::FSM-*-exit state str time index rev-next-states)
-   (with-access::FSM-*-exit n (last-visited *-entry exit)
-      (set! last-visited time)
-      (propagate-in-order (list *-entry exit) state str time index
-			  rev-next-states)))
+(define-method (propagate n::FSM-*-exit state str index)
+   (with-access::FSM-*-exit n (*-entry exit)
+      (propagate-in-order (list *-entry exit) state str index)))
 
-(define-method (propagate n::FSM-? state str time index rev-next-states)
-   (with-access::FSM-? n (last-visited body exit greedy?)
-      (set! last-visited time)
+(define-method (propagate n::FSM-? state str index)
+   (with-access::FSM-? n (body exit greedy?)
       (let ((choices (if greedy?
 			 (list body exit)
 			 (list exit body))))
-	 (propagate-in-order choices state str time index rev-next-states))))
+	 (propagate-in-order choices state str index))))
+
+(define-method (propagate n::FSM-backref state str index)
+   (with-access::FSM-backref n (backref-nb exit)
+      (with-access::FSM-state state (backref-clusters)
+	 (let* ((tmp (*fx backref-nb 2))
+		(start (vector-ref backref-clusters tmp))
+		(stop (vector-ref backref-clusters (+fx tmp 1))))
+	    ;; as the start is only updated, when there is a stop
+	    ;; (see FSM-backref-cluster-exit) then there must be a stop
+	    ;; if there's a start.
+
+	    (cond
+	       ((or (not start)
+		    (=fx start stop)) ;; empty string
+		(propagate exit state str index))
+	       ;; TODO: case-sensitivity...
+	       ((string-prefix? str str start stop index)
+		;; node has now to wait stop-start before it can continue.
+		(widen!::FSM-sleeping-state state
+		   (cycles-to-sleep (-fx stop start)))
+		;; for the first iteration we can say, that we occupy this
+		;; node. after that no.
+		(occupy-node! n state))
+	       (else
+		;; no match. nothing to do
+		'do-nothing))))))
