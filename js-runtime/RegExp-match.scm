@@ -18,19 +18,17 @@
 
 (define (regexp-run fsm str)
    (with-access::FSM fsm (entry nb-clusters nb-backref-clusters)
-      (let* ((start-node (instantiate::FSM-simple
-			    (transit (instantiate::FSM-transit
-					(target entry)))))
-	     (state (instantiate::FSM-state
-		       (clusters (make-vector (* nb-clusters 2) #f))
-		       (backref-clusters (make-vector (* nb-backref-clusters 2)
-						      #f))
-		       (node start-node)))
-	     (match (run (list state) str 0)))
-	 (set! *contains-backrefs?* (not (zero? nb-backref-clusters)))
-	 (and match
-	      (cons (substring str 0 (FSM-state-final-index match))
-		    (FSM-state-clusters match))))))
+      (set! *contains-backrefs?* (not (zero? nb-backref-clusters)))
+      (let ((state (instantiate::FSM-state
+		      (clusters (make-vector (* nb-clusters 2) #f))
+		      (backref-clusters (make-vector (* nb-backref-clusters 2)
+						     #f))
+		      (node entry))))
+	 (propagate entry state str 0)
+	 (let ((match (run (next-round-states! -1) str 0)))
+	    (and match
+		 (cons (substring str 0 (FSM-state-final-index match))
+		       (FSM-state-clusters match)))))))
 
 (define *frozen-states* '())
 
@@ -62,7 +60,7 @@
 	    (index (cdr first)))
 	 (with-access::FSM-state (car states) (collision?)
 	    (set! collision? #f))
-	 (freeze-collided!? states)
+	 (freeze-collided!? states index)
 	 (values states index))))
 
 ;; if there is already a state in a final position we can remove all nodes that
@@ -84,6 +82,14 @@
 (define (push-state! s)
    (set! *rev-next-round* (cons s *rev-next-round*)))
 
+(define (next-round-states! index) ;; get pushed states
+   (let ((next-round-states (reverse! *rev-next-round*)))
+      (set! *rev-next-round* '())
+      (discard-low-priorities!? next-round-states)
+      (when *contains-backrefs?*
+	 (freeze-collided!? next-round-states index))
+      next-round-states))
+   
 (define (run states str index)
    (cond
       ((and (null? states)
@@ -112,12 +118,7 @@
 		    (with-access::FSM-state state (node)
 		       (node-advance node state str index)))
 		 states)
-       (let ((next-round-states (reverse! *rev-next-round*)))
-	  (set! *rev-next-round* '())
-	  (discard-low-priorities!? next-round-states)
-	  (when *contains-backres?*
-	     (freeze-collided!? next-round-states index))
-	  (run next-round-states str (+fx index 1))))))
+       (run (next-round-states! index) str (+fx index 1)))))
 
 ;; clears visited-by list of node pointed to by state.
 (define (clear-visiters state)
@@ -175,15 +176,15 @@
    (with-access::FSM-node n (forbidden? occupied-by)
       (and (not forbidden?)
 	   (with-access::FSM-state state (backref-clusters)
-	      (every? (lambda (other-state)
-			 (not (equal? (FSM-state-backref-clusters other-state)
-				      backref-clusters)))
+	      (any? (lambda (other-state)
+			 (equal? (FSM-state-backref-clusters other-state)
+				 backref-clusters))
 		      occupied-by)))))
 
 (define-generic (take-transit t::FSM-transit state str index)
    ;; O-cost-transit.
    (with-access::FSM-transit t (target)
-      (when (not (target-off-limit? target time state))
+      (when (not (target-off-limit? target state))
 	 (propagate target state str index))))
 
 (define-method (take-transit t::FSM-char-transit state str index)
@@ -218,10 +219,10 @@
 	    ;; copy on write
 	    (set! clusters (copy-vector clusters (vector-length clusters)))
 	    (vector-set! clusters cluster-index index)
-	    (propagate target state str index rev-next-states)))))
+	    (propagate target state str index)))))
 
 (define-method (take-transit t::FSM-backref-cluster-exit state str index)
-   (with-access::FSM-back-ref-cluster t (target cluster-index backref-index)
+   (with-access::FSM-backref-cluster-exit t (target cluster-index backref-index)
       (when (not (target-off-limit? target state))
 	 (with-access::FSM-state state (backref-clusters clusters)
 	    ;; copy on write
@@ -266,7 +267,7 @@
 (define-method (propagate n::FSM-final state str index)
    (with-access::FSM-state state (final-index)
       (set! final-index index))
-   (occupy! n state))
+   (occupy-node! n state))
 
 (define-method (propagate n::FSM-simple state str index)
    (with-access::FSM-simple n (transit O-cost-transit)
@@ -278,11 +279,11 @@
 (define-method (propagate n::FSM-non-empty state str index)
    (with-access::FSM-non-empty n (exit transit O-cost-transit)
       (if O-cost-transit
-	  (with-access::FSM-node exit (forbidden)
-	     (let ((old-forbidden forbidden))
-		(set! forbidden #t)
+	  (with-access::FSM-node exit (forbidden?)
+	     (let ((old-forbidden? forbidden?))
+		(set! forbidden? #t)
 		(take-transit O-cost-transit state str index)
-		(set! forbidden old-forbidden)))
+		(set! forbidden? old-forbidden?)))
 	  (occupy-node! n state))))
 
 ;; TODO: can be optimized... (RegExp: propagate-in-order)

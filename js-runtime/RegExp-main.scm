@@ -12,7 +12,7 @@
 
 (define (my-main args)
    ;(regexp->dot (str->fsm "^(a)bc"))
-   ;(print (regexp-run (str->fsm "^(a)bc") "abcd"))
+   (print (regexp-run (str->fsm "^(a)bc") "abcd"))
    ;(regexp->dot (scm-regexp->fsm (js-regexp->scm-regexp "^ab(c|d)*e+?[^f][g-i-j]$k(?:l|mno)$") #f #f))
    ;(print (regexp-run (str->fsm "^ab(c|d)*e+?[^f][g-i-j]$k(?:l|mno)$") "abdcdcee-\nkmnt"))
    ;(regexp->dot (str->fsm "^ab(c|d)*e+"))

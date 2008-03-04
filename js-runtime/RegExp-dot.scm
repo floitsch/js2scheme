@@ -120,17 +120,17 @@
 	     (get-id target ht-id)
 	     "[label=\"" dot-info "\"];")))
 
-(define-method (dot-transit-out t::FSM-cluster-entry start ht-id)
-   (with-access::FSM-cluster-entry t (target cluster-nb)
+(define-method (dot-transit-out t::FSM-cluster start ht-id)
+   (with-access::FSM-cluster t (target cluster-index)
       (print (get-id start ht-id) " -> "
 	     (get-id target ht-id)
-	     "[style=dashed, label=\"(+" cluster-nb ")\"];")))
+	     "[style=dashed, label=\"(+" cluster-index ")\"];")))
 
-(define-method (dot-transit-out t::FSM-cluster-exit start ht-id)
-   (with-access::FSM-cluster-exit t (target cluster-nb)
+(define-method (dot-transit-out t::FSM-backref-cluster-exit start ht-id)
+   (with-access::FSM-backref-cluster-exit t (target cluster-index backref-index)
       (print (get-id start ht-id) " -> "
 	     (get-id target ht-id)
-	     "[style=dashed, label=\"(-" cluster-nb ")\"];")))
+	     "[style=dashed, label=\"(-" cluster-index "/" backref-index ")\"];")))
 
 (define-method (dot-transit-out t::FSM-cluster-assert start ht-id)
    (with-access::FSM-cluster-assert t (target entry exit negative?)
