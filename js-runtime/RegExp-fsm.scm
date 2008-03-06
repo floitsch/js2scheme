@@ -132,7 +132,7 @@
 	    neg-lookahead-cluster)
 	?d)
        (search-backrefs d mset))
-      ((backref ?n)
+      ((back-ref ?n)
        (mset-put! mset n))
       (else
        'do-nothing)))
@@ -329,7 +329,10 @@
 	 ((cluster ?d)
 	  (let* ((d-entry (instantiate::FSM-simple))
 		 (d-exit (instantiate::FSM-simple))
-		 (backref-entry (assq d *backrefs-map*))
+		 ;; backrefs start at 1
+		 ;; cluster-nb starts at 0
+		 (backref-entry (assq (+fx cluster-nb 1)
+				      *backrefs-map*))
 		 ;; note that we increase the cluster-nb here
 		 (new-cluster-nb (scm-re->fsm d d-entry d-exit
 					      (+fx cluster-nb 1)))
@@ -400,10 +403,12 @@
 	     (with-access::FSM-simple entry (transit)
 		(set! transit t))
 	     cluster-nb))
-	 ((backref ?n)
+	 ((back-ref ?n)
 	  ;; note that 'n' starts counting from 1.
-	  ;; we start from 0.
-	  (if (not (>fx n cluster-nb)) ;; >fx is fine. allows (\1) which is ok
+	  ;; 'cluster-nb' starts from 0.
+	  ;; if cluster-nb == 1 then there is one open parenthesis.
+	  ;; we allow n == cluster-nb. for instance (\1) is ok.
+	  (if (not (<=fx n cluster-nb))
 	      (error "fsm"
 		     "back-ref references bad cluster"
 		     n))
@@ -411,9 +416,9 @@
 	  (let ((br (instantiate::FSM-backref
 		       (exit exit)
 		       (backref-nb (-fx n 1))))) ;; adjust for 0-offset.
-	     (with-access::FSM-simple entry (transit)
-		(set! transit (instantiate::FSM-transit
-				 (target br))))
+	     (with-access::FSM-simple entry (O-cost-transit)
+		(set! O-cost-transit (instantiate::FSM-transit
+					(target br))))
 	     cluster-nb))
 	 ((class ?chars/ranges ?invert?)
 	  (let ((t (instantiate::FSM-class-transit

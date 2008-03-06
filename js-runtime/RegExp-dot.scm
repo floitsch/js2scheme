@@ -1,25 +1,61 @@
 (module jsre-RegExp-dot
    (import jsre-RegExp-classes
 	   jsre-RegExp-fsm)
-   (export (regexp->dot fsm)))
+   (export (regexp->dot fsm)
+	   (running->dot fsm states str)))
 
-(define (regexp->dot fsm)
+(define (dot-header)
    (print "digraph g {")
 ;   (print "node [shape = record];")
-   (print "rankdir=LR;")
+   (print "rankdir=LR;"))
 
+(define (dot-footer)
+   (print "}"))
+   
+(define (regexp->dot fsm)
+   (dot-header)
+   (dot-out-fsm fsm)
+   (dot-footer))
+
+(define (running->dot fsm states str)
+   (dot-header)
+   (print (gensym 'str) "[label=\"" str "\",shape=record];")
+   (let ((ht-ids (dot-out-fsm fsm)))
+      (dot-out-states states ht-ids))
+   (dot-footer))
+
+(define (dot-out-states states ht-ids)
+   (for-each (lambda (state prio)
+		(dot-state-out state ht-ids prio))
+	     states
+	     (iota (length states))))
+
+(define (dot-out-fsm fsm)
    (let ((entry (gensym 'entry))
 	 (ht-ids (make-hashtable)))
       (print entry "[peripheries=0,label=\"\"];")
       (print entry " -> " (get-id (FSM-entry fsm) ht-ids) ";")
-      (dot-out (FSM-entry fsm) ht-ids (make-hashtable)))
-   (print "}"))
+      (dot-out (FSM-entry fsm) ht-ids (make-hashtable))
+      ht-ids))
 
 (define (get-id obj ht)
    (or (hashtable-get ht obj)
        (let ((id (gensym 'obj)))
 	  (hashtable-put! ht obj id)
 	  id)))
+
+(define (dot-state-out state::FSM-state ht-ids prio)
+   (with-access::FSM-state state (node clusters backref-clusters)
+      (let ((s-id (gensym 'state)))
+	 (print s-id
+		"[shape=record,label=\"" prio
+		(if (FSM-sleeping-state? state)
+		    (with-access::FSM-sleeping-state state (cycles-to-sleep)
+		       (format " [~a]" cycles-to-sleep))
+		    "")
+		"|" clusters
+		"|" backref-clusters "\"];")
+	 (print s-id " -> " (get-id node ht-ids) ";"))))
 
 (define-generic (dot-out n::FSM-node ht-id ht-done)
    (error "dot"
@@ -91,6 +127,15 @@
 	 (dot-out exit ht-id ht-done)
 	 (print (get-id n ht-id) " -> " (get-id body ht-id) "[style=dashed, label=\"" (if greedy? 0 1) "\"];")
 	 (print (get-id n ht-id) " -> " (get-id exit ht-id) "[style=dashed, label=\"" (if greedy? 1 0) "\"];"))))
+
+(define-method (dot-out n::FSM-backref ht-id ht-done)
+   (unless (hashtable-get ht-done n)
+      (hashtable-put! ht-done n #t)
+      (with-access::FSM-backref n (exit backref-nb)
+	 (print (get-id n ht-id) "[label=\"br "
+		backref-nb "\"]; // backref")
+	 (dot-out exit ht-id ht-done)
+	 (print (get-id n ht-id) " -> " (get-id exit ht-id) "[style=dashed];"))))
 
 (define-generic (dot-transit-out t::FSM-transit start ht-id)
    (with-access::FSM-transit t (target)

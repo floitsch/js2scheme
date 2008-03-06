@@ -212,7 +212,6 @@
 (define (back-reference)
    ;; back-reference
    (let ((start (current-pos)))
-      (consume-char!)
       (let ((n (read-number)))
 	 `(back-ref ,n))))
 

@@ -1,6 +1,7 @@
 (module jsre-RegExp-match
    (import jsre-RegExp-classes
-	   jsre-RegExp-fsm)
+	   jsre-RegExp-fsm
+	   jsre-RegExp-dot)
    (export (regexp-run fsm::FSM str::bstring)))
 
 (define (make-eq-hashtable)
@@ -16,7 +17,9 @@
 
 (define *contains-backrefs?* #f)
 
+(define *fsm* #unspecified)
 (define (regexp-run fsm str)
+   (set! *fsm* fsm)
    (with-access::FSM fsm (entry nb-clusters nb-backref-clusters)
       (set! *contains-backrefs?* (not (zero? nb-backref-clusters)))
       (let ((state (instantiate::FSM-state
@@ -89,8 +92,13 @@
       (when *contains-backrefs?*
 	 (freeze-collided!? next-round-states index))
       next-round-states))
-   
+
+(define *debug* #f)
 (define (run states str index)
+   (when *debug*
+      (with-output-to-file (format "~a.dot" index)
+	 (lambda ()
+	    (running->dot *fsm* states (substring str 0 index)))))
    (cond
       ((and (null? states)
 	    (null? *frozen-states*))
@@ -326,7 +334,6 @@
 	    ;; as the start is only updated, when there is a stop
 	    ;; (see FSM-backref-cluster-exit) then there must be a stop
 	    ;; if there's a start.
-
 	    (cond
 	       ((or (not start)
 		    (=fx start stop)) ;; empty string
