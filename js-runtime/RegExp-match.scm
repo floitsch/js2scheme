@@ -27,7 +27,10 @@
 		      (backref-clusters (make-vector (* nb-backref-clusters 2)
 						     #f))
 		      (node entry))))
-	 (propagate entry state str 0)
+	 (bind-exit (reached-final)
+	    (set! *reached-final* reached-final)
+	    (propagate entry state str 0))
+	 (clear-visitors!)
 	 (let ((match (run (next-round-states! -1) str 0)))
 	    (and match
 		 (cons (substring str 0 (FSM-state-final-index match))
@@ -66,34 +69,28 @@
 	 (freeze-collided!? states index)
 	 (values states index))))
 
-;; if there is already a state in a final position we can remove all nodes that
-;; have lower priority.
-;; returns #t if it has found a final-node.
-(define (discard-low-priorities!? states)
-   (if (null? states)
-       #f
-       (let loop ((states states))
-	  (cond
-	     ((null? states) #f)
-	     ((FSM-final? (FSM-state-node (car states)))
-	      (set-cdr! states '())
-	      '#t)
-	     (else
-	      (loop (cdr states)))))))
-
 (define *rev-next-round* '())
 (define (push-state! s)
    (set! *rev-next-round* (cons s *rev-next-round*)))
 
+(define (clear-visitors!)
+   (for-each (lambda (state)
+		(with-access::FSM-state state (node)
+		   (with-access::FSM-node node (occupied-by)
+		      (set! occupied-by '()))))
+	     *rev-next-round*))
+
 (define (next-round-states! index) ;; get pushed states
    (let ((next-round-states (reverse! *rev-next-round*)))
       (set! *rev-next-round* '())
-      (discard-low-priorities!? next-round-states)
       (when *contains-backrefs?*
 	 (freeze-collided!? next-round-states index))
       next-round-states))
 
-(define *debug* #t)
+(define *debug* #f)
+
+(define *reached-final* #unspecified)
+
 (define (run states str index)
    (when *debug*
       (with-output-to-file (format "~a.dot" index)
@@ -123,17 +120,14 @@
 	  (or winner
 	      (run '() str index))))
       (else ;; advance states
-       (for-each (lambda (state)
-		    (with-access::FSM-state state (node)
-		       (node-advance node state str index)))
-		 states)
+       (bind-exit (reached-final)
+	  (set! *reached-final* reached-final)
+	  (for-each (lambda (state)
+		       (with-access::FSM-state state (node)
+			  (node-advance node state str index)))
+		    states))
+       (clear-visitors!)
        (run (next-round-states! index) str (+fx index 1)))))
-
-;; clears visited-by list of node pointed to by state.
-(define (clear-visiters state)
-   (with-access::FSM-state state (node)
-      (with-access::FSM-node node (occupied-by)
-	 (set! occupied-by '()))))
 
 (define-generic (node-advance n::FSM-node state::FSM-state
 			    str::bstring index::bint)
@@ -142,11 +136,14 @@
 	  n))
 
 (define-method (node-advance n::FSM-final state str index)
-   ;; unless there is already somebody else on the node simply update the time
-   ;; and put ourselves back in the queue.
    (with-access::FSM-node n (occupied-by)
-      (when (null? occupied-by)
-	 (occupy-node! n state))))
+      ;; clear freezed nodes. we have reached the final node, and all frozen
+      ;; ones are of lower priority.
+      (set! *frozen-states* '())
+      ;; there cannot be any other node here. so just put us into the queue.
+      (occupy-node! n state)
+      (*reached-final* #t)
+      ))
 
 (define-method (node-advance n::FSM-simple state str index)
    ;; don't look for O-cost-transits. They are not relevant here.
@@ -183,12 +180,12 @@
 ;; or if it is forbidden.
 (define (target-off-limit? n::FSM-node state::FSM-state)
    (with-access::FSM-node n (forbidden? occupied-by)
-      (and (not forbidden?)
-	   (with-access::FSM-state state (backref-clusters)
-	      (any? (lambda (other-state)
-			 (equal? (FSM-state-backref-clusters other-state)
-				 backref-clusters))
-		      occupied-by)))))
+      (or forbidden?
+	  (with-access::FSM-state state (backref-clusters)
+	     (any? (lambda (other-state)
+		      (equal? (FSM-state-backref-clusters other-state)
+			      backref-clusters))
+		   occupied-by)))))
 
 (define-generic (take-transit t::FSM-transit state str index)
    ;; O-cost-transit.
@@ -266,17 +263,22 @@
 
 (define (occupy-node! n::FSM-node state::FSM-state)
    (with-access::FSM-node n (occupied-by)
-      (set! occupied-by (cons state occupied-by))
       (with-access::FSM-state state (collision? node)
 	 (set! node n)
 	 (when (not (null? occupied-by))
 	    (set! collision? #t))
+	 (set! occupied-by (cons state occupied-by))
 	 (push-state! state))))
 
 (define-method (propagate n::FSM-final state str index)
    (with-access::FSM-state state (final-index)
       (set! final-index index))
-   (occupy-node! n state))
+      ;; clear freezed nodes. we have reached the final node, and all frozen
+      ;; ones are of lower priority.
+      (set! *frozen-states* '())
+      ;; there cannot be any other node here. so just put us into the queue.
+      (occupy-node! n state)
+      (*reached-final* #t))
 
 (define-method (propagate n::FSM-simple state str index)
    (with-access::FSM-simple n (transit O-cost-transit)
@@ -297,7 +299,7 @@
 
 ;; TODO: can be optimized... (RegExp: propagate-in-order)
 ;; the state does not need to be always duplicated.
-(define (propagate-in-order choices state str index)
+(define (propagate-in-order choices state str index )
    (for-each (lambda (choice)
 		(unless (target-off-limit? choice state)
 		   (let ((dupl (duplicate::FSM-state state)))
@@ -309,11 +311,14 @@
       (propagate-in-order alternatives state str index)))
 
 (define-method (propagate n::FSM-*-entry state str index)
-   (with-access::FSM-*-entry n (body *-exit greedy?)
-      (let ((choices (if greedy?
-			 (list body *-exit)
-			 (list *-exit body))))
-	 (propagate-in-order choices state str index))))
+   (with-access::FSM-*-entry n (body *-exit greedy? forbidden?)
+      (let ((old-forbidden? forbidden?))
+	 (set! forbidden? #t) ;; under no circumstance come back to this node.
+	 (let ((choices (if greedy?
+			    (list body *-exit)
+			    (list *-exit body))))
+	    (propagate-in-order choices state str index)
+	    (set! forbidden? old-forbidden?)))))
 
 (define-method (propagate n::FSM-*-exit state str index)
    (with-access::FSM-*-exit n (*-entry exit)
@@ -339,6 +344,9 @@
 	       ((or (not start)
 		    (=fx start stop)) ;; empty string
 		(propagate exit state str index))
+	       ((>=fx index (string-length str))
+		;; can't match, but string-prefix? would crash
+		'do-nothing)
 	       ;; TODO: case-sensitivity...
 	       ((string-prefix? str str start stop index)
 		;; node has now to wait stop-start before it can continue.
