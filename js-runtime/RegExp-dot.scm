@@ -2,7 +2,7 @@
    (import jsre-RegExp-classes
 	   jsre-RegExp-fsm)
    (export (regexp->dot fsm)
-	   (running->dot fsm states str)))
+	   (running->dot fsm states frozen-states str)))
 
 (define (dot-header)
    (print "digraph g {")
@@ -17,16 +17,19 @@
    (dot-out-fsm fsm)
    (dot-footer))
 
-(define (running->dot fsm states str)
+(define (running->dot fsm states frozen-states str)
    (dot-header)
    (print (gensym 'str) "[label=\"" str "\",shape=record];")
    (let ((ht-ids (dot-out-fsm fsm)))
-      (dot-out-states states ht-ids))
+      (dot-out-states states ht-ids #f)
+      (for-each (lambda (frozen)
+		   (dot-out-states (car frozen) ht-ids (cdr frozen)))
+		frozen-states))
    (dot-footer))
 
-(define (dot-out-states states ht-ids)
+(define (dot-out-states states ht-ids frozen-index)
    (for-each (lambda (state prio)
-		(dot-state-out state ht-ids prio))
+		(dot-state-out state ht-ids prio frozen-index))
 	     states
 	     (iota (length states))))
 
@@ -44,14 +47,21 @@
 	  (hashtable-put! ht obj id)
 	  id)))
 
-(define (dot-state-out state::FSM-state ht-ids prio)
+(define (dot-state-out state::FSM-state ht-ids prio frozen-index)
    (with-access::FSM-state state (node clusters backref-clusters)
       (let ((s-id (gensym 'state)))
 	 (print s-id
-		"[shape=record,label=\"" prio
+		"[shape=record,"
+		(if frozen-index
+		    "style=dashed,"
+		    "")
+		"label=\"" prio
 		(if (FSM-sleeping-state? state)
 		    (with-access::FSM-sleeping-state state (cycles-to-sleep)
 		       (format " [~a]" cycles-to-sleep))
+		    "")
+		(if frozen-index
+		    (format " *<~a>*" frozen-index)
 		    "")
 		"|" clusters
 		"|" backref-clusters "\"];")

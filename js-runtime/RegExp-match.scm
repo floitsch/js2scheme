@@ -93,12 +93,13 @@
 	 (freeze-collided!? next-round-states index))
       next-round-states))
 
-(define *debug* #f)
+(define *debug* #t)
 (define (run states str index)
    (when *debug*
       (with-output-to-file (format "~a.dot" index)
 	 (lambda ()
-	    (running->dot *fsm* states (substring str 0 index)))))
+	    (running->dot *fsm* states *frozen-states*
+			  (substring str 0 index)))))
    (cond
       ((and (null? states)
 	    (null? *frozen-states*))
