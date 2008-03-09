@@ -2,6 +2,7 @@
    (import jsre-RegExp-classes
 	   mset)
    (export
+    (char-normalize::char c::char)
     (class FSM
        entry::FSM-node
        exit::FSM-node
@@ -37,18 +38,23 @@
        (greedy?::bool read-only))
     (final-class FSM-backref::FSM-node
        (exit::FSM-node read-only)
-       backref-nb)
+       backref-nb
+       (case-sensitive?::bool read-only))
     
     (class FSM-transit
        (target::FSM-node read-only)
        (dot-info (default ""))
        )
     (final-class FSM-char-transit::FSM-transit
-       (c::char read-only))
+       (c::char read-only)
+       (case-sensitive?::bool read-only))
     (final-class FSM-class-transit::FSM-transit
-       (class read-only))
+       (class read-only)
+       (case-sensitive?::bool read-only))
+    ;; does not consume chars.
     (final-class FSM-assert-transit::FSM-transit
        (condition::procedure read-only))
+    ;; consumes a char
     (final-class FSM-condition-transit::FSM-transit
        (condition::procedure read-only))
     (class FSM-cluster::FSM-transit
@@ -61,7 +67,9 @@
     (final-class FSM-cluster-assert::FSM-transit
        (entry::FSM-node read-only)
        (exit::FSM-node read-only)
-       (negative?::bool read-only)) ;; when set, then result must be #f to continue.
+       (negative?::bool read-only)) ;; when set, then result must be #f to
+    ;; continue.
+
     (final-class FSM-state
        clusters::vector
        backref-clusters::vector ;; duplicate of the relevant entries.
@@ -116,8 +124,7 @@
        (char=? c #\_)))
 
 (define (char-normalize c)
-   ;; TODO: char-normalize
-   (char-downcase c))
+   (char-upcase c))
 
 (define (search-backrefs scm-re mset)
    (match-case scm-re
@@ -142,41 +149,39 @@
 
    (define (assertion-test-fun assert-id)
       ;; 15.10.2.6
-      (define (word-boundary str start-pos current-pos)
+      (define (word-boundary str index)
 	 (let ((len (string-length str)))
 	    (cond
-	       ((and (=fx start-pos current-pos)
-		     (=fx current-pos len))
+	       ((zerofx? len)
 		#f)
-	       ((=fx start-pos current-pos)
-		(word-char? (string-ref str current-pos)))
-	       ((=fx current-pos len)
-		(word-char? (string-ref str (-fx current-pos 1))))
-	       ((word-char? (string-ref str (-fx current-pos 1)))
-		(not (word-char? (string-ref str current-pos))))
-	       (else
-		(word-char? (string-ref str current-pos))))))
+	       ((or (zerofx? index)
+		    (=fx index (-fx len 1)))
+		(word-char? (string-ref str index)))
+	       ((word-char? (string-ref str (-fx index 1)))
+		(not (word-char? (string-ref str index))))
+	       (else ;; index-1 is not word-char
+		(word-char? (string-ref str index))))))
 
       (case assert-id
 	 ((^)
 	  (if multi-line?
-	      (lambda (str start-pos current-pos)
-		 (or (=fx start-pos current-pos)
-		     (terminator-char? (string-ref str (-fx current-pos 1)))))
-	      (lambda (str start-pos current-pos)
-		 (=fx start-pos current-pos))))
+	      (lambda (str index)
+		 (or (zerofx? index)
+		     (terminator-char? (string-ref str (-fx index 1)))))
+	      (lambda (str index)
+		 (zerofx? index))))
 	 (($)
 	  (if multi-line?
-	      (lambda (str start-pos current-pos)
-		 (or (=fx current-pos (string-length str))
-		     (terminator-char? (string-ref str current-pos))))
-	      (lambda (str start-pos current-pos)
-		 (=fx current-pos (string-length str)))))
+	      (lambda (str index)
+		 (or (=fx index (string-length str))
+		     (terminator-char? (string-ref str index))))
+	      (lambda (str index)
+		 (=fx index (string-length str)))))
 	 ((word-boundary)
 	  word-boundary)
 	 ((not-word-boundary)
-	  (lambda (str start-pos current-pos)
-	     (not (word-boundary str start-pos current-pos))))))
+	  (lambda (str current-pos)
+	     (not (word-boundary str current-pos))))))
    
    ;; cluster-nb == nb of open parenthesis to the left.
    ;; precondition:
@@ -381,19 +386,27 @@
 		    a-zA-Z0-9_ not-a-zA-Z0-9_)
 		?kind))
 	  (let* ((co (case kind
-			((any) (lambda (c) (and c (not (terminator-char? c)))))
-			((number) (lambda (c) (and c (char-numeric? c))))
+			((any)
+			 (lambda (str index)
+			    (not (terminator-char? (string-ref str index)))))
+			((number)
+			 (lambda (str index)
+			    (char-numeric? (string-ref str index))))
 			((not-number)
-			 (lambda (c) (and c (not (char-numeric? c)))))
+			 (lambda (str index)
+			    (not (char-numeric? (string-ref str index)))))
 			((white-space)
-			 (lambda (c) ;; TODO: char-whitespace?
-			    (and c (char-whitespace? c))))
+			 (lambda (str index)
+			    (char-whitespace? (string-ref str index))))
 			((not-white-space)
-			 (lambda (c) ;; TODO: char-whitespace?
-			    (and c (not (char-whitespace? c)))))
-			((a-zA-Z0-9_) (lambda (c) (and c (word-char? c))))
+			 (lambda (str index)
+			    (not (char-whitespace? (string-ref str index)))))
+			((a-zA-Z0-9_)
+			 (lambda (str index)
+			    (word-char? (string-ref str index))))
 			((not-a-zA-Z0-9_)
-			 (lambda (c) (and c (not (word-char? c)))))))
+			 (lambda (str index)
+			    (not (word-char? (string-ref str index)))))))
 		 (t (instantiate::FSM-condition-transit
 		       (dot-info (case kind
 				    ((any) ".")
@@ -415,7 +428,8 @@
 	  
 	  (let ((br (instantiate::FSM-backref
 		       (exit exit)
-		       (backref-nb (-fx n 1))))) ;; adjust for 0-offset.
+		       (backref-nb (-fx n 1)) ;; adjust for 0-offset.
+		       (case-sensitive? case-sensitive?))))
 	     (with-access::FSM-simple entry (O-cost-transit)
 		(set! O-cost-transit (instantiate::FSM-transit
 					(target br))))
@@ -426,7 +440,8 @@
 			      (dot-info (format "[~a~a]" (if invert? "^" "") chars/ranges))
 			      (class (RegExp-class-condition chars/ranges
 							     invert?
-							     case-sensitive?)))))
+							     case-sensitive?))
+			      (case-sensitive? case-sensitive?))))
 	     (with-access::FSM-simple entry (transit)
 		(set! transit t))
 	     cluster-nb))
@@ -436,7 +451,8 @@
 			 (char-normalize c)))
 		 (t (instantiate::FSM-char-transit
 		       (target exit)
-		       (c ci))))
+		       (c ci)
+		       (case-sensitive? case-sensitive?))))
 	     (with-access::FSM-simple entry (transit)
 		(set! transit t))
 	     cluster-nb))

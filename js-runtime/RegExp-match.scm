@@ -9,9 +9,6 @@
 
 ;; REFACTORINGS TODO:
 ;; - merge FSM-*-entry/FSM-?
-;; - merge FSM-assert-transit and FSM-condition-transit ? (one consumes a char)
-;; - node-visit, take-target (better name!), .. need start-pos
-;; - others...
 
 ;; for a description of the process look at RegExp-fsm
 
@@ -194,28 +191,34 @@
 	 (propagate target state str index))))
 
 (define-method (take-transit t::FSM-char-transit state str index)
-   ;; TODO case-sensitive
-   (with-access::FSM-char-transit t (target c)
+   (with-access::FSM-char-transit t (target c case-sensitive?)
       (when (and (not (target-off-limit? target state))
-		 (char=? c (string-ref str index)))
+		 (let ((c2 (string-ref str index)))
+		    (char=? c (if case-sensitive?
+				  c2
+				  (char-normalize c2)))))
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-class-transit state str index)
-   (with-access::FSM-class-transit t (target class)
+   (with-access::FSM-class-transit t (target class case-sensitive?)
       (when (and (not (target-off-limit? target state))
-		 (RegExp-match-c (string-ref str index) class))
+		 (let ((c2 (string-ref str index)))
+		    (RegExp-match-c (if case-sensitive?
+					c2
+					(char-normalize c2))
+				    class)))
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-assert-transit state str index)
    (with-access::FSM-assert-transit t (target condition)
       (when (and (not (target-off-limit? target state))
-		 (condition str 0 index)) ;; TODO: what about startpos
+		 (condition str index))
 	     (propagate target state str index))))
 
 (define-method (take-transit t::FSM-condition-transit state str index)
    (with-access::FSM-condition-transit t (target condition)
       (when (and (not (target-off-limit? target state))
-		 (condition (string-ref str index)))
+		 (condition str index))
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-cluster state str index)
@@ -332,11 +335,14 @@
 	 (propagate-in-order choices state str index))))
 
 (define-method (propagate n::FSM-backref state str index)
-   (with-access::FSM-backref n (backref-nb exit)
+   (with-access::FSM-backref n (backref-nb exit case-sensitive?)
       (with-access::FSM-state state (backref-clusters)
 	 (let* ((tmp (*fx backref-nb 2))
 		(start (vector-ref backref-clusters tmp))
-		(stop (vector-ref backref-clusters (+fx tmp 1))))
+		(stop (vector-ref backref-clusters (+fx tmp 1)))
+		(prefix? (if case-sensitive?
+			     string-prefix?
+			     string-prefix-ci?)))
 	    ;; as the start is only updated, when there is a stop
 	    ;; (see FSM-backref-cluster-exit) then there must be a stop
 	    ;; if there's a start.
@@ -347,8 +353,7 @@
 	       ((>=fx index (string-length str))
 		;; can't match, but string-prefix? would crash
 		'do-nothing)
-	       ;; TODO: case-sensitivity...
-	       ((string-prefix? str str start stop index)
+	       ((prefix? str str start stop index)
 		;; node has now to wait stop-start before it can continue.
 		(widen!::FSM-sleeping-state state
 		   (cycles-to-sleep (-fx stop start)))
