@@ -19,16 +19,12 @@
    (set! *fsm* fsm)
    (with-access::FSM fsm (entry nb-clusters nb-backref-clusters)
       (set! *contains-backrefs?* (not (zero? nb-backref-clusters)))
-      (let ((state (instantiate::FSM-state
-		      (clusters (make-vector (* nb-clusters 2) #f))
-		      (backref-clusters (make-vector (* nb-backref-clusters 2)
-						     #f))
-		      (node entry))))
-	 (bind-exit (reached-final)
-	    (set! *reached-final* reached-final)
-	    (propagate entry state str 0))
-	 (clear-visitors!)
-	 (let ((match (run (next-round-states! -1) str 0)))
+      (let* ((state (instantiate::FSM-state
+		       (clusters (make-vector (* nb-clusters 2) #f))
+		       (backref-clusters (make-vector (* nb-backref-clusters 2)
+						      #f))
+		       (node entry))))
+	 (let ((match (run state str 0)))
 	    (and match
 		 (cons (substring str 0 (FSM-state-final-index match))
 		       (FSM-state-clusters match)))))))
@@ -88,7 +84,16 @@
 
 (define *reached-final* #unspecified)
 
-(define (run states str index)
+(define (run state str index)
+   (with-access::FSM-state state (node)
+      (bind-exit (reached-final)
+	 (set! *reached-final* reached-final)
+	 (propagate node state str index)))
+   (clear-visitors!)
+   (let ((init-states (next-round-states! (-fx index 1))))
+      (advance init-states str index)))
+   
+(define (advance states str index)
    (when *debug*
       (with-output-to-file (format "~a.dot" index)
 	 (lambda ()
@@ -101,7 +106,7 @@
       ((null? states) ;; there are still waiting states.
        (receive (states index)
 	  (restore-waiting-states!)
-	  (run states str (+fx index 1)))) ;; next round so increment
+	  (advance states str (+fx index 1)))) ;; next round so increment
       ((FSM-final? (FSM-state-node (car states)))
        ;; first state in priority-list is final. Can't be any better...
        (car states))
@@ -115,7 +120,7 @@
 	  ;; if there's a winner return it. otherwise see if there are still
 	  ;; states  waiting (by rerunning the procedure).
 	  (or winner
-	      (run '() str index))))
+	      (advance '() str index))))
       (else ;; advance states
        (bind-exit (reached-final)
 	  (set! *reached-final* reached-final)
@@ -124,7 +129,7 @@
 			  (node-advance node state str index)))
 		    states))
        (clear-visitors!)
-       (run (next-round-states! index) str (+fx index 1)))))
+       (advance (next-round-states! index) str (+fx index 1)))))
 
 (define-generic (node-advance n::FSM-node state::FSM-state
 			    str::bstring index::bint)
@@ -187,7 +192,7 @@
 (define-generic (take-transit t::FSM-transit state str index)
    ;; O-cost-transit.
    (with-access::FSM-transit t (target)
-      (when (not (target-off-limit? target state))
+      (unless (target-off-limit? target state)
 	 (propagate target state str index))))
 
 (define-method (take-transit t::FSM-char-transit state str index)
@@ -223,7 +228,7 @@
 
 (define-method (take-transit t::FSM-cluster state str index)
    (with-access::FSM-cluster t (target cluster-index)
-      (when (not (target-off-limit? target state))
+      (unless (target-off-limit? target state)
 	 (with-access::FSM-state state (clusters)
 	    ;; copy on write
 	    (set! clusters (copy-vector clusters (vector-length clusters)))
@@ -232,30 +237,56 @@
 
 (define-method (take-transit t::FSM-backref-cluster-exit state str index)
    (with-access::FSM-backref-cluster-exit t (target cluster-index backref-index)
-      (when (not (target-off-limit? target state))
-	 (with-access::FSM-state state (backref-clusters clusters)
-	    ;; copy on write
-	    (set! clusters (copy-vector clusters (vector-length clusters)))
-	    (set! backref-clusters
-		  (copy-vector backref-clusters
-			       (vector-length backref-clusters)))
+      (with-access::FSM-node target (forbidden?)
+	 ;; we can't use the std target-off-limit? yet, as the backref-cluster
+	 ;; change here...
+	 (unless forbidden?
+	    (with-access::FSM-state state (backref-clusters clusters)
+	       ;; copy on write
+	       (set! clusters (copy-vector clusters (vector-length clusters)))
+	       (set! backref-clusters
+		     (copy-vector backref-clusters
+				  (vector-length backref-clusters)))
+	       
+	       ;; update the exits
+	       (vector-set! clusters cluster-index index)
+	       (vector-set! backref-clusters backref-index index)
+	       ;; backref-cluster-exit has to update the backref-entry too.
+	       (vector-set! backref-clusters
+			    (-fx backref-index 1)
+			    (vector-ref clusters (-fx cluster-index 1)))
 
-	    ;; update the exits
-	    (vector-set! clusters cluster-index index)
-	    (vector-set! backref-clusters backref-index index)
-	    ;; backref-cluster-exit has to update the backref-entry too.
-	    (vector-set! backref-clusters
-			 (-fx backref-index 1)
-			 (vector-ref clusters (-fx cluster-index 1)))
-	    
-	    (propagate target state str index)))))
+	       (unless (target-off-limit? target state)
+		  (propagate target state str index)))))))
 
-;; TODO: cluster-assert
-; (define-method (take-transit t::FSM-cluster-assert state str time
-; 			     rev-next-states)
-;    (with-access::FSM-cluster-assert t (entry exit negative? target)
-;       (with-access::FSM-node target (last-visited)
-; 	 (when (<fx last-visited time)
+(define-method (take-transit t::FSM-cluster-assert state str index)
+   (with-access::FSM-cluster-assert t (entry exit negative? target)
+      (with-access::FSM-node target (forbidden?)
+	 ;; we can't use the std target-off-limit? yet, as the backref-cluster
+	 ;; might change here.
+	 (unless (if negative?   ;; if negative, then backrefs won't change
+		     (target-off-limit? target state)
+		     forbidden?) ;; otherwise we can only look at forbidden?
+	    (with-access::FSM-state state (node)
+	       ;; TODO: this must not be here!!
+	       (let ((old-frozen *frozen-states*)
+		     (old-rev-next-round *rev-next-round*))
+		  (set! *frozen-states* '())
+		  (set! *rev-next-round* '())
+		  (set! node entry)
+		  (let ((match (run state str index)))
+		     (set! *frozen-states* old-frozen)
+		     (set! *rev-next-round* old-rev-next-round)
+		     (cond
+			((and negative?
+			      (not match))
+			 (propagate target state str index))
+			((and (not negative?)
+			      match)
+			 (unless (target-off-limit? target match)
+			    (propagate target match str index)))
+			(else
+			 'nothing-to-do))))))))) ;; assert failed
 
 
 (define-generic (propagate n::FSM-node state::FSM-state str::bstring
@@ -268,7 +299,7 @@
    (with-access::FSM-node n (occupied-by)
       (with-access::FSM-state state (collision? node)
 	 (set! node n)
-	 (when (not (null? occupied-by))
+	 (unless (null? occupied-by)
 	    (set! collision? #t))
 	 (set! occupied-by (cons state occupied-by))
 	 (push-state! state))))
