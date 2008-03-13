@@ -8,7 +8,7 @@
 
 (define (str->fsm str)
    ;(print (js-regexp->scm-regexp str))
-   (scm-regexp->fsm (js-regexp->scm-regexp str) #t #t))
+   (scm-regexp->fsm (js-regexp->scm-regexp str)))
 
 (define (my-main args)
    ;(regexp->dot (str->fsm "^(a)bc"))

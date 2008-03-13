@@ -10,6 +10,8 @@
 ;; REFACTORINGS TODO:
 ;; - merge FSM-*-entry/FSM-?
 
+;; TODO: when entering a repetition clear all clusters inside the repetition.
+
 ;; for a description of the process look at RegExp-fsm
 
 (define *contains-backrefs?* #f)
