@@ -123,6 +123,12 @@
        (char-numeric? c)
        (char=? c #\_)))
 
+(define (hex-char? c)
+   (or (char-numeric? c)
+       (char-ci=? c #\a) (char-ci=? c #\b)
+       (char-ci=? c #\c) (char-ci=? c #\d)
+       (char-ci=? c #\e) (char-ci=? c #\f)))
+
 (define (char-normalize c)
    (char-upcase c))
 
@@ -194,28 +200,28 @@
 		(word-char? (string-ref str index))))))
 
       (case assert-id
-	 ((^)
+	 ((:bol :bos :^)
 	  (if multi-line?
 	      (lambda (str index)
 		 (or (zerofx? index)
 		     (terminator-char? (string-ref str (-fx index 1)))))
 	      (lambda (str index)
 		 (zerofx? index))))
-	 (($)
+	 ((:eol :eos :$)
 	  (if multi-line?
 	      (lambda (str index)
 		 (or (=fx index (string-length str))
 		     (terminator-char? (string-ref str index))))
 	      (lambda (str index)
 		 (=fx index (string-length str)))))
-	 ((word-boundary)
+	 ((:word-boundary :wbdry)
 	  word-boundary)
-	 ((not-word-boundary)
+	 ((:not word-boundary :not-wbdry)
 	  (lambda (str current-pos)
 	     (not (word-boundary str current-pos))))))
    
    (match-case scm-re
-      ((disjunction . ?alternatives)
+      ((:or . ?alternatives)
        (cond
 	  ((null? alternatives)
 	   (error "RegExp-FSM-construction"
@@ -240,7 +246,7 @@
 			   (cons alt-entry rev-alt-nodes)
 			   (recurse (car alternatives)
 				    alt-entry exit c-nb))))))))
-      ((sequence . ?els)
+      ((:seq . ?els)
        (if (null? els) ;; not even sure if that's possible
 	   (with-access::FSM-simple entry (O-cost-transit)
 	      (set! O-cost-transit (instantiate::FSM-transit
@@ -256,7 +262,10 @@
 			   (cdr els)
 			   (recurse (car els) entry middle c-nb)))))))
       ;; assertions
-      (((and (or ^ $ word-boundary not-word-boundary) ?assertion))
+      ((and (or :^ :bol :bos
+		:$ :eol :eos
+		:wbdry :word-boundary
+		:not-wbdry :not-word-boundary) ?assertion)
        (let* ((test-fun (assertion-test-fun assertion))
 	      (transit (instantiate::FSM-assert-transit
 			  (dot-info assertion)
@@ -266,7 +275,7 @@
 	     (set! O-cost-transit transit))
 	  cluster-nb))
       ;; quantified
-      ((quantified ?atom (repetitions ?n1 ?n2) ?greedy?)
+      (((or :quantified :between) ?greedy? ?n1 ?n2 ?atom)
        ;; creates the required nodes. for instance {2, 5} will create 2
        ;; copies of the atom. Each one must be non-empty.
        ;; returns the new cluster-nb.
@@ -352,7 +361,7 @@
 	   (let ((middle (instantiate::FSM-simple)))
 	      (required n1 atom entry middle cluster-nb)
 	      (optional (-fx n2 n1) greedy? atom middle exit cluster-nb)))))
-      ((cluster ?d)
+      (((or :cluster :sub) ?d)
        (let* ((d-entry (instantiate::FSM-simple))
 	      (d-exit (instantiate::FSM-simple))
 	      ;; backrefs start at 1
@@ -387,8 +396,8 @@
 			  (target exit)
 			  (cluster-index (+fx cluster-index 1))))))
 	  new-cluster-nb))
-      (((and (or pos-lookahead-cluster
-		 neg-lookahead-cluster)
+      (((and (or :pos-lookahead-cluster :lookahead
+		 :neg-lookahead-cluster :neg-lookahead)
 	     ?pos/neg?)
 	?d)
        (let* ((d-entry (instantiate::FSM-simple))
@@ -400,44 +409,10 @@
 		      (target exit)
 		      (entry d-entry)
 		      (exit d-exit)
-		      (negative? (eq? pos/neg?
-				      'neg-lookahead-cluster)))))
+		      (negative? (or (eq? pos/neg? ':neg-lookahead-cluster)
+				     (eq? pos/neg? ':neg-lookahead))))))
 	  new-cluster-nb))
-      (((and (or any number not-number white-space not-white-space
-		 a-zA-Z0-9_ not-a-zA-Z0-9_)
-	     ?kind))
-       (let* ((co (case kind
-		     ((any)
-		      (lambda (str index)
-			 (not (terminator-char? (string-ref str index)))))
-		     ((number)
-		      (lambda (str index)
-			 (char-numeric? (string-ref str index))))
-		     ((not-number)
-		      (lambda (str index)
-			 (not (char-numeric? (string-ref str index)))))
-		     ((white-space)
-		      (lambda (str index)
-			 (char-whitespace? (string-ref str index))))
-		     ((not-white-space)
-		      (lambda (str index)
-			 (not (char-whitespace? (string-ref str index)))))
-		     ((a-zA-Z0-9_)
-		      (lambda (str index)
-			 (word-char? (string-ref str index))))
-		     ((not-a-zA-Z0-9_)
-		      (lambda (str index)
-			 (not (word-char? (string-ref str index)))))))
-	      (t (instantiate::FSM-condition-transit
-		    (dot-info (case kind
-				 ((any) ".")
-				 (else kind)))
-		    (target exit)
-		    (condition co))))
-	  (with-access::FSM-simple entry (transit)
-	     (set! transit t))
-	  cluster-nb))
-      ((back-ref ?n)
+      ((:back-ref ?n)
        ;; note that 'n' starts counting from 1.
        ;; 'cluster-nb' starts from 0.
        ;; if cluster-nb == 1 then there is one open parenthesis.
@@ -455,6 +430,28 @@
 	     (set! O-cost-transit (instantiate::FSM-transit
 				     (target br))))
 	  cluster-nb))
+      ;; TODO: this should become char-ranges.
+      ((or (? char?)
+	   ((or :any
+	       :digit :not-digit
+	       :space :not-space
+	       :word :not-word
+	       :xdigit :not-xdigit
+	       :neg-char
+	       :one-of-chars)
+	    . ?-))
+       (let* ((class-or-c (RegExp-class-condition scm-re case-sensitive?))
+	      (t (if (char? class-or-c)
+		     (instantiate::FSM-char-transit
+			(target exit)
+			(c class-or-c))
+		     (instantiate::FSM-class-transit
+			(target exit)
+			(dot-info (format "[~a~a]" (if invert? "^" "") chars/ranges))
+			(class class-or-c)))))
+	  (with-access::FSM-simple entry (transit)
+	     (set! transit t))
+	  cluster-nb))
       ((class ?chars/ranges ?invert?)
        (let ((t (instantiate::FSM-class-transit
 		   (target exit)
@@ -466,17 +463,11 @@
 	  (with-access::FSM-simple entry (transit)
 	     (set! transit t))
 	  cluster-nb))
-      ((char ?c)
-       (let* ((ci (if case-sensitive?
-		      c
-		      (char-normalize c)))
-	      (t (instantiate::FSM-char-transit
-		    (target exit)
-		    (c ci)
-		    (case-sensitive? case-sensitive?))))
-	  (with-access::FSM-simple entry (transit)
-	     (set! transit t))
-	  cluster-nb))
+      (:empty
+       (with-access::FSM-simple entry (transit)
+	  (set! transit (instantiate::FSM-transit
+			   (target exit))))
+       cluster-nb)
       (else
        (error "fsm"
 	      "could not match scm-re"

@@ -79,7 +79,7 @@
 	     (loop (cons (alternative) rev-res)))
 	  (if (null? (cdr rev-res))
 	      (car rev-res)
-	      (cons 'disjunction (reverse! rev-res))))))
+	      (cons ':or (reverse! rev-res))))))
 
 (define (alternative)
    (let loop ((rev-res '()))
@@ -87,7 +87,7 @@
 	 (case c
 	    ((#f #\| #\))
 	     ;; end of string, | for next alternative, or end of cluster
-	     (cons 'sequence (reverse! rev-res)))
+	     (cons ':seq (reverse! rev-res)))
 	    (else
 	     (loop (cons (term) rev-res)))))))
 
@@ -95,18 +95,19 @@
    (let ((c (peek-char)))
       ;; do assertion directly in here:
       (case c
-	 ((#\^ #\$) ;; ^ or $ (begin/end of line)
-	  (consume-char!)
-	  `(,(char->symbol c)))
+	 ((#\^) (consume-char!)
+		':bol) ;; begin of line/string
+	 ((#\$) (consume-char!)
+		':eol) ;; end of line/string
 	 ((#\\) ;; either \b \B or \AtomEscape
 	  (consume-char!)
 	  (let ((c (peek-char)))
 	     (cond
 		;; Remaining Assertions \b and \B
 		((c=? c #\b) (consume-char!)
-			     '(word-boundary))
+			     ':wbdry)
 		((c=? c #\B) (consume-char!)
-			     '(not-word-boundary))
+			     ':not-wbdry)
 		(else
 		 (back!)
 		 (quantified-atom)))))
@@ -118,22 +119,23 @@
 	  (c (peek-char)))
       (case c
 	 ((#\* #\+ #\? #\{)
-	  (let ((quant (quantifier)))
+	  (receive (min max)
+	     (quantifier)
 	     (if (c=? (peek-char) #\?)
 		 (begin
 		    ;; non greedy
 		    (consume-char!)
-		    `(quantified ,at ,quant #f))
+		    `(:quantified #f ,min ,max ,at))
 		 ;; greedy
-		 `(quantified ,at ,quant #t))))
+		 `(:quantified #t ,min ,max ,at))))
 	 (else at))))
 
 (define (quantifier)
    (let ((c (consume-char!)))
       (case c
-	 ((#\*) '(repetitions 0 #f))
-	 ((#\?) '(repetitions 0 1))
-	 ((#\+) '(repetitions 1 #f))
+	 ((#\*) (values 0 #f))
+	 ((#\?) (values 0 1))
+	 ((#\+) (values 1 #f))
 	 (else ;; {
 	  (let* ((n1 (read-number))
 		 (n2 n1))
@@ -146,19 +148,19 @@
 			  (return #f)))
 		    (set! n2 #f)))
 	     (if (c=? (consume-char!) #\})
-		 `(repetitions ,n1 ,n2)
+		 (value n1 n2)
 		 (return #f)))))))
 	  
 (define (atom)
    (let ((c (peek-char)))
       (case c
 	 ((#\.) (consume-char!)
-		'(any))
+		':any)
 	 ((#\\) (atom-escape))
 	 ((#\() (cluster))
 	 ((#\[) (character-class))
 	 (else  (consume-char!)
-		`(char ,c)))))
+		,c))))
 
 (define (atom-escape)
    (consume-char!)
@@ -213,7 +215,7 @@
    ;; back-reference
    (let ((start (current-pos)))
       (let ((n (read-number)))
-	 `(back-ref ,n))))
+	 `(:backref ,n))))
 
 (define (decimal-escape)
    (let ((c (peek-char)))
@@ -226,26 +228,26 @@
 		 '(char #\null)))
 	  (back-reference))))
 
-;; we known already, that (peek-char) is one of "dDsSwW".
+;; we know already, that (peek-char) is one of "dDsSwW".
 (define (character-class-escape)
    (let ((c (consume-char!)))
       (cond
-	 ((c=? c #\d) '(number))
-	 ((c=? c #\D) '(not-number))
-	 ((c=? c #\s) '(white-space))
-	 ((c=? c #\S) '(not-white-space))
-	 ((c=? c #\w) '(a-zA-Z0-9_))
-	 ((c=? c #\W) '(not-a-zA-Z0-9_)))))
+	 ((c=? c #\d) ':digit)
+	 ((c=? c #\D) ':not-digit)
+	 ((c=? c #\s) ':space))
+	 ((c=? c #\S) ':not-space))
+	 ((c=? c #\w) ':word))
+	 ((c=? c #\W) ':not-word)))))
 
-;; we known already, that (peek-char) is one of "tnvfr".
+;; we know already, that (peek-char) is one of "tnvfr".
 (define (control-escape)
    (let ((c (consume-char!)))
       (cond
-	 ((c=? c #\t) `(char (string->char "\t")))
-	 ((c=? c #\n) `(char (string->char "\n")))
-	 ((c=? c #\v) `(char (string->char "\v")))
-	 ((c=? c #\f) `(char (string->char "\f")))
-	 ((c=? c #\r) `(char (string->char "\r"))))))
+	 ((c=? c #\t) (string-ref "\t" 0))
+	 ((c=? c #\n) (string-ref "\n" 0))
+	 ((c=? c #\v) (string-ref "\v" 0))
+	 ((c=? c #\f) (string-ref "\f" 0))
+	 ((c=? c #\r) (string-ref "\r" 0)))))
 
 (define (control-letter)
    (if (not (char-alphabetic? (peek-char)))
@@ -254,8 +256,8 @@
 	      (n (char->integer c))
 	      (rem (modulo c 32)))
 	  (if (zero? rem)
-	      '(char #\null)
-	      `(char ,(integer->char rem))))))
+	      #\null
+	      ,(integer->char rem)))))
 
 (define (hex-escape nb-hexs)
    (let ((start-pos (current-pos))
@@ -267,7 +269,7 @@
 		(return #f)
 		(loop (+fx i 1)))))
       (let ((hex-str (substring str start-pos end-pos)))
-	 `(char ,(integer->char (string->integer hex-str 16))))))
+	 (integer->char (string->integer hex-str 16)))))
 
 
 (define (cluster)
@@ -285,7 +287,7 @@
 		 (c (consume-char!)))
 	     (if (not (c=? c #\)))
 		 (return #f)
-		 `(cluster ,d))))
+		 `(:cluster ,d))))
 	 ((c=? c2 #\:)
 	  (let* ((d (disjunction))
 		 (c (consume-char!)))
@@ -297,13 +299,13 @@
 		 (c (consume-char!)))
 	     (if (not (c=? c #\)))
 		 (return #f)
-		 `(pos-lookahead-cluster ,d))))
+		 `(:pos-lookahead-cluster ,d))))
 	 ((c=? c2 #\!)
 	  (let* ((d (disjunction))
 		 (c (consume-char!)))
 	     (if (not (c=? c #\)))
 		 (return #f)
-		 `(neg-lookahead-cluster ,d)))))))
+		 `(:neg-lookahead-cluster ,d)))))))
 
 (define (character-class)
    (consume-char!) ;; the [
@@ -334,7 +336,9 @@
 		      (set-cdr! res (cdddr res)))))
 	       (loop (cdr res))))
 	 ;; chars is now a list of chars and ranges.
-	 `(class ,chars ,invert?))))
+	 (if invert?
+	     `(:neg-char (:one-of-chars ,chars))
+	     `(:one-of-chars ,chars)))))
 
 (define (class-escape)
    (let ((c (peek-char)))
