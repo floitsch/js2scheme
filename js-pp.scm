@@ -6,6 +6,7 @@
 	   config
 	   protobject
 	   nodes
+	   var
 	   statements
 	   verbose
 	   js-out)
@@ -40,6 +41,8 @@
 
 (define (js-pp args)
    (config-init!)
+   (nodes-init!)
+   (var-nodes-init!)
    (handle-args args)
    (if (not *in-file*)
        (begin
