@@ -148,19 +148,19 @@
 			  (return #f)))
 		    (set! n2 #f)))
 	     (if (c=? (consume-char!) #\})
-		 (value n1 n2)
+		 (values n1 n2)
 		 (return #f)))))))
 	  
 (define (atom)
    (let ((c (peek-char)))
       (case c
 	 ((#\.) (consume-char!)
-		':any)
+		'(:any))
 	 ((#\\) (atom-escape))
 	 ((#\() (cluster))
 	 ((#\[) (character-class))
 	 (else  (consume-char!)
-		,c))))
+		c))))
 
 (define (atom-escape)
    (consume-char!)
@@ -234,10 +234,10 @@
       (cond
 	 ((c=? c #\d) ':digit)
 	 ((c=? c #\D) ':not-digit)
-	 ((c=? c #\s) ':space))
-	 ((c=? c #\S) ':not-space))
-	 ((c=? c #\w) ':word))
-	 ((c=? c #\W) ':not-word)))))
+	 ((c=? c #\s) ':space)
+	 ((c=? c #\S) ':not-space)
+	 ((c=? c #\w) ':word)
+	 ((c=? c #\W) ':not-word))))
 
 ;; we know already, that (peek-char) is one of "tnvfr".
 (define (control-escape)
@@ -257,7 +257,7 @@
 	      (rem (modulo c 32)))
 	  (if (zero? rem)
 	      #\null
-	      ,(integer->char rem)))))
+	      (integer->char rem)))))
 
 (define (hex-escape nb-hexs)
    (let ((start-pos (current-pos))
@@ -332,7 +332,7 @@
 			 (c-to-n (char->integer c-to)))
 		      (unless (<=fx c-from-n c-to-n)
 			 (return #f))
-		      (set-car! res `(range ,c-from-n ,c-to-n))
+		      (set-car! res `(:range ,c-from-n ,c-to-n))
 		      (set-cdr! res (cdddr res)))))
 	       (loop (cdr res))))
 	 ;; chars is now a list of chars and ranges.

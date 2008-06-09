@@ -9,7 +9,7 @@
        nb-clusters::bint
        nb-backref-clusters::bint)
     (class FSM-node
-       ;; TODO: this currently means, that we can't match strings longer than
+       ;; TODO: this means, that currently we can't match strings longer than
        ;; 'bint'
        (forbidden?::bool (default #f)) ;; used for "not-empty"...
        (occupied-by::pair-nil (default '())))
@@ -49,8 +49,7 @@
        (c::char read-only)
        (case-sensitive?::bool read-only))
     (final-class FSM-class-transit::FSM-transit
-       (class read-only)
-       (case-sensitive?::bool read-only))
+       (class read-only))
     ;; does not consume chars.
     (final-class FSM-assert-transit::FSM-transit
        (condition::procedure read-only))
@@ -430,36 +429,25 @@
 	     (set! O-cost-transit (instantiate::FSM-transit
 				     (target br))))
 	  cluster-nb))
-      ;; TODO: this should become char-ranges.
       ((or (? char?)
 	   ((or :any
-	       :digit :not-digit
-	       :space :not-space
-	       :word :not-word
-	       :xdigit :not-xdigit
-	       :neg-char
-	       :one-of-chars)
+		:digit :not-digit
+		:space :not-space
+		:word :not-word
+		:xdigit :not-xdigit
+		:neg-char
+		:one-of-chars)
 	    . ?-))
        (let* ((class-or-c (RegExp-class-condition scm-re case-sensitive?))
 	      (t (if (char? class-or-c)
 		     (instantiate::FSM-char-transit
 			(target exit)
-			(c class-or-c))
+			(c class-or-c)
+			(case-sensitive? case-sensitive?))
 		     (instantiate::FSM-class-transit
 			(target exit)
-			(dot-info (format "[~a~a]" (if invert? "^" "") chars/ranges))
+			(dot-info (format "[range]"))
 			(class class-or-c)))))
-	  (with-access::FSM-simple entry (transit)
-	     (set! transit t))
-	  cluster-nb))
-      ((class ?chars/ranges ?invert?)
-       (let ((t (instantiate::FSM-class-transit
-		   (target exit)
-		   (dot-info (format "[~a~a]" (if invert? "^" "") chars/ranges))
-		   (class (RegExp-class-condition chars/ranges
-						  invert?
-						  case-sensitive?))
-		   (case-sensitive? case-sensitive?))))
 	  (with-access::FSM-simple entry (transit)
 	     (set! transit t))
 	  cluster-nb))

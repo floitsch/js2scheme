@@ -207,13 +207,10 @@
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-class-transit state str index)
-   (with-access::FSM-class-transit t (target class case-sensitive?)
+   (with-access::FSM-class-transit t (target class)
       (when (and (not (target-off-limit? target state))
 		 (let ((c2 (string-ref str index)))
-		    (RegExp-match-c (if case-sensitive?
-					c2
-					(char-normalize c2))
-				    class)))
+		    (RegExp-match-c c2 class)))
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-assert-transit state str index)
