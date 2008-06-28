@@ -210,7 +210,7 @@
    (with-access::FSM-class-transit t (target class)
       (when (and (not (target-off-limit? target state))
 		 (let ((c2 (string-ref str index)))
-		    (RegExp-match-c c2 class)))
+		    (RegExp-class-match class c2)))
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-assert-transit state str index)

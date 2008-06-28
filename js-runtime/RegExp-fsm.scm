@@ -438,7 +438,7 @@
 		:neg-char
 		:one-of-chars)
 	    . ?-))
-       (let* ((class-or-c (RegExp-class-condition scm-re case-sensitive?))
+       (let* ((class-or-c (RegExp-class-create scm-re case-sensitive?))
 	      (t (if (char? class-or-c)
 		     (instantiate::FSM-char-transit
 			(target exit)
