@@ -133,18 +133,21 @@
 
 (define (search-backrefs scm-re mset)
    (match-case scm-re
-      ((disjunction . ?alternatives)
+      ((:or . ?alternatives)
        (for-each (lambda (alt) (search-backrefs alt mset)) alternatives))
-      ((sequence . ?els)
+      ((:seq . ?els)
        (for-each (lambda (alt) (search-backrefs alt mset)) els))
       ;; assertions
-      ((quantified ?atom . ?-)
+      (((or :quantified :between) ?greedy? ?n1 ?n2 ?atom)
        (search-backrefs atom mset))
-      (((or pos-lookahead-cluster
-	    neg-lookahead-cluster)
+      (((and (or :pos-lookahead-cluster :lookahead
+		 :neg-lookahead-cluster :neg-lookahead)
+	     ?pos/neg?)
 	?d)
        (search-backrefs d mset))
-      ((back-ref ?n)
+      (((or :cluster :sub) ?d)
+       (search-backrefs d mset))
+      ((:backref ?n)
        (mset-put! mset n))
       (else
        'do-nothing)))
@@ -411,14 +414,14 @@
 		      (negative? (or (eq? pos/neg? ':neg-lookahead-cluster)
 				     (eq? pos/neg? ':neg-lookahead))))))
 	  new-cluster-nb))
-      ((:back-ref ?n)
+      ((:backref ?n)
        ;; note that 'n' starts counting from 1.
        ;; 'cluster-nb' starts from 0.
        ;; if cluster-nb == 1 then there is one open parenthesis.
        ;; we allow n == cluster-nb. for instance (\1) is ok.
        (if (not (<=fx n cluster-nb))
 	   (error "fsm"
-		  "back-ref references bad cluster"
+		  "backref references bad cluster"
 		  n))
        
        (let ((br (instantiate::FSM-backref

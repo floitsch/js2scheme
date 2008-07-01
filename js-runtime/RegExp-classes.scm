@@ -1,55 +1,58 @@
 (module jsre-RegExp-classes
-   (static RegExp-class
+   (static
+    (class RE-class
 	   ;; TODO: 32/64 bit issue...
-	   (bits::u64vector (default #u64(#l0 #l0 #l0 #l0)))
-	   (constant?::bool (default #f)))
+;       (bits::u64vector (default '#u64(#l0 #l0 #l0 #l0)))
+       (bits (default '#s64(#l0 #l0 #l0 #l0)))
+       (constant?::bool (default #f))))
    (export
     (RegExp-class-create char/class case-sensitive?)
-    (inline RegExp-class-match re-class::RegExp-class c::char)))
+    (RegExp-class-match re-class c::char)))
 
 (define *llong-size* 64)
 (define *nb-llongs* (/fx 256 *llong-size*))
 
-(define-inline (RegExp-class-match re-class c)
-   (with-access::RegExp-class re-class (bits)
-      (let ((cn (char->integer c))
-	    (index (/fx cn *llong-size*))
-	    (offset (modulo cn *llong-size*)))
+(define (RegExp-class-match re-class c)
+   (with-access::RE-class re-class (bits)
+      (let* ((cn (char->integer c))
+	     (index (/fx cn *llong-size*))
+	     (offset (modulo cn *llong-size*)))
 	 (let ((mask (make-llong (bit-lsh 1 offset))))
-	    (not (zerollong? (bit-andllong (TAGvector-ref bits index)
+	    (not (zerollong? (bit-andllong (s64vector-ref bits index)
 					   mask)))))))
 
-(define (class-add-n! re-class::RegExp-class n::bint)
-   (with-access::RegExp-class re-class (bits)
+(define (class-add-n! re-class::RE-class n::bint)
+   (with-access::RE-class re-class (bits)
       (let* ((index (/fx n *llong-size*))
 	     (offset (modulo n *llong-size*))
-	     (old (TAGvector-ref bits index)))
-	 (TAGvector-set! bits
+	     (old (s64vector-ref bits index)))
+	 (s64vector-set! bits
+			 index
 			 (bit-orllong old
 				      (make-llong (bit-lsh 1 offset)))))))
-(define (class-add-ns! re-class::RegExp-class . Lns)
+(define (class-add-ns! re-class::RE-class . Lns)
    (for-each (lambda (n) (class-add-n! re-class n))
 	     Lns))
 
-(define (class-add-range-n! re-class::RegExp-class from::bint to::bint)
-   (unless (>fx from to)
+(define (class-add-range-n! re-class::RE-class from::bint to::bint)
+   (unless (>=fx from to)
       (class-add-n! re-class from)
       (class-add-range-n! re-class (+fx from 1) to)))
 
-(define (class-add-range-c! re-class::RegExp-class from::char to::char)
+(define (class-add-range-c! re-class::RE-class from::char to::char)
    (class-add-range-n! re-class (char->integer from) (char->integer to)))
 
-(define (class-add-c! re-class::RegExp-class c::char)
+(define (class-add-c! re-class::RE-class c::char)
    (class-add-n! re-class (char->integer c)))
-(define (class-add-cs! re-class::RegExp-class . Lchars)
+(define (class-add-cs! re-class::RE-class . Lchars)
    (for-each (lambda (c) (class-add-c! re-class c))
 	     Lchars))
 
 ;; returns a char, if there is only one char in the class. Otherwise returns
 ;; #f.
-(define (class-get-single-char re-class::RegExp-class)
+(define (class-get-single-char re-class::RE-class)
    (define (one-bit? i::llong)
-      (and (not (zerollong? l))
+      (and (not (zerollong? i))
 	   (zerollong? (bit-andllong (-llong i #l1) i))))
 
    (define (get-bit-pos i::llong)
@@ -59,16 +62,16 @@
 	     j
 	     (loop (+ j 1) (*llong k #l2)))))
    
-   (with-access::RegExp-class re-class (bits)
+   (with-access::RE-class re-class (bits)
       (let loop ((i 0)
 		 (non-zero #f))
 	 (cond
 	    ((=fx i *nb-llongs*)
 	     (and non-zero
-		  (one-bit? (TAGvector-ref bits non-zero))
+		  (one-bit? (s64vector-ref bits non-zero))
 		  (+fx (*fx non-zero *llong-size*)
-		       (get-bit-pos (TAGvector-ref bits)))))
-	    ((zerollong? (TAGvector-ref bits i))
+		       (get-bit-pos (s64vector-ref bits i)))))
+	    ((zerollong? (s64vector-ref bits i))
 	     (loop (+fx i 1) non-zero))
 	    (non-zero ;; got already one
 	     #f)
@@ -78,15 +81,15 @@
 ;; physically inverts the class *only* if it is not constant?. Otherwise a new
 ;; class is instantiated. In both cases the result is returned.
 (define (class-invert! re-class)
-   (with-access::RegExp-class re-class (constant? bits)
+   (with-access::RE-class re-class (constant? bits)
       (if constant?
-	  (class-invert! (duplicate::RegExp-class re-class
+	  (class-invert! (duplicate::RE-class re-class
 			    (constant? #f)))
 	  (let loop ((i 0))
 	     (if (=fx i *nb-llongs*)
 		 re-class
-		 (let ((old (TAGvector-ref bits i)))
-		    (TAGvector-set! bits i (bit-not-llong old))
+		 (let ((old (s64vector-ref bits i)))
+		    (s64vector-set! bits i (bit-notllong old))
 		    (loop (+fx i 1))))))))
 
 ;; returns a merged result of both classes. If either is not 'constant?' then
@@ -99,19 +102,19 @@
        re-class1)
       (else
        (let ((res (cond
-		     ((not (RegExp-class-constant? re-class1))
+		     ((not (RE-class-constant? re-class1))
 		      re-class1)
-		     ((not (RegExp-class-constant? re-class2))
+		     ((not (RE-class-constant? re-class2))
 		      re-class2)
 		     (else
-		      (instantiate::RegExp-class)))))
+		      (instantiate::RE-class)))))
 	  (let loop ((i 0))
 	     (if (=fx i *nb-llongs*)
 		 res
-		 (with-access::RegExp-class res (bits)
-		    (let ((l1 (TAGvector-ref (RegExp-class-bits re-class1) i))
-			  (l2 (TAGvector-ref (RegExp-class-bits re-class2) i)))
-		       (TAGvector-set! bits i
+		 (with-access::RE-class res (bits)
+		    (let ((l1 (s64vector-ref (RE-class-bits re-class1) i))
+			  (l2 (s64vector-ref (RE-class-bits re-class2) i)))
+		       (s64vector-set! bits i
 				       (bit-orllong l1 l2))
 		       (loop (+fx i 1))))))))))
 
@@ -120,7 +123,7 @@
    (let ((v (make-vector 256)))
       (let loop ((i 0))
 	 (when (<fx i 256)
-	    (let ((re-class (instantiate::RegExp-class
+	    (let ((re-class (instantiate::RE-class
 			       (constant? #t))))
 	       (class-add-n! re-class i)
 	       (vector-set! v i re-class)
@@ -137,7 +140,7 @@
 		   (c-down (char-downcase c)))
 	       (if (char=? c-up c-down)
 		   (vector-set! v i (vector-ref *case-sensitive-classes* i))
-		   (let ((re-class (instantiate::RegExp-class
+		   (let ((re-class (instantiate::RE-class
 				      (constant? #t))))
 		      (class-add-n! re-class (char->integer c-up))
 		      (class-add-n! re-class (char->integer c-down))
@@ -147,46 +150,46 @@
 
 (define (inverted-constant re-class)
    (let ((inverted (class-invert! *digits-class*)))
-      (with-access::RegExp-class inverted (constant?)
+      (with-access::RE-class inverted (constant?)
 	 (set! constant? #t)
 	 inverted)))
 
-(define *empty-class* (instantiate::RegExp-class (constant? #t)))
+(define *empty-class* (instantiate::RE-class (constant? #t)))
 
 (define *digits-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
-      (class-add-range-c! #\0 #\9)
+      (class-add-range-c! re-class #\0 #\9)
       re-class))
 (define *no-digits-class* (inverted-constant *digits-class*))
 
 (define *white-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
-      (class-add-ns! #x09 #x0B #x0C #x20 #xA0)
+      (class-add-ns! re-class #x09 #x0B #x0C #x20 #xA0)
       re-class))
 
 (define *no-white-class* (inverted-constant *white-class*))
 
 (define *any-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-ns! re-class #xA #xD) ;; TODO: add when 16bit #x2028 #x2029
       re-class))
 (define *no-any-class* (inverted-constant *any-class*))
 
 (define *word-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-range-c! re-class #\a #\z)
       (class-add-range-c! re-class #\A #\Z)
       (class-add-range-c! re-class #\0 #\9)
-      (class-add-c! #\_)
+      (class-add-c! re-class #\_)
       re-class))
 (define *no-word-class* (inverted-constant *word-class*))
 
 (define *xdigits-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-range-c! re-class #\a #\f)
       (class-add-range-c! re-class #\A #\F)
@@ -195,7 +198,7 @@
 (define *no-xdigits-class* (inverted-constant *xdigits-class*))
 
 (define *alnum-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-range-c! re-class #\a #\z)
       (class-add-range-c! re-class #\A #\Z)
@@ -204,7 +207,7 @@
 (define *no-alnum-class* (inverted-constant *alnum-class*))
 
 (define *alpha-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-range-c! re-class #\a #\z)
       (class-add-range-c! re-class #\A #\Z)
@@ -212,14 +215,14 @@
 (define *no-alpha-class* (inverted-constant *alnum-class*))
 
 (define *ascii-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-range-n! re-class 0 127)
       re-class))
 (define *no-ascii-class* (inverted-constant *ascii-class*))
 
 (define *blank-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-c! re-class #\space)
       (class-add-c! re-class #\tab)
@@ -227,14 +230,14 @@
 (define *no-blank-class* (inverted-constant *blank-class*))
 
 (define *cntrl-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-n! re-class #x32)
       re-class))
-(define *no-ctrnl-class* (inverted-constant *cntrl-class*))
+(define *no-cntrl-class* (inverted-constant *cntrl-class*))
 
 (define *graph-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (let loop ((i 32))
 	 (when (<fx i 256)
@@ -245,7 +248,7 @@
 (define *no-graph-class* (inverted-constant *graph-class*))
 
 (define *lower-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (let loop ((i 0))
 	 (when (<fx i 256)
@@ -256,7 +259,7 @@
 (define *no-lower-class* (inverted-constant *lower-class*))
 
 (define *upper-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (let loop ((i 0))
 	 (when (<fx i 256)
@@ -267,14 +270,14 @@
 (define *no-upper-class* (inverted-constant *upper-class*))
 
 (define *print-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-range-n! re-class 32 256)
       re-class))
 (define *no-print-class* (inverted-constant *print-class*))
 
 (define *punct-class*
-   (let ((re-class (instantiate::RegExp-class
+   (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (let loop ((i 32))
 	 (when (<fx i 256)
@@ -290,11 +293,6 @@
 
 ;; For now just build a range based on ASCII chars.
 (define (RegExp-class-create char/class case-sensitive?)
-   ;; does *not* take into account case-sensitivity!
-   (define (add-chars re-class .  Lc)
-      (for-each (lambda (c) (class-add-bit! re-class (char->integer c)))
-		Lc))
-
    (define (add-char! re-class c)
       (let ((precomputed-chars (if case-sensitive?
 				   *case-sensitive-classes*
@@ -325,13 +323,13 @@
 	    (to (if (char? to)
 		    (char->integer to)
 		    to)))
-	 (if (RegExp-class-constant? re-class)
-	     (add-range (instantiate::RegExp-class) from to)
+	 (if (RE-class-constant? re-class)
+	     (add-range (instantiate::RE-class) from to)
 	     (begin
 		(class-add-range-n! re-class from to)
 		re-class))))
 
-   (define (add-element re-class char/class)
+   (define (add-element! re-class char/class)
       (match-case char/class
 	 ((and (? char?) ?c)
 	  (add-char! re-class c))
@@ -369,15 +367,15 @@
 	 ((:graph)      (merge-classes! re-class *graph-class*))
 	 ((:not-graph)  (merge-classes! re-class *no-graph-class*))
 	 ((:neg-char ?inverted-char/re-class)
-	  (let ((tmp (add-element #f inverted-char/re-class)))
-	     (merge-classes! re-class (invert! tmp))))
+	  (let ((tmp (add-element! #f inverted-char/re-class)))
+	     (merge-classes! re-class (class-invert! tmp))))
 	 ((:one-of-chars . ?chars/classes)
 	  (let loop ((re-class re-class)
 		     (chars/classes chars/classes))
 	     (if (null? chars/classes)
 		 re-class
 		 (begin
-		    (add-element re-class (car chars/classes))
+		    (add-element! re-class (car chars/classes))
 		    (loop re-class (cdr chars/classes))))))
 	 (else
 	  (error "RegExp Class"
@@ -385,5 +383,5 @@
 		 char/class))))
 
    (let ((re-class (add-element! *empty-class* char/class)))
-      (or (get-single-char re-class)
+      (or (class-get-single-char re-class)
 	  re-class)))
