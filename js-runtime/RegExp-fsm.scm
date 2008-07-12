@@ -66,17 +66,9 @@
     (final-class FSM-cluster-assert::FSM-transit
        (entry::FSM-node read-only)
        (exit::FSM-node read-only)
-       (negative?::bool read-only)) ;; when set, then result must be #f to
+       (negative?::bool read-only))) ;; when set, then result must be #f to
     ;; continue.
 
-    (final-class FSM-state
-       clusters::vector
-       backref-clusters::vector ;; duplicate of the relevant entries.
-       (final-index (default #f))
-       (collision?::bool (default #f))
-       node::FSM-node)
-    (wide-class FSM-sleeping-state::FSM-state
-       cycles-to-sleep::bint))
    (export (scm-regexp->fsm scm-re)))
 
 
@@ -279,22 +271,17 @@
       ;; quantified
       (((or :quantified :between) ?greedy? ?n1 ?n2 ?atom)
        ;; creates the required nodes. for instance {2, 5} will create 2
-       ;; copies of the atom. Each one must be non-empty.
+       ;; copies of the atom. Required might be empty!
        ;; returns the new cluster-nb.
        ;; nb must be > 0.
        (define (required nb atom entry exit c-nb)
 	  (let loop ((nb nb)
 		     (entry entry))
-	     (let ((non-empty (instantiate::FSM-non-empty
-				 (exit exit))))
-		(with-access::FSM-simple entry (O-cost-transit)
-		   (set! O-cost-transit (instantiate::FSM-transit
-					   (target non-empty))))
-		(if (= nb 1)
-		    (recurse atom non-empty exit c-nb)
-		    (let ((middle (instantiate::FSM-simple)))
-		       (recurse atom non-empty middle c-nb)
-		       (loop (-fx nb 1) middle))))))
+	     (if (= nb 1)
+		 (recurse atom entry exit c-nb)
+		 (let ((middle (instantiate::FSM-simple)))
+		    (recurse atom entry middle c-nb)
+		    (loop (-fx nb 1) middle)))))
        
        (define (unlimited greedy? atom entry exit c-nb)
 	  ;; unlimited repetitions.

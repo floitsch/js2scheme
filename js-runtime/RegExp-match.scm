@@ -1,7 +1,8 @@
 (module jsre-RegExp-match
    (import jsre-RegExp-classes
 	   jsre-RegExp-fsm
-	   jsre-RegExp-dot)
+	   jsre-RegExp-dot
+	   jsre-RegExp-state)
    (export (regexp-run fsm::FSM str::bstring)))
 
 (define (make-eq-hashtable)

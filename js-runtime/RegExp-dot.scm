@@ -1,6 +1,7 @@
 (module jsre-RegExp-dot
    (import jsre-RegExp-classes
-	   jsre-RegExp-fsm)
+	   jsre-RegExp-fsm
+	   jsre-RegExp-state)
    (export (regexp->dot fsm)
 	   (running->dot fsm states frozen-states str)))
 
