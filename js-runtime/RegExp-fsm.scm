@@ -23,19 +23,23 @@
        ;; alternatives (O-cost)
        (alternatives::pair-nil read-only))
 
-    (final-class FSM-*-entry::FSM-node
-       (body::FSM-simple read-only)
-       (*-exit::FSM-*-exit read-only)
-       (greedy?::bool read-only))
-    (final-class FSM-*-exit::FSM-node
-       (*-entry::FSM-*-entry read-only)
-       (exit::FSM-node read-only))
     (final-class FSM-non-empty::FSM-simple
        (exit::FSM-node read-only))
     (final-class FSM-?::FSM-node
        (body::FSM-simple read-only)
        (exit::FSM-node read-only) ;; the short-cut.
        (greedy?::bool read-only))
+    (final-class FSM-*-exit::FSM-node
+       (*-entry::FSM-simple read-only)
+       (greedy?::bool read-only)
+       (exit::FSM-node read-only))
+    (final-class FSM-repeat-entry::FSM-node
+       (body::FSM-simple read-only)
+       (min::bint read-only)
+       (max read-only) ;; either bint or #f
+       (greedy?::bool read-only)
+       (propagating?::bool (default #f)))
+
     (final-class FSM-backref::FSM-node
        (exit::FSM-node read-only)
        backref-nb
@@ -270,86 +274,66 @@
 	  cluster-nb))
       ;; quantified
       (((or :quantified :between) ?greedy? ?n1 ?n2 ?atom)
-       ;; creates the required nodes. for instance {2, 5} will create 2
-       ;; copies of the atom. Required might be empty!
-       ;; returns the new cluster-nb.
-       ;; nb must be > 0.
-       (define (required nb atom entry exit c-nb)
-	  (let loop ((nb nb)
-		     (entry entry))
-	     (if (= nb 1)
-		 (recurse atom entry exit c-nb)
-		 (let ((middle (instantiate::FSM-simple)))
-		    (recurse atom entry middle c-nb)
-		    (loop (-fx nb 1) middle)))))
-       
-       (define (unlimited greedy? atom entry exit c-nb)
-	  ;; unlimited repetitions.
-	  (co-instantiate ((*-entry (instantiate::FSM-*-entry
-				       (body non-empty)
-				       (*-exit *-exit)
-				       (greedy? greedy?)))
-			   (non-empty (instantiate::FSM-non-empty
-					 (exit *-exit)))
-			   (*-exit (instantiate::FSM-*-exit
-				      (*-entry *-entry)
-				      (exit exit))))
-	     (with-access::FSM-simple entry (O-cost-transit)
-		(set! O-cost-transit (instantiate::FSM-transit
-					(target *-entry))))
-	     (recurse atom non-empty *-exit c-nb)))
-       
-       ;; creates the optional nodes. for instance for {2, 5} it will create
-       ;; 3 optional copies. If considered to be a match it must be
-       ;; non-empty.
-       ;; returns the cluster-nb.
-       ;; nb must be > 0.
-       (define (optional nb greedy? atom entry exit c-nb)
-	  ;;
-	  ;; following diagram should help
-	  ;; (NE=non-empty, S=simple node, A=atom)
-	  ;; for nb=2
-	  ;;
-	  ;;                                /->[NE]->[[A]]-\
-	  ;;       /->[NE]->[[A]]->[S]->[?]-\               |
-	  ;;      /                          v              v
-	  ;; ->[?]---------------------------------------->[exit]
-	  (let loop ((nb nb)
-		     (entry entry))
-	     (let* ((atom-exit (if (=fx nb 1)
-				   exit
-				   (instantiate::FSM-simple)))
-		    (non-empty (instantiate::FSM-non-empty
-				  (exit atom-exit)))
-		    (?-entry (instantiate::FSM-?
-				(body non-empty)
-				(exit exit) ;; do not use the atom-exit
-				(greedy? greedy?))))
-		(with-access::FSM-simple entry (O-cost-transit)
-		   (set! O-cost-transit (instantiate::FSM-transit
-					   (target ?-entry))))
-		(if (=fx nb 1)
-		    (recurse atom non-empty atom-exit c-nb)
-		    (begin
-		       (recurse atom non-empty atom-exit c-nb)
-		       (loop (-fx nb 1) atom-exit))))))
-       
        (cond
 	  ((and (zero? n1)
-		(not n2))
-	   (unlimited greedy? atom entry exit cluster-nb))
-	  ((zero? n1)
-	   (optional n2 greedy? atom entry exit cluster-nb))
-	  ((not n2)
-	   (let ((middle (instantiate::FSM-simple)))
-	      (required n1 atom entry middle cluster-nb)
-	      (unlimited greedy? atom middle exit cluster-nb)))
-	  ((=fx n1 n2)
-	   (required n1 atom entry exit cluster-nb))
+		(not n2)) ;; x* {0, #f}
+	   (co-instantiate ((?-entry (instantiate::FSM-?
+					(body non-empty)
+					(exit exit)
+					(greedy? greedy?)))
+			    (non-empty (instantiate::FSM-non-empty
+					  (exit *-exit)))
+			    (*-exit (instantiate::FSM-*-exit
+				       (*-entry non-empty)
+				       (greedy? greedy?)
+				       (exit exit))))
+	      (with-access::FSM-simple entry (O-cost-transit)
+		 (set! O-cost-transit (instantiate::FSM-transit
+					 (target ?-entry))))
+	      (recurse atom non-empty *-exit c-nb)))
+	  ((and (=fx n1 1)
+		(not n2)) ;; x+ {1, #f}
+	   ;; we add an node between the non-empty and the body
+	   ;; the first iteration starts at this node -> the first iteration
+	   ;; might be empty.
+	   ;; Only in the second iteration is the non-empty used.
+	   (co-instantiate ((body-entry (instantiate::FSM-simple))
+			    (non-empty (instantiate::FSM-non-empty
+					  (exit *-exit)))
+			    (*-exit (instantiate::FSM-*-exit
+				       (*-entry non-empty)
+				       (greedy? greedy?)
+				       (exit exit))))
+	      (with-access::FSM-simple entry (O-cost-transit)
+		 (set! O-cost-transit (instantiate::FSM-transit
+					 (target body-entry))))
+	      (with-access::FSM-simple non-empty (O-cost-transit)
+		 (set! O-cost-transit (instantiate::FSM-transit
+					 (target body-entry))))
+	      (recurse atom body-entry *-exit c-nb)))
+	  ((and (zero? 0)
+		(=fx n2 1)) ;; x? {0, 1}
+	   (let* ((non-empty (instantiate::FSM-non-empty
+				(exit exit)))
+		  (?-entry (instantiate::FSM-?
+			      (body non-empty)
+			      (exit exit) ;; do not use the atom-exit
+			      (greedy? greedy?))))
+	      (with-access::FSM-simple entry (O-cost-transit)
+		 (set! O-cost-transit (instantiate::FSM-transit
+					 (target ?-entry))))
+	      (recurse atom non-empty exit c-nb)))
 	  (else
-	   (let ((middle (instantiate::FSM-simple)))
-	      (required n1 atom entry middle cluster-nb)
-	      (optional (-fx n2 n1) greedy? atom middle exit cluster-nb)))))
+	   (co-instantiate ((body-entry (instantiate::FSM-simple))
+			    (repetition-entry (instantiate::FSM-repeat-entry
+						 (body body-entry)
+						 (min n1)
+						 (max n2)
+						 (greedy? greedy?)))
+			    (repetition-exit (instantiate::FSM-repeat-exit
+						(repeat-entry repetition-entry)
+						(exit exit))))
+	      (recurse atom body-entry repetition-exit c-nb)))))
       (((or :cluster :sub) ?d)
        (let* ((d-entry (instantiate::FSM-simple))
 	      (d-exit (instantiate::FSM-simple))
