@@ -39,6 +39,9 @@
        (max read-only) ;; either bint or #f
        (greedy?::bool read-only)
        (propagating?::bool (default #f)))
+    (final-class FSM-repeat-exit::FSM-node
+       (repeat-entry::FSM-repeat-entry read-only)
+       (exit::FSM-node read-only))
 
     (final-class FSM-backref::FSM-node
        (exit::FSM-node read-only)
@@ -50,8 +53,7 @@
        (dot-info (default ""))
        )
     (final-class FSM-char-transit::FSM-transit
-       (c::char read-only)
-       (case-sensitive?::bool read-only))
+       (c::char read-only))
     (final-class FSM-class-transit::FSM-transit
        (class read-only))
     ;; does not consume chars.
@@ -290,7 +292,7 @@
 	      (with-access::FSM-simple entry (O-cost-transit)
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target ?-entry))))
-	      (recurse atom non-empty *-exit c-nb)))
+	      (recurse atom non-empty *-exit cluster-nb)))
 	  ((and (=fx n1 1)
 		(not n2)) ;; x+ {1, #f}
 	   ;; we add an node between the non-empty and the body
@@ -310,7 +312,7 @@
 	      (with-access::FSM-simple non-empty (O-cost-transit)
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target body-entry))))
-	      (recurse atom body-entry *-exit c-nb)))
+	      (recurse atom body-entry *-exit cluster-nb)))
 	  ((and (zero? 0)
 		(=fx n2 1)) ;; x? {0, 1}
 	   (let* ((non-empty (instantiate::FSM-non-empty
@@ -322,7 +324,7 @@
 	      (with-access::FSM-simple entry (O-cost-transit)
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target ?-entry))))
-	      (recurse atom non-empty exit c-nb)))
+	      (recurse atom non-empty exit cluster-nb)))
 	  (else
 	   (co-instantiate ((body-entry (instantiate::FSM-simple))
 			    (repetition-entry (instantiate::FSM-repeat-entry
@@ -333,7 +335,7 @@
 			    (repetition-exit (instantiate::FSM-repeat-exit
 						(repeat-entry repetition-entry)
 						(exit exit))))
-	      (recurse atom body-entry repetition-exit c-nb)))))
+	      (recurse atom body-entry repetition-exit cluster-nb)))))
       (((or :cluster :sub) ?d)
        (let* ((d-entry (instantiate::FSM-simple))
 	      (d-exit (instantiate::FSM-simple))
@@ -416,8 +418,7 @@
 	      (t (if (char? class-or-c)
 		     (instantiate::FSM-char-transit
 			(target exit)
-			(c class-or-c)
-			(case-sensitive? case-sensitive?))
+			(c class-or-c))
 		     (instantiate::FSM-class-transit
 			(target exit)
 			(dot-info (format "[range]"))

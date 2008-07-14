@@ -8,11 +8,6 @@
 (define (make-eq-hashtable)
    (make-hashtable 5 #unspecified eq?))
 
-;; REFACTORINGS TODO:
-;; - merge FSM-*-entry/FSM-?
-
-;; TODO: when entering a repetition clear all clusters inside the repetition.
-
 ;; for a description of the process look at RegExp-fsm
 
 (define *contains-backrefs?* #f)
@@ -45,11 +40,6 @@
 		  (last-p states))
 	  (cond
 	     ((null? states) #f)
-	     ((FSM-state-collision? (car states))
-	      (set-cdr! last-p '())
-	      (set! *frozen-states* (cons (cons states index)
-					   *frozen-states*))
-	      #t)
 	     (else
 	      (loop (cdr states)
 		    states))))))
@@ -60,8 +50,6 @@
       (set! *frozen-states* (cdr *frozen-states*))
       (let ((states (car first))
 	    (index (cdr first)))
-	 (with-access::FSM-state (car states) (collision?)
-	    (set! collision? #f))
 	 (freeze-collided!? states index)
 	 (values states index))))
 
@@ -79,8 +67,9 @@
 (define (next-round-states! index) ;; get pushed states
    (let ((next-round-states (reverse! *rev-next-round*)))
       (set! *rev-next-round* '())
-      (when *contains-backrefs?*
-	 (freeze-collided!? next-round-states index))
+      ;; TODO: freeze states, when reaching certain limit.
+      ;(when *contains-backrefs?*
+      ;  (freeze-collided!? next-round-states index))
       next-round-states))
 
 (define *debug* #f)
@@ -111,7 +100,7 @@
 	  (restore-waiting-states!)
 	  (advance states str (+fx index 1)))) ;; next round so increment
       ((FSM-final? (FSM-state-node (car states)))
-       ;; first state in priority-list is final. Can't be any better...
+       ;; first state in priority-list is final. Can't get any better...
        (car states))
       ((>=fx index (string-length str))
        ;; end of string. If there's a state pointing to the final-node we have
@@ -177,20 +166,45 @@
 		(set! cycles-to-sleep (-fx cycles-to-sleep 1))
 		(push-state! state))))))
 
-;; FSM-disjunction, FSM-*-entry, FSM-*-exit and FSM-? do not
+;; FSM-disjunction, FSM-*-exit and FSM-? do not
 ;; have any node-advance. (propagation should never leave a state on one of these
 ;; nodes.
 
 ;; target is off-limit if it is occupied by a state with same backref-cluster,
 ;; or if it is forbidden.
 (define (target-off-limit? n::FSM-node state::FSM-state)
+   (define (same-brefs? backrefs1 backrefs2)
+      (or (not *contains-backrefs?*)
+	  (equal? backrefs1 backrefs2)))
+      
+   (define (better-loops? loops1 loops2) ;; either the same or l1 beats l2.
+      (or (eq? loops1 loops2)
+	  (every? (lambda (l1 l2)
+		     (with-access::FSM-loop-info l1 (loop-entry)
+			(with-access::FSM-repeat-entry loop-entry (min max
+								       greedy?)
+			   ;; both must be in same loops. so no need to get
+			   ;; loop-entry from l2
+			   (let ((it1 (FSM-loop-info-iterations l1))
+				 (it2 (FSM-loop-info-iterations l2)))
+			      (or (=fx it1 it2)
+				  (and greedy?
+				       (not max)
+				       (>fx it1 it2))
+				  (and (not greedy?)
+				       (>=fx it1 min)
+				       (<fx it1 it2)))))))
+		  loops1
+		  loops2)))
+
    (with-access::FSM-node n (forbidden? occupied-by)
       (or forbidden?
-	  (with-access::FSM-state state (backref-clusters)
-	     (any? (lambda (other-state)
-		      (equal? (FSM-state-backref-clusters other-state)
-			      backref-clusters))
-		   occupied-by)))))
+	  (any? (lambda (other-state)
+		   (and (same-brefs? (FSM-state-backref-clusters state)
+				     (FSM-state-backref-clusters other-state))
+			(better-loops? (FSM-state-loops state)
+				       (FSM-state-loops other-state))))
+		occupied-by))))
 
 (define-generic (take-transit t::FSM-transit state str index)
    ;; O-cost-transit.
@@ -199,19 +213,21 @@
 	 (propagate target state str index))))
 
 (define-method (take-transit t::FSM-char-transit state str index)
-   (with-access::FSM-char-transit t (target c case-sensitive?)
-      (when (and (not (target-off-limit? target state))
-		 (let ((c2 (string-ref str index)))
-		    (char=? c (if case-sensitive?
-				  c2
-				  (char-normalize c2)))))
+   (with-access::FSM-char-transit t (target c)
+      (when (and (let ((c2 (string-ref str index)))
+		    ;; char=? is cheaper than target-off-limit -> do it first
+		    (char=? c c2))
+		 (not (target-off-limit? target state)))
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-class-transit state str index)
    (with-access::FSM-class-transit t (target class)
-      (when (and (not (target-off-limit? target state))
-		 (let ((c2 (string-ref str index)))
-		    (RegExp-class-match class c2)))
+      (when (and (let ((c2 (string-ref str index)))
+		    ;; RegExp-class-match should be faster than
+		    ;; target-off-limit. -> do it first.
+		    ;; TODO: verify speed of match/target-off-limit.
+		    (RegExp-class-match class c2))
+		 (not (target-off-limit? target state)))
 	 (propagate target state str (+fx index 1)))))
 
 (define-method (take-transit t::FSM-assert-transit state str index)
@@ -297,10 +313,8 @@
 
 (define (occupy-node! n::FSM-node state::FSM-state)
    (with-access::FSM-node n (occupied-by)
-      (with-access::FSM-state state (collision? node)
+      (with-access::FSM-state state (node)
 	 (set! node n)
-	 (unless (null? occupied-by)
-	    (set! collision? #t))
 	 (set! occupied-by (cons state occupied-by))
 	 (push-state! state))))
 
@@ -344,19 +358,15 @@
    (with-access::FSM-disjunction n (alternatives)
       (propagate-in-order alternatives state str index)))
 
-(define-method (propagate n::FSM-*-entry state str index)
-   (with-access::FSM-*-entry n (body *-exit greedy? forbidden?)
+(define-method (propagate n::FSM-*-exit state str index)
+   (with-access::FSM-*-exit n (*-entry greedy? exit forbidden?)
       (let ((old-forbidden? forbidden?))
-	 (set! forbidden? #t) ;; under no circumstance come back to this node.
+	 (set! forbidden? #t) ;; we don't allow empty iterations.
 	 (let ((choices (if greedy?
-			    (list body *-exit)
-			    (list *-exit body))))
+			    (list *-entry exit)
+			    (list exit *-entry))))
 	    (propagate-in-order choices state str index)
 	    (set! forbidden? old-forbidden?)))))
-
-(define-method (propagate n::FSM-*-exit state str index)
-   (with-access::FSM-*-exit n (*-entry exit)
-      (propagate-in-order (list *-entry exit) state str index)))
 
 (define-method (propagate n::FSM-? state str index)
    (with-access::FSM-? n (body exit greedy?)
