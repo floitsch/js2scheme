@@ -5,7 +5,8 @@
    (export
     (final-class FSM-loop-info
        (iterations::bint read-only)
-       (loop-entry::FSM-repeat-entry read-only))
+       (index-time::bint read-only)
+       (loop-exit::FSM-repeat-exit read-only))
     (final-class FSM-state
        clusters::vector
        backref-clusters::vector ;; duplicate of the relevant entries.

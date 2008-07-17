@@ -26,7 +26,7 @@
     (final-class FSM-non-empty::FSM-simple
        (exit::FSM-node read-only))
     (final-class FSM-?::FSM-node
-       (body::FSM-simple read-only)
+       (body::FSM-node read-only)
        (exit::FSM-node read-only) ;; the short-cut.
        (greedy?::bool read-only))
     (final-class FSM-*-exit::FSM-node
@@ -34,13 +34,13 @@
        (greedy?::bool read-only)
        (exit::FSM-node read-only))
     (final-class FSM-repeat-entry::FSM-node
-       (body::FSM-simple read-only)
+       (repeat-exit::FSM-repeat-exit read-only))
+    (final-class FSM-repeat-exit::FSM-node
+       (repeat-body::FSM-simple read-only)
        (min::bint read-only)
+       ;; max must not be 0.
        (max read-only) ;; either bint or #f
        (greedy?::bool read-only)
-       (propagating?::bool (default #f)))
-    (final-class FSM-repeat-exit::FSM-node
-       (repeat-entry::FSM-repeat-entry read-only)
        (exit::FSM-node read-only))
 
     (final-class FSM-backref::FSM-node
@@ -313,7 +313,7 @@
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target body-entry))))
 	      (recurse atom body-entry *-exit cluster-nb)))
-	  ((and (zero? 0)
+	  ((and (zero? n1)
 		(=fx n2 1)) ;; x? {0, 1}
 	   (let* ((non-empty (instantiate::FSM-non-empty
 				(exit exit)))
@@ -325,17 +325,38 @@
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target ?-entry))))
 	      (recurse atom non-empty exit cluster-nb)))
+	  ((and (zero? n1)
+		(zero? n2)) ;; nonsensical
+	   (with-access::FSM-simple entry (O-cost-transit)
+	      (set! O-cost-transit (instantiate::FSM-transit
+				      (target exit)))
+	      ;; we still need to recurse to get the correct clusters
+	      (recurse atom
+		       (instantiate::FSM-simple)
+		       (instantiate::FSM-simple)
+		       cluster-nb)))
 	  (else
 	   (co-instantiate ((body-entry (instantiate::FSM-simple))
-			    (repetition-entry (instantiate::FSM-repeat-entry
-						 (body body-entry)
-						 (min n1)
-						 (max n2)
-						 (greedy? greedy?)))
-			    (repetition-exit (instantiate::FSM-repeat-exit
-						(repeat-entry repetition-entry)
+			    (rep-entry (instantiate::FSM-repeat-entry
+					  (repeat-exit rep-exit)))
+			    (rep-exit (instantiate::FSM-repeat-exit
+						(repeat-body body-entry)
+						(min n1)
+						(max n2)
+						(greedy? greedy?)
 						(exit exit))))
-	      (recurse atom body-entry repetition-exit cluster-nb)))))
+	      (if (zero? min)
+		  (let ((?-entry (instantiate::FSM-?
+				    (body rep-entry)
+				    (exit exit)
+				    (greedy? greedy?))))
+		     (with-access::FSM-simple entry (O-cost-transit)
+			(set! O-cost-transit (instantiate::FSM-transit
+						(target ?-entry)))))
+		  (with-access::FSM-simple entry (O-cost-transit)
+		     (set! O-cost-transit (instantiate::FSM-transit
+					     (target rep-entry)))))
+	      (recurse atom body-entry rep-exit cluster-nb)))))
       (((or :cluster :sub) ?d)
        (let* ((d-entry (instantiate::FSM-simple))
 	      (d-exit (instantiate::FSM-simple))

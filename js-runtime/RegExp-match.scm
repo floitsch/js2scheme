@@ -180,11 +180,11 @@
    (define (better-loops? loops1 loops2) ;; either the same or l1 beats l2.
       (or (eq? loops1 loops2)
 	  (every? (lambda (l1 l2)
-		     (with-access::FSM-loop-info l1 (loop-entry)
-			(with-access::FSM-repeat-entry loop-entry (min max
-								       greedy?)
+		     (with-access::FSM-loop-info l1 (loop-exit)
+			(with-access::FSM-repeat-exit loop-exit (min max
+								     greedy?)
 			   ;; both must be in same loops. so no need to get
-			   ;; loop-entry from l2
+			   ;; loop-exit from l2
 			   (let ((it1 (FSM-loop-info-iterations l1))
 				 (it2 (FSM-loop-info-iterations l2)))
 			      (or (=fx it1 it2)
@@ -375,6 +375,71 @@
 			 (list exit body))))
 	 (propagate-in-order choices state str index))))
 
+(define-method (propagate n::FSM-repeat-entry state str index)
+   ;; all information is stored in repeat-exit
+   (with-access::FSM-repeat-entry n (repeat-exit)
+      (with-access::FSM-repeat-exit repeat-exit (repeat-body)
+	 (with-access::FSM-state state (loops)
+	    (set! loops (cons (instantiate::FSM-loop-info
+				(iterations 0)
+				(index-time index)
+				(loop-exit repeat-exit))
+			      loops))
+	    ;; only now can we use target-off-limit?
+	    (unless (target-off-limit? repeat-body state)
+	       (propagate repeat-body state str index))))))
+
+(define-method (propagate n::FSM-repeat-exit state str index)
+   (with-access::FSM-repeat-exit n (repeat-body exit min max greedy?)
+
+      (define (repeat state new-count)
+	 (with-access::FSM-state state (loops)
+	    ;; replace first loop-info
+	    (set! loops (cons (instantiate::FSM-loop-info
+				 (iterations new-count)
+				 (index-time index)
+				 (loop-exit n))
+			      (cdr loops)))
+	    (unless (target-off-limit? repeat-body state)
+	       (propagate repeat-body state str index))))
+
+      (define (leave state)
+	 (with-access::FSM-state state (loops)
+	    ;; we are leaving. -> remove loop-info
+	    (set! loops (cdr loops))
+	    (unless (target-off-limit? exit state)
+	       (propagate exit state str index))))
+
+      (with-access::FSM-state state (loops)
+	 (with-access::FSM-loop-info (car loops) (iterations index-time)
+	    (let* ((empty-match? (=fx index-time index))
+		   (new-count (+fx iterations 1))
+		   (reached-min? (>=fx new-count min))
+		   (over-min? (>fx new-count min))
+		   (reached-max? (and max
+				      (=fx new-count max))))
+	       (cond
+		  ((and empty-match? over-min?)
+		   ;; empty matches are only allowed when we have not yet
+		   ;; matched the minimal number of repetitions
+		   'do-nothing)
+		  ((not reached-min?)
+		   ;; we have not yet reached the min-amount.
+		   ;; -> we have to repeat.
+		   (repeat state new-count))
+		  (reached-max?
+		   ;; reached max nb of iterations. -> can't repeat.
+		   (leave state))
+		  (else
+		   (let ((dupl (duplicate::FSM-state state)))
+		      (if greedy?
+			  (begin
+			     (repeat state new-count)
+			     (leave dupl))
+			  (begin
+			     (leave state)
+			     (repeat dupl new-count)))))))))))
+			     
 (define-method (propagate n::FSM-backref state str index)
    (with-access::FSM-backref n (backref-nb exit case-sensitive?)
       (with-access::FSM-state state (backref-clusters)
@@ -390,7 +455,8 @@
 	    (cond
 	       ((or (not start)
 		    (=fx start stop)) ;; empty string
-		(propagate exit state str index))
+		(unless (target-off-limit? exit state)
+		   (propagate exit state str index)))
 	       ((>=fx index (string-length str))
 		;; can't match, but string-prefix? would crash
 		'do-nothing)
