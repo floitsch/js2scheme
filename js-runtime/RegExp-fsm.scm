@@ -23,25 +23,25 @@
        ;; alternatives (O-cost)
        (alternatives::pair-nil read-only))
 
+    (class FSM-loop-exit::FSM-node
+       (greedy?::bool read-only)
+       (loop-body::FSM-node read-only)
+       (exit::FSM-node read-only)
+       (clusters-begin::bint read-only)
+       (clusters-end::bint (default 0)))
     (final-class FSM-non-empty::FSM-simple
        (exit::FSM-node read-only))
     (final-class FSM-?::FSM-node
        (body::FSM-node read-only)
        (exit::FSM-node read-only) ;; the short-cut.
        (greedy?::bool read-only))
-    (final-class FSM-*-exit::FSM-node
-       (*-entry::FSM-simple read-only)
-       (greedy?::bool read-only)
-       (exit::FSM-node read-only))
+    (final-class FSM-*-exit::FSM-loop-exit)
     (final-class FSM-repeat-entry::FSM-node
        (repeat-exit::FSM-repeat-exit read-only))
-    (final-class FSM-repeat-exit::FSM-node
-       (repeat-body::FSM-simple read-only)
+    (final-class FSM-repeat-exit::FSM-loop-exit
        (min::bint read-only)
        ;; max must not be 0.
-       (max read-only) ;; either bint or #f
-       (greedy?::bool read-only)
-       (exit::FSM-node read-only))
+       (max read-only)) ;; either bint or #f
 
     (final-class FSM-backref::FSM-node
        (exit::FSM-node read-only)
@@ -286,13 +286,17 @@
 			    (non-empty (instantiate::FSM-non-empty
 					  (exit *-exit)))
 			    (*-exit (instantiate::FSM-*-exit
-				       (*-entry non-empty)
+				       (loop-body non-empty)
 				       (greedy? greedy?)
-				       (exit exit))))
+				       (exit exit)
+				       (clusters-begin cluster-nb))))
 	      (with-access::FSM-simple entry (O-cost-transit)
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target ?-entry))))
-	      (recurse atom non-empty *-exit cluster-nb)))
+	      (let ((new-nb (recurse atom non-empty *-exit cluster-nb)))
+		 (with-access::FSM-*-exit *-exit (clusters-end)
+		    (set! clusters-end (*fx new-nb 2)))
+		 new-nb)))
 	  ((and (=fx n1 1)
 		(not n2)) ;; x+ {1, #f}
 	   ;; we add an node between the non-empty and the body
@@ -303,16 +307,20 @@
 			    (non-empty (instantiate::FSM-non-empty
 					  (exit *-exit)))
 			    (*-exit (instantiate::FSM-*-exit
-				       (*-entry non-empty)
+				       (loop-body non-empty)
 				       (greedy? greedy?)
-				       (exit exit))))
+				       (exit exit)
+				       (clusters-begin cluster-nb))))
 	      (with-access::FSM-simple entry (O-cost-transit)
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target body-entry))))
 	      (with-access::FSM-simple non-empty (O-cost-transit)
 		 (set! O-cost-transit (instantiate::FSM-transit
 					 (target body-entry))))
-	      (recurse atom body-entry *-exit cluster-nb)))
+	      (let ((new-nb (recurse atom body-entry *-exit cluster-nb)))
+		 (with-access::FSM-*-exit *-exit (clusters-end)
+		    (set! clusters-end (*fx new-nb 2)))
+		 new-nb)))
 	  ((and (zero? n1)
 		(=fx n2 1)) ;; x? {0, 1}
 	   (let* ((non-empty (instantiate::FSM-non-empty
@@ -340,11 +348,12 @@
 			    (rep-entry (instantiate::FSM-repeat-entry
 					  (repeat-exit rep-exit)))
 			    (rep-exit (instantiate::FSM-repeat-exit
-						(repeat-body body-entry)
+						(loop-body body-entry)
 						(min n1)
 						(max n2)
 						(greedy? greedy?)
-						(exit exit))))
+						(exit exit)
+						(clusters-begin cluster-nb))))
 	      (if (zero? min)
 		  (let ((?-entry (instantiate::FSM-?
 				    (body rep-entry)
@@ -356,7 +365,10 @@
 		  (with-access::FSM-simple entry (O-cost-transit)
 		     (set! O-cost-transit (instantiate::FSM-transit
 					     (target rep-entry)))))
-	      (recurse atom body-entry rep-exit cluster-nb)))))
+	      (let ((new-nb (recurse atom body-entry rep-exit cluster-nb)))
+		 (with-access::FSM-repeat-exit rep-exit (clusters-end)
+		    (set! clusters-end (*fx new-nb 2)))
+		 new-nb)))))
       (((or :cluster :sub) ?d)
        (let* ((d-entry (instantiate::FSM-simple))
 	      (d-exit (instantiate::FSM-simple))

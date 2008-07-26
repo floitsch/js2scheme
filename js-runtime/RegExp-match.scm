@@ -370,15 +370,49 @@
    (with-access::FSM-disjunction n (alternatives)
       (propagate-in-order alternatives state str index)))
 
+;; At the beginning of every iteration all contained clusters must be reset.
+(define (clear-clusters! state::FSM-state loop-exit::FSM-loop-exit)
+   (with-access::FSM-loop-exit loop-exit (clusters-begin clusters-end)
+      (with-access::FSM-state state (clusters)
+	 ;; lazy copy. If none of the clusters is set, no need to duplicate the
+	 ;; vector.
+	 (let loop ((i clusters-begin)
+		    (copied? #f))
+	    (cond
+	       ((>= i clusters-end)
+		'done)
+	       ((and (not copied?)
+		     (vector-ref clusters i))
+		(set! clusters
+		      (copy-vector clusters (vector-length clusters)))
+		(loop i #t))
+	       (else
+		(vector-set! clusters i #f)
+		(loop (+fx i 1) copied?)))))))
+   
 (define-method (propagate n::FSM-*-exit state str index)
-   (with-access::FSM-*-exit n (*-entry greedy? exit forbidden?)
+   (with-access::FSM-*-exit n (loop-body greedy? exit forbidden?)
+      
+      (define (repeat state)
+	 (clear-clusters! state n)
+	 (unless (target-off-limit? loop-body state)
+	    (propagate loop-body state str index)))
+
+      (define (leave state)
+	 (unless (target-off-limit? exit state)
+	    (propagate exit state str index)))
+
+      
       (let ((old-forbidden? forbidden?))
 	 (set! forbidden? #t) ;; we don't allow empty iterations.
-	 (let ((choices (if greedy?
-			    (list *-entry exit)
-			    (list exit *-entry))))
-	    (propagate-in-order choices state str index)
-	    (set! forbidden? old-forbidden?)))))
+	 (let ((dupl (duplicate::FSM-state state)))
+	    (if greedy?
+		(begin
+		   (repeat state)
+		   (leave dupl))
+		(begin
+		   (leave state)
+		   (repeat dupl)))))))
 
 (define-method (propagate n::FSM-? state str index)
    (with-access::FSM-? n (body exit greedy?)
@@ -390,7 +424,7 @@
 (define-method (propagate n::FSM-repeat-entry state str index)
    ;; all information is stored in repeat-exit
    (with-access::FSM-repeat-entry n (repeat-exit)
-      (with-access::FSM-repeat-exit repeat-exit (repeat-body)
+      (with-access::FSM-repeat-exit repeat-exit (loop-body)
 	 (with-access::FSM-state state (loops)
 	    (set! loops (cons (instantiate::FSM-loop-info
 				(iterations 0)
@@ -398,11 +432,11 @@
 				(loop-exit repeat-exit))
 			      loops))
 	    ;; only now can we use target-off-limit?
-	    (unless (target-off-limit? repeat-body state)
-	       (propagate repeat-body state str index))))))
+	    (unless (target-off-limit? loop-body state)
+	       (propagate loop-body state str index))))))
 
 (define-method (propagate n::FSM-repeat-exit state str index)
-   (with-access::FSM-repeat-exit n (repeat-body exit min max greedy?)
+   (with-access::FSM-repeat-exit n (loop-body exit min max greedy?)
 
       (define (repeat state new-count)
 	 (with-access::FSM-state state (loops)
@@ -412,8 +446,9 @@
 				 (index-time index)
 				 (loop-exit n))
 			      (cdr loops)))
-	    (unless (target-off-limit? repeat-body state)
-	       (propagate repeat-body state str index))))
+	    (clear-clusters! state n)
+	    (unless (target-off-limit? loop-body state)
+	       (propagate loop-body state str index))))
 
       (define (leave state)
 	 (with-access::FSM-state state (loops)
