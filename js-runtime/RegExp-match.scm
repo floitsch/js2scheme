@@ -28,29 +28,32 @@
 		       (FSM-state-clusters match)))))))
 
 (define *frozen-states* '())
+(define *nb-frozen-layers* 0)
 
-;; freezes all states after (and including) the first state that collided.
-;; if the other states don't match, we come back and unfreeze them.
-;; returns #t if something has been frozen.
-(define (freeze-collided!? states index)
-   (if (null? states)
-       #f
-       ;; first cannot wait. (by construction)
-       (let loop ((states (cdr states))
-		  (last-p states))
-	  (cond
-	     ((null? states) #f)
-	     (else
-	      (loop (cdr states)
-		    states))))))
+;; freezes all but 'keep' states.
+;; if the kept states don't match, we come back and unfreeze them.
+;; keep must not be 0.
+(define (freeze! states index keep)
+   (cond
+      ((null? states) ;; should not happen, but we don't care.
+       'do-nothing)
+      ((and (=fx keep 1)
+	    (null? (cdr states)))
+       'do-nothing)
+      ((=fx keep 1)
+       (set! *frozen-states* (cons (cons (cdr states) index)
+				   *frozen-states*))
+       (set! *nb-frozen-layers* (+fx *nb-frozen-layers* 1))
+       (set-cdr! states '()))
+      (else (freeze! (cdr states) index (-fx keep 1)))))
 
 ;; *frozen-states* must not be '()
 (define (restore-waiting-states!)
    (let ((first (car *frozen-states*)))
       (set! *frozen-states* (cdr *frozen-states*))
+      (set! *nb-frozen-layers* (-fx *nb-frozen-layers* 1))
       (let ((states (car first))
 	    (index (cdr first)))
-	 (freeze-collided!? states index)
 	 (values states index))))
 
 (define *rev-next-round* '())
@@ -64,12 +67,21 @@
 		      (set! occupied-by '()))))
 	     *rev-next-round*))
 
+
+(define *max-parallel-states* 1000)
+
 (define (next-round-states! index) ;; get pushed states
-   (let ((next-round-states (reverse! *rev-next-round*)))
+   (let* ((next-round-states (reverse! *rev-next-round*))
+	  (len (length next-round-states)))
       (set! *rev-next-round* '())
-      ;; TODO: freeze states, when reaching certain limit.
-      ;(when *contains-backrefs?*
-      ;  (freeze-collided!? next-round-states index))
+
+      ;; HACK: hard-coded ad-hoc algo to cut next-round-states...
+      (when (> (bit-lsh len *nb-frozen-layers*)
+	       *max-parallel-states*)
+	 (let ((keep-nb (max (bit-rsh *max-parallel-states*
+				      (+ *nb-frozen-layers* 1))
+			     1)))
+	    (freeze! next-round-states index keep-nb)))
       next-round-states))
 
 (define *debug* #f)
@@ -131,7 +143,7 @@
 
 (define-method (node-advance n::FSM-final state str index)
    (with-access::FSM-node n (occupied-by)
-      ;; clear freezed nodes. we have reached the final node, and all frozen
+      ;; clear frozen nodes. we have reached the final node, and all frozen
       ;; ones are of lower priority.
       (set! *frozen-states* '())
       ;; there cannot be any other node here. so just put us into the queue.
@@ -321,7 +333,7 @@
 (define-method (propagate n::FSM-final state str index)
    (with-access::FSM-state state (final-index)
       (set! final-index index))
-      ;; clear freezed nodes. we have reached the final node, and all frozen
+      ;; clear frozen nodes. we have reached the final node, and all frozen
       ;; ones are of lower priority.
       (set! *frozen-states* '())
       ;; there cannot be any other node here. so just put us into the queue.
