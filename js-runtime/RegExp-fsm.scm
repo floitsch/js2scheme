@@ -9,8 +9,6 @@
        nb-clusters::bint
        nb-backref-clusters::bint)
     (class FSM-node
-       (occupied-by::pair-nil (default '()))
-       (forbidden?::bool (default #f)) ;; used for "not-empty"...
        (id::bint read-only)
        next::FSM-node) ;; final node points to itself.
     (class FSM-consuming::FSM-node) ;; consumes char to pass

@@ -3,25 +3,63 @@
 	   jsre-RegExp-fsm
 	   jsre-RegExp-dot
 	   jsre-RegExp-state)
-   (export (regexp-run fsm::FSM str::bstring)))
+   (export (regexp-run fsm::FSM str::bstring))
+   (static
+    (class Node-use
+       (occupied-by::pair-nil (default '()))
+       (forbidden?::bool (default #f)))))
 
 (define (make-eq-hashtable)
    (make-hashtable 5 #unspecified eq?))
 
 ;; for a description of the process look at RegExp-fsm
 
-(define *contains-backrefs?* #f)
-
 (define *fsm* #unspecified)
+
+(define *node-uses* #unspecified)
+
+(define (node-uses-init! nb-nodes)
+   (set! *node-uses* (make-vector nb-nodes))
+   (let loop ((i 0))
+      (when (<fx i nb-nodes)
+	 (vector-set! *node-uses* i (instantiate::Node-use))
+	 (loop (+fx i 1)))))
+
+(define (forbidden? n::FSM-node)
+   (with-access::FSM-node n (id)
+      (with-access::Node-use (vector-ref *node-uses* id) (forbidden?)
+	 forbidden?)))
+(define (forbidden?-set! n::FSM-node new-val)
+   (with-access::FSM-node n (id)
+      (with-access::Node-use (vector-ref *node-uses* id) (forbidden?)
+	 (set! forbidden? new-val))))
+
+(define (occupied-by n::FSM-node)
+   (with-access::FSM-node n (id)
+      (with-access::Node-use (vector-ref *node-uses* id) (occupied-by)
+	 occupied-by)))
+(define (occupied-by-set! n::FSM-node new-val)
+   (with-access::FSM-node n (id)
+      (with-access::Node-use (vector-ref *node-uses* id) (occupied-by)
+	 (set! occupied-by new-val))))
+(define (occupied-by-push! n::FSM-node val)
+   (with-access::FSM-node n (id)
+      (with-access::Node-use (vector-ref *node-uses* id) (occupied-by)
+	 (set! occupied-by (cons val occupied-by)))))
+(define (occupied-by-clear! n::FSM-node)
+   (with-access::FSM-node n (id)
+      (with-access::Node-use (vector-ref *node-uses* id) (occupied-by)
+	 (set! occupied-by '()))))
+
 (define (regexp-run fsm str)
    (set! *fsm* fsm)
-   (with-access::FSM fsm (entry nb-clusters nb-backref-clusters)
-      (set! *contains-backrefs?* (not (zero? nb-backref-clusters)))
+   (with-access::FSM fsm (entry nb-nodes nb-clusters nb-backref-clusters)
       (let* ((state (instantiate::FSM-state
 		       (clusters (make-vector (* nb-clusters 2) #f))
 		       (backref-clusters (make-vector (* nb-backref-clusters 2)
 						      #f))
 		       (node entry))))
+	 (node-uses-init! nb-nodes)
 	 (let ((match (run state str 0)))
 	    (and match
 		 (cons (substring str 0 (FSM-state-final-index match))
@@ -61,11 +99,11 @@
    (set! *rev-next-round* (cons s *rev-next-round*)))
 
 (define (clear-visitors!)
-   (for-each (lambda (state)
-		(with-access::FSM-state state (node)
-		   (with-access::FSM-node node (occupied-by)
-		      (set! occupied-by '()))))
-	     *rev-next-round*))
+   (for-each
+    (lambda (state)
+       (with-access::FSM-state state (node)
+	  (occupied-by-clear! node)))
+    *rev-next-round*))
 
 
 (define *max-parallel-states* 1000)
@@ -136,8 +174,7 @@
 ;; or if it is forbidden.
 (define (off-limit? n::FSM-node state::FSM-state)
    (define (same-brefs? backrefs1 backrefs2)
-      (or (not *contains-backrefs?*)
-	  (equal? backrefs1 backrefs2)))
+      (equal? backrefs1 backrefs2))
       
    (define (better-loops? loops1 loops2) ;; either the same or l1 beats l2.
       (or (eq? loops1 loops2)
@@ -159,21 +196,19 @@
 		  loops1
 		  loops2)))
 
-   (with-access::FSM-node n (forbidden? occupied-by)
-      (or forbidden?
-	  (any? (lambda (other-state)
-		   (and (same-brefs? (FSM-state-backref-clusters state)
-				     (FSM-state-backref-clusters other-state))
-			(better-loops? (FSM-state-loops state)
-				       (FSM-state-loops other-state))))
-		occupied-by))))
+   (or (forbidden? n)
+       (any? (lambda (other-state)
+		(and (same-brefs? (FSM-state-backref-clusters state)
+				  (FSM-state-backref-clusters other-state))
+		     (better-loops? (FSM-state-loops state)
+				    (FSM-state-loops other-state))))
+	     (occupied-by n))))
 
 (define (occupy! n::FSM-node state::FSM-state)
-   (with-access::FSM-node n (occupied-by)
-      (with-access::FSM-state state (node)
-	 (set! node n)
-	 (set! occupied-by (cons state occupied-by))
-	 (push-state! state))))
+   (with-access::FSM-state state (node)
+      (set! node n)
+      (occupied-by-push! n state)
+      (push-state! state)))
 
 
 ;; At the beginning of every iteration all contained clusters must be reset.
@@ -199,9 +234,8 @@
 
 (define (propagate-check n::FSM-node state::FSM-state
 			 str::bstring index::bint)
-   (with-access::FSM-node n (forbidden?)
-      (unless forbidden?
-	 (propagate n state str index))))
+   (unless (forbidden? n)
+      (propagate n state str index)))
 
 (define (propagate-in-order choices state str index)
    ;; be careful: during propagation the nodes might change.
@@ -250,15 +284,16 @@
 	 (propagate-in-order choices state str index))))
 
 (define-method (propagate n::FSM-*-exit state str index)
-   (with-access::FSM-*-exit n (loop-body greedy? next forbidden?)
+   (with-access::FSM-*-exit n (loop-body greedy? next)
       (define (repeat state)
+	 (forbidden?-set! n #t) ;; we don't allow empty iterations.
 	 (clear-clusters! state n)
-	 (propagate-check loop-body state str index))
+	 (propagate-check loop-body state str index)
+	 (forbidden?-set! n #f))
 
       (define (leave state)
 	 (propagate-check next state str index))
 
-      (set! forbidden? #t) ;; we don't allow empty iterations.
       (let ((dupl (duplicate::FSM-state state)))
 	  (if greedy?
 	      (begin
@@ -266,8 +301,7 @@
 		 (leave dupl))
 	      (begin
 		 (leave state)
-		 (repeat dupl)))
-	  (set! forbidden? #f))))
+		 (repeat dupl))))))
 
 (define-method (propagate n::FSM-repeat-entry state str index)
    (with-access::FSM-repeat-entry n (repeat-exit next)
@@ -280,7 +314,7 @@
 	 (propagate-check next state str index))))
 
 (define-method (propagate n::FSM-repeat-exit state str index)
-   (with-access::FSM-repeat-exit n (loop-body next min max greedy? forbidden?)
+   (with-access::FSM-repeat-exit n (loop-body next min max greedy?)
 
       (define (repeat state new-count)
 	 (with-access::FSM-state state (loops)
@@ -333,7 +367,7 @@
 		   ;;
 		   ;; Due to our treatment, we can forbid this node and avoid
 		   ;; further repetitions.
-		   (set! forbidden? #t)
+		   (forbidden?-set! n #t)
 		   (let ((dupl (duplicate::FSM-state state)))
 		      (repeat dupl new-count))
 		   (unless (=fx new-count (-fx min 1))
@@ -343,11 +377,14 @@
 		      (if greedy?
 			  (begin
 			     (repeat state min)
+			     (forbidden?-set! n #f)
 			     (leave dupl))
 			  (begin
+			     (forbidden?-set! n #f)
 			     (leave state)
-			     (repeat dupl min))))
-		   (set! forbidden? #f))
+			     (forbidden?-set! n #t)
+			     (repeat dupl min)
+			     (forbidden?-set! n #f)))))
 		  ((not reached-min?)
 		   ;; we have not yet reached the min-amount.
 		   ;; -> we have to repeat.
@@ -367,11 +404,10 @@
 
 (define-method (propagate n::FSM-non-empty state str index)
    (with-access::FSM-non-empty n (next other)
-      (with-access::FSM-node other (forbidden?)
-	 (let ((old-forbidden? forbidden?))
-	    (set! forbidden? #t)
-	    (propagate-check next state str index)
-	    (set! forbidden? #f)))))
+      (let ((old-forbidden? forbidden?))
+	 (forbidden?-set! other #t)
+	 (propagate-check next state str index)
+	 (forbidden?-set! other old-forbidden?))))
 
 (define-method (propagate n::FSM-backref state str index)
    (unless (FSM-sleeping-state? state)
@@ -459,29 +495,28 @@
 
 (define-method (propagate n::FSM-cluster-assert state str index)
    (with-access::FSM-cluster-assert n (entry next negative?)
-      (with-access::FSM-node next (forbidden?)
-	 ;; perform test of next node, to avoid expensive checks.
-	 (unless (if negative?
-		     ;; if negative, then backrefs won't change, and we can use
-		     ;; target-off-limit?.
-		     (off-limit? next state)
-		     forbidden?) ;; otherwise we can only look at 'forbidden?'
-	    (with-access::FSM-state state (node)
-	       ;; TODO: this must not be here!!
-	       (let ((old-frozen *frozen-states*)
-		     (old-rev-next-round *rev-next-round*))
-		  (set! *frozen-states* '())
-		  (set! *rev-next-round* '())
-		  (set! node entry)
-		  (let ((match (run state str index)))
-		     (set! *frozen-states* old-frozen)
-		     (set! *rev-next-round* old-rev-next-round)
-		     (cond
-			((or (and negative? (not match))
-			     (and (not negative?) match))
-			 (propagate next state str index)) ;; no need for check.
-			(else
-			 'nothing-to-do))))))))) ;; assert failed
+      ;; perform test of next node, to avoid expensive checks.
+      (unless (if negative?
+		  ;; if negative, then backrefs won't change, and we can use
+		  ;; target-off-limit?.
+		  (off-limit? next state)
+		  (forbidden? next)) ;; otherwise only look at 'forbidden?'
+	 (with-access::FSM-state state (node)
+	    ;; TODO: this must not be here!!
+	    (let ((old-frozen *frozen-states*)
+		  (old-rev-next-round *rev-next-round*))
+	       (set! *frozen-states* '())
+	       (set! *rev-next-round* '())
+	       (set! node entry)
+	       (let ((match (run state str index)))
+		  (set! *frozen-states* old-frozen)
+		  (set! *rev-next-round* old-rev-next-round)
+		  (cond
+		     ((or (and negative? (not match))
+			  (and (not negative?) match))
+		      (propagate next state str index)) ;; no need for check.
+		     (else
+		      'nothing-to-do)))))))) ;; assert failed
 
 ;; just consumed a character. now waiting for propagation in the next round.
 (define (wait-at n::FSM-node state::FSM-state)
@@ -495,10 +530,9 @@
 	  n))
 
 (define-method (advance n::FSM-final state str index)
-   (with-access::FSM-node n (occupied-by)
-      ;; there cannot be any other node here. so just put us into the queue.
-      ;; there can not be any other node in the queue. so nothing else to do.
-      (occupy! n state)))
+   ;; there cannot be any other node here. so just put us into the queue.
+   ;; there can not be any other node in the queue. so nothing else to do.
+   (occupy! n state))
 
 (define-method (advance n::FSM-0-cost state str index)
    (error "FSM-match"
