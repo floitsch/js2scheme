@@ -7,7 +7,8 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			natives object global-object globals globals-tmp \
 			primitives runtime operators scope-object \
 			RegExp RegExp-parse RegExp-fsm RegExp-classes \
-			RegExp-dot RegExp-match RegExp-state mset
+			RegExp-dot RegExp-match RegExp-state mset \
+			thread-top-level
 
 RUNTIME_BGL_INCLUDES = macros.sch
 
@@ -63,7 +64,8 @@ o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
 clean:
 	rm -f $(OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
 
-REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot RegExp-match RegExp-state mset
+REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot \
+                  RegExp-match RegExp-state mset thread-top-level
 
 regexp: $(REGEXP_MODULES:%=o/%.o)
 	$(BIGLOO) -o $@ $^

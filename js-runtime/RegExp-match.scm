@@ -7,10 +7,15 @@
    (static
     (class Node-use
        (occupied-by::pair-nil (default '()))
-       (forbidden?::bool (default #f)))))
-
-(define (make-eq-hashtable)
-   (make-hashtable 5 #unspecified eq?))
+       (forbidden?::bool (default #f)))
+    (class Globals
+       *fsm*
+       *node-uses*
+       *frozen-states*::pair-nil
+       *nb-frozen-layers*::bint
+       *rev-next-round*::pair-nil
+       *reached-final*)
+    ))
 
 ;; for a description of the process look at RegExp-fsm
 
