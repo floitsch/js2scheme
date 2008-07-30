@@ -74,7 +74,7 @@
 						      #f))
 		       (node entry))))
 	 (node-uses-init! nb-nodes)
-	 (let ((match (run state str 0)))
+	 (let ((match (run (list state) str 0)))
 	    (and match
 		 (cons (substring str 0 (FSM-state-final-index match))
 		       (FSM-state-clusters match)))))))
@@ -134,7 +134,10 @@
 				      (+ *nb-frozen-layers* 1))
 			     1)))
 	    (freeze! next-round-states index keep-nb)))
-      next-round-states))
+
+      (if (null? next-round-states)
+	  (restore-waiting-states!)
+	  (values next-round-states index))))
 
 (define *debug* #f)
 
@@ -147,42 +150,45 @@
 	 (lambda ()
 	    (running->dot *fsm* states *frozen-states*
 			  (substring str 0 index)))))
-   (cond
-      ((and (null? states)
-	    (null? *frozen-states*))
-       #f) ;; no match
-      ((null? states) ;; there are still waiting states.
-       (receive (states index)
-	  (restore-waiting-states!)
-	  (run states str (+fx index 1)))) ;; next round so increment
-      ((FSM-final? (FSM-state-node (car states)))
-       ;; first state in priority-list is final. Can't get any better...
-       (car states))
-      ((>=fx index (string-length str))
-       ;; end of string. If there's a state pointing to the final-node we have
-       ;; a winner.
-       (let ((winner (any (lambda (state)
-			     (and (FSM-final? (FSM-state-node state))
-				  state))
-			  states)))
-	  ;; if there's a winner return it. otherwise see if there are still
-	  ;; states  waiting (by rerunning the procedure).
-	  (or winner
-	      (run '() str index))))
-      (else ;; propagate and consume states
-       (bind-exit (reached-final)
-	  (set! *reached-final* reached-final)
-	  ;; 
-	  (for-each (lambda (state)
-		       (with-access::FSM-state state (node)
-			  (propagate node state str index)))
-		    states)
+
+   ;; first propagate states.
+   (bind-exit (reached-final)
+      (set! *reached-final* reached-final)
+      ;; 
+      (for-each (lambda (state)
+		   (with-access::FSM-state state (node)
+		      (propagate node state str index)))
+		states))
+   ;; then clear any information we left at the nodes.
+   (clear-visitors!)
+
+   ;; get the states for the next round.
+   ;; this might defrost some old states if no state was left.
+   (receive (new-states new-index)
+      (next-round-states! index)
+      (cond
+	 ((null? new-states)
+	  #f) ;; no match
+	 ((FSM-final? (FSM-state-node (car states)))
+	  ;; first state in priority-list is final. Can't get any better...
+	  (car states))
+	 ((>=fx index (string-length str))
+	  ;; end of string. If there's a state pointing to the final-node we
+	  ;; have a winner.
+	  (let ((winner (any (lambda (state)
+				(and (FSM-final? (FSM-state-node state))
+				     state))
+			     states)))
+	     ;; if there's a winner return it. otherwise see if there are still
+	     ;; states waiting (by rerunning the procedure).
+	     (or winner
+		 (run '() str index))))
+	 (else ;; consume thus advancing to the next index
 	  (for-each (lambda (state)
 		       (with-access::FSM-state state (node)
 			  (advance node state str index)))
-		    states))
-       (clear-visitors!)
-       (run (next-round-states! index) str (+fx index 1)))))
+		    states)
+	  (run new-states str (+fx index 1))))))
 
 ;; target is off-limit if it is occupied by a state with same backref-cluster,
 ;; or if it is forbidden.
@@ -522,7 +528,7 @@
 	       (set! *frozen-states* '())
 	       (set! *rev-next-round* '())
 	       (set! node entry)
-	       (let ((match (run state str index)))
+	       (let ((match (run (list state) str index)))
 		  (set! *frozen-states* old-frozen)
 		  (set! *rev-next-round* old-rev-next-round)
 		  (cond
