@@ -3,6 +3,7 @@
 	   jsre-RegExp-fsm
 	   jsre-RegExp-dot
 	   jsre-RegExp-state)
+   (import multi-top-level)
    (export (regexp-run fsm::FSM str::bstring))
    (static
     (class Node-use
@@ -19,6 +20,14 @@
 
 ;; for a description of the process look at RegExp-fsm
 
+(multi-top-level (class Globals
+		    *fsm*
+		    *node-uses*
+		    *frozen-states*::pair-nil
+		    *nb-frozen-layers*::bint
+		    *rev-next-round*::pair-nil
+		    *reached-final*)
+		 
 (define *fsm* #unspecified)
 
 (define *node-uses* #unspecified)
@@ -580,3 +589,4 @@
 		;; just update the sleep-cycles and put us back into the queue.
 		(set! cycles-to-sleep (-fx cycles-to-sleep 1))
 		(push-state! state))))))
+)

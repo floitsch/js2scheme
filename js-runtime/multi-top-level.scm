@@ -1,8 +1,8 @@
-(module thread-top-level
+(module multi-top-level
    (export
-    (macro thread-top-level)))
+    (macro multi-top-level)))
 
-(define-macro (thread-top-level globals-class . tl-els)
+(define-macro (multi-top-level globals-class . tl-els)
    (define *globals-id* (gensym 'globals))
 
    (define (without-type s)
@@ -19,15 +19,30 @@
       (map without-type (cddr c)))
 
    (define (produce-intercepts defines generics except)
-      (map (lambda (f)
-	      (let ((fun-name (car (cadr f)))
-		    (args (cdr (cadr f))))
-		 (if (memq fun-name except) ;; don't shadow ids of except.
-		     #unspecified
-		     `(define (,fun-name ,@args)
-			 (,(instrumented fun-name)
-			  ,*globals-id* ,@args)))))
-	   (append generics defines)))
+      (append
+       (map (lambda (f)
+	       (let* ((fun-name (car (cadr f)))
+		      (args (cdr (cadr f)))
+		      (args-ids (map without-type args)))
+		  (if (memq fun-name except) ;; don't shadow ids of except.
+		      #unspecified
+		      `(define (,fun-name ,@args)
+			  (,(instrumented fun-name)
+			   ,*globals-id* ,@args-ids)))))
+	    defines)
+       (map (lambda (f)
+	       (let* ((fun-name (car (cadr f)))
+		      (args (cdr (cadr f)))
+		      (type-arg (car args))
+		      (other-args (cdr args))
+		      (type-arg-id (without-type type-arg))
+		      (other-args-ids (map without-type other-args)))
+		  (if (memq fun-name except) ;; don't shadow ids of except.
+		      #unspecified
+		      `(define (,fun-name ,@args)
+			  (,(instrumented fun-name)
+			   ,type-arg-id ,*globals-id* ,@other-args-ids)))))
+	    generics)))
 
    (define (wrapped-body class-name globals body except)
       (let ((filtered-globals (filter (lambda (g)
@@ -50,9 +65,6 @@
 
    (define (produce-globals-gen c-name globals global-defs)
       (let ((id/vals (map cdr global-defs)))
-	 (tprint global-defs)
-	 (tprint id/vals)
-	 (tprint globals)
 	 `(define (,(symbol-append *globals-id* '-gen))
 	     (,(symbol-append 'instantiate:: c-name)
 	      ,@(map (lambda (field)
@@ -66,14 +78,28 @@
 	 
    ;; entry points
    (define (produce-exports defines generics)
-      (map (lambda (f)
-	      (let ((fun-name (car (cadr f)))
-		    (args (cdr (cadr f))))
-		 `(define (,fun-name ,@args)
-		     (,(instrumented fun-name)
-		      (,(symbol-append *globals-id* '-gen))
-		      ,@args))))
-	   (append generics defines)))
+      (append
+       (map (lambda (f)
+	       (let* ((fun-name (car (cadr f)))
+		      (args (cdr (cadr f)))
+		      (args-ids (map without-type args)))
+		  `(define (,fun-name ,@args)
+		      (,(instrumented fun-name)
+		       (,(symbol-append *globals-id* '-gen))
+		       ,@args-ids))))
+	    defines)
+       (map (lambda (f)
+	       (let* ((fun-name (car (cadr f)))
+		      (args (cdr (cadr f)))
+		      (type-arg (car args))
+		      (type-arg-id (without-type type-arg))
+		      (other-args-ids (map without-type (cdr args))))
+		  `(define (,fun-name ,@args)
+		      (,(instrumented fun-name)
+		       ,type-arg-id
+		       (,(symbol-append *globals-id* '-gen))
+		       ,@other-args-ids))))
+	    generics)))
 
    (define (produce-instrumented class-name globals defines generics methods)
       (define (extract-arg-ids args)
@@ -86,17 +112,32 @@
 	     (cons (without-type (car args))
 		   (extract-arg-ids (cdr args))))))
 
-      (map (lambda (f)
-	      (let* ((def (car f))
-		     (fun-name (car (cadr f)))
-		     (args (cdr (cadr f)))
-		     (arg-ids (extract-arg-ids args))
-		     (body `(begin ,(cddr f))))
-		 `(,def (,(instrumented fun-name)
-			 ,*globals-id* ,@args)
-			,@(produce-intercepts defines generics arg-ids)
-			,(wrapped-body class-name globals body arg-ids))))
-	   (append defines generics methods)))
+      (append
+       (map (lambda (f)
+	       (let* ((def (car f))
+		      (fun-name (car (cadr f)))
+		      (args (cdr (cadr f)))
+		      (arg-ids (extract-arg-ids args))
+		      (body `(begin ,@(cddr f))))
+		  `(,def (,(instrumented fun-name)
+			  ,*globals-id* ,@args)
+			 ,@(produce-intercepts defines generics arg-ids)
+			 ,(wrapped-body class-name globals body arg-ids))))
+	    defines)
+       (map (lambda (f)
+	       (let* ((def (car f))
+		      (fun-name (car (cadr f)))
+		      (args (cdr (cadr f)))
+		      (arg-ids (extract-arg-ids args))
+		      (type-arg (car args))
+		      (other-args (cdr args))
+		      (body `(begin ,@(cddr f))))
+		  `(,def (,(instrumented fun-name)
+			  ,type-arg
+			  ,*globals-id* ,@other-args)
+			 ,@(produce-intercepts defines generics arg-ids)
+			 ,(wrapped-body class-name globals body arg-ids))))
+	    (append generics methods))))
       
    (define (produce-code global-defs defines generics methods)
       (let ((globals (extract-fields globals-class))
