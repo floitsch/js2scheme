@@ -1,6 +1,7 @@
 (module jsre-RegExp-classes
    (static
     (class RE-class
+       (RE-class-constructor)
 	   ;; TODO: 32/64 bit issue...
 ;       (bits::u64vector (default '#u64(#l0 #l0 #l0 #l0)))
        (bits (default '#s64(#l0 #l0 #l0 #l0)))
@@ -9,8 +10,13 @@
     (RegExp-class-create char/class case-sensitive?)
     (RegExp-class-match re-class c::char)))
 
+
 (define *llong-size* 64)
 (define *nb-llongs* (/fx 256 *llong-size*))
+
+(define (RE-class-constructor this)
+   (with-access::RE-class this (bits)
+      (set! bits (make-s64vector *nb-llongs* #l0))))
 
 (define (RegExp-class-match re-class c)
    (with-access::RE-class re-class (bits)
@@ -29,7 +35,8 @@
 	 (s64vector-set! bits
 			 index
 			 (bit-orllong old
-				      (make-llong (bit-lsh 1 offset)))))))
+				      (bit-lshllong #l1 offset))))))
+
 (define (class-add-ns! re-class::RE-class . Lns)
    (for-each (lambda (n) (class-add-n! re-class n))
 	     Lns))
@@ -56,11 +63,11 @@
 	   (zerollong? (bit-andllong (-llong i #l1) i))))
 
    (define (get-bit-pos i::llong)
-      (let loop ((j 1)
-		 (k (make-llong 1)))
-	 (if (not (= 0 (bit-andllong i k)))
+      (let loop ((j 0)
+		 (mask #l1))
+	 (if (not (=llong #l0 (bit-andllong i mask)))
 	     j
-	     (loop (+ j 1) (*llong k #l2)))))
+	     (loop (+ j 1) (bit-lshllong mask 1)))))
    
    (with-access::RE-class re-class (bits)
       (let loop ((i 0)
@@ -69,8 +76,9 @@
 	    ((=fx i *nb-llongs*)
 	     (and non-zero
 		  (one-bit? (s64vector-ref bits non-zero))
-		  (+fx (*fx non-zero *llong-size*)
-		       (get-bit-pos (s64vector-ref bits i)))))
+		  (integer->char
+		   (+fx (*fx non-zero *llong-size*)
+			(get-bit-pos (s64vector-ref bits non-zero))))))
 	    ((zerollong? (s64vector-ref bits i))
 	     (loop (+fx i 1) non-zero))
 	    (non-zero ;; got already one
@@ -83,8 +91,15 @@
 (define (class-invert! re-class)
    (with-access::RE-class re-class (constant? bits)
       (if constant?
-	  (class-invert! (duplicate::RE-class re-class
-			    (constant? #f)))
+	  (duplicate::RE-class re-class
+	     (bits (let ((v (make-s64vector *nb-llongs*)))
+		      (let loop ((i 0))
+			 (if (< i *nb-llongs*)
+			     (let ((old (s64vector-ref bits i)))
+				(s64vector-set! v i (bit-notllong old))
+				(loop (+fx i 1)))
+			     v))))
+	     (constant? #f))
 	  (let loop ((i 0))
 	     (if (=fx i *nb-llongs*)
 		 re-class

@@ -14,7 +14,7 @@
        *node-uses*
        *frozen-states*::pair-nil
        *nb-frozen-layers*::bint
-       *rev-next-round*::pair-nil
+       *rev-pushed-states*::pair-nil
        *reached-final*)
     ))
 
@@ -25,7 +25,7 @@
 		    *node-uses*
 		    *frozen-states*::pair-nil
 		    *nb-frozen-layers*::bint
-		    *rev-next-round*::pair-nil
+		    *rev-pushed-states*::pair-nil
 		    *reached-final*)
 		 
 (define *fsm* #unspecified)
@@ -108,24 +108,24 @@
 	    (index (cdr first)))
 	 (values states index))))
 
-(define *rev-next-round* '())
+(define *rev-pushed-states* '())
 (define (push-state! s)
-   (set! *rev-next-round* (cons s *rev-next-round*)))
+   (set! *rev-pushed-states* (cons s *rev-pushed-states*)))
 
 (define (clear-visitors!)
    (for-each
     (lambda (state)
        (with-access::FSM-state state (node)
 	  (occupied-by-clear! node)))
-    *rev-next-round*))
+    *rev-pushed-states*))
 
 
 (define *max-parallel-states* 1000)
 
 (define (next-round-states! index) ;; get pushed states
-   (let* ((next-round-states (reverse! *rev-next-round*))
+   (let* ((next-round-states (reverse! *rev-pushed-states*))
 	  (len (length next-round-states)))
-      (set! *rev-next-round* '())
+      (set! *rev-pushed-states* '())
 
       ;; HACK: hard-coded ad-hoc algo to cut next-round-states...
       (when (> (bit-lsh len *nb-frozen-layers*)
@@ -135,7 +135,8 @@
 			     1)))
 	    (freeze! next-round-states index keep-nb)))
 
-      (if (null? next-round-states)
+      (if (and (null? next-round-states)
+	       (not (zero? *nb-frozen-layers*)))
 	  (restore-waiting-states!)
 	  (values next-round-states index))))
 
@@ -188,7 +189,9 @@
 		       (with-access::FSM-state state (node)
 			  (advance node state str index)))
 		    states)
-	  (run new-states str (+fx index 1))))))
+	  (let ((live-states (reverse! *rev-pushed-states*)))
+	     (set! *rev-pushed-states* '())
+	     (run live-states str (+fx index 1)))))))
 
 ;; target is off-limit if it is occupied by a state with same backref-cluster,
 ;; or if it is forbidden.
@@ -524,13 +527,13 @@
 	 (with-access::FSM-state state (node)
 	    ;; TODO: this must not be here!!
 	    (let ((old-frozen *frozen-states*)
-		  (old-rev-next-round *rev-next-round*))
+		  (old-rev-next-round *rev-pushed-states*))
 	       (set! *frozen-states* '())
-	       (set! *rev-next-round* '())
+	       (set! *rev-pushed-states* '())
 	       (set! node entry)
 	       (let ((match (run (list state) str index)))
 		  (set! *frozen-states* old-frozen)
-		  (set! *rev-next-round* old-rev-next-round)
+		  (set! *rev-pushed-states* old-rev-next-round)
 		  (cond
 		     ((or (and negative? (not match))
 			  (and (not negative?) match))
