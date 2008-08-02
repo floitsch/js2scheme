@@ -71,7 +71,7 @@
 (define-generic (dot-out n::FSM-node ht-id ht-done)
    (error "dot"
 	  "forgot a node-type"
-	  (format "~s" n)))
+	  n))
 
 (define-method (dot-out n::FSM-final ht-id ht-done)
    (unless (hashtable-get ht-done n)
@@ -141,6 +141,7 @@
       (with-access::FSM-non-empty n (next other)
 	 (dot-out next ht-id ht-done)
 	 (dot-out other ht-id ht-done)
+	 (print (get-id n ht-id) " -> " (get-id next ht-id) ";")
 	 (print (get-id n ht-id) " -> " (get-id other ht-id)
 		"[style=dotted, label=\"non-empty\"];"))))
 

@@ -108,8 +108,8 @@
 			     (next exit))))
       (let ((backrefs-mset (make-mset))
 	    (cluster-count-box (list 0)))
-	 (count-clusters-and-search-backrefs scm-re backrefs-mset
-					     cluster-count-box)
+	 (count-clusters-and-search-backrefs scm-re cluster-count-box
+					     backrefs-mset)
 	 (let ((backrefs-map (map cons
 				  (sort <fx (mset->list backrefs-mset))
 				  (iota (mset-size backrefs-mset)))))
@@ -396,14 +396,16 @@
 	      (cluster-exit (instantiate::FSM-cluster-exit
 			       (id (+fx nodes-nb 1))
 			       (next exit))))
+	  (with-access::FSM-node entry (next)
+	     (set! next cluster-entry))
 	  (receive (n-nb c-nb)
 	     (recurse d cluster-entry cluster-exit
 		      (+fx nodes-nb 2) clusters-nb)
 	     (with-access::FSM-cluster-entry cluster-entry (cluster-index)
-		(set! cluster-index (*fx c-nb 2)))
+		(set! cluster-index (*fx (-fx c-nb 1) 2)))
 	     (with-access::FSM-cluster-exit cluster-exit (cluster-index
 							  backref-exit-index)
-		(set! cluster-index (+fx (*fx c-nb 2) 1))
+		(set! cluster-index (+fx (*fx (-fx c-nb 1) 2) 1))
 
 		(let (;; backrefs start at 1
 		      ;; clusters-nb starts at 0

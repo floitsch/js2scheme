@@ -67,6 +67,10 @@
 
 (define (regexp-run fsm str)
    (set! *fsm* fsm)
+   (when *debug*
+      (with-output-to-file "fsm.dot"
+	 (lambda ()
+	    (regexp->dot *fsm*))))
    (with-access::FSM fsm (entry nb-nodes nb-clusters nb-backref-clusters)
       (let* ((state (instantiate::FSM-state
 		       (clusters (make-vector (* nb-clusters 2) #f))
@@ -140,7 +144,7 @@
 	  (restore-waiting-states!)
 	  (values next-round-states index))))
 
-(define *debug* #f)
+(define *debug* #t)
 
 (define *reached-final* #unspecified)
 
@@ -188,7 +192,7 @@
 	  (for-each (lambda (state)
 		       (with-access::FSM-state state (node)
 			  (advance node state str index)))
-		    states)
+		    new-states)
 	  (let ((live-states (reverse! *rev-pushed-states*)))
 	     (set! *rev-pushed-states* '())
 	     (run live-states str (+fx index 1)))))))
@@ -272,7 +276,7 @@
 	 (else
 	  (let ((dupl (duplicate::FSM-state state)))
 	     (propagate-check (car choices) dupl str index))
-	     (loop choices)))))
+	     (loop (cdr choices))))))
 
 (define-generic (propagate n::FSM-node state::FSM-state
 			   str::bstring index::bint)
@@ -427,7 +431,7 @@
 
 (define-method (propagate n::FSM-non-empty state str index)
    (with-access::FSM-non-empty n (next other)
-      (let ((old-forbidden? forbidden?))
+      (let ((old-forbidden? (forbidden? other)))
 	 (forbidden?-set! other #t)
 	 (propagate-check next state str index)
 	 (forbidden?-set! other old-forbidden?))))

@@ -43,5 +43,7 @@
    ;(print (regexp-run (str->fsm ".*(a|aa).*\\1")
    ;		      "aaaaaaaaaaaaaaaaaaba"))
    ;(regexp->dot (str->fsm ".*(aa|a).*\\1"))
-   (print (regexp-run (str->fsm (cadr args)) (caddr args)))
+   (let ((re (str->fsm (cadr args))))
+      (tprint "running reg-exp")
+      (print (regexp-run re (caddr args))))
    )
