@@ -10,7 +10,8 @@
     (final-class FSM-state
        clusters::vector
        backref-clusters::vector ;; duplicate of the relevant entries.
-       (final-index (default #f))
+       (start-index::bint (default -1))
+       (final-index::bint (default -1))
        node::FSM-node
        (loops::pair-nil (default '()))) ;; list of FSM-loop-infos
     (wide-class FSM-sleeping-state::FSM-state

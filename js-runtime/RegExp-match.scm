@@ -4,7 +4,7 @@
 	   jsre-RegExp-dot
 	   jsre-RegExp-state)
    (import multi-top-level)
-   (export (regexp-run fsm::FSM str::bstring))
+   (export (regexp-run fsm::FSM str::bstring start-index::bint))
    (static
     (class Node-use
        (occupied-by::pair-nil (default '()))
@@ -65,7 +65,7 @@
       (with-access::Node-use (vector-ref *node-uses* id) (occupied-by)
 	 (set! occupied-by '()))))
 
-(define (regexp-run fsm str)
+(define (regexp-run fsm str start-index)
    (set! *fsm* fsm)
    (when *debug*
       (with-output-to-file "fsm.dot"
@@ -78,10 +78,12 @@
 						      #f))
 		       (node entry))))
 	 (node-uses-init! nb-nodes)
-	 (let ((match (run (list state) str 0)))
+	 (let ((match (run (list state) str start-index)))
 	    (and match
-		 (cons (substring str 0 (FSM-state-final-index match))
-		       (FSM-state-clusters match)))))))
+		 (with-access::FSM-state match (start-index final-index
+							    clusters)
+		    (cons (substring str start-index final-index)
+			  clusters)))))))
 
 (define *frozen-states* '())
 (define *nb-frozen-layers* 0)
@@ -288,8 +290,14 @@
    (unless (off-limit? n state)
       (occupy! n state)))
 
+(define-method (propagate n::FSM-start state str index)
+   (with-access::FSM-start n (next)
+      (with-access::FSM-state state (start-index)
+	 (set! start-index index))
+      (propagate-check next state str index)))
+
 (define-method (propagate n::FSM-final state str index)
-   (unless (off-limit? n state)
+   (unless (off-limit? n state) ;; final node could be 'forbidden'
       (with-access::FSM-state state (final-index)
 	 (set! final-index index))
       ;; clear frozen nodes. we have reached the final node, and all frozen
@@ -557,9 +565,10 @@
 	  n))
 
 (define-method (advance n::FSM-final state str index)
-   ;; there cannot be any other node here. so just put us into the queue.
-   ;; there can not be any other node in the queue. so nothing else to do.
-   (occupy! n state))
+   ;; just put us back in the waiting-list of this node.
+   ;; there might be several nodes waiting now. but during propagate only one
+   ;; will survive.
+   (wait-at n state))
 
 (define-method (advance n::FSM-0-cost state str index)
    (error "FSM-match"
@@ -584,6 +593,10 @@
    (with-access::FSM-char n (next c)
       (when (char=? c (string-ref str index))
 	 (wait-at next state))))
+
+(define-method (advance n::FSM-every-char state str index)
+   (with-access::FSM-char n (next)
+      (wait-at next state)))
 
 (define-method (advance n::FSM-class state str index)
    (with-access::FSM-class n (next class)

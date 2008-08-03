@@ -13,6 +13,7 @@
        next::FSM-node) ;; final node points to itself.
     (class FSM-consuming::FSM-node) ;; consumes char to pass
     (class FSM-0-cost::FSM-node) ;; just used for propagation
+    (final-class FSM-start::FSM-0-cost)
     (final-class FSM-final::FSM-node) ;; neither consuming nor 0-cost
     (final-class FSM-disjunction::FSM-0-cost
        ;; the first alternative is inside the 'next'-field.
@@ -44,6 +45,7 @@
     
     (final-class FSM-char::FSM-consuming
        (c::char read-only))
+    (final-class FSM-every-char::FSM-consuming) ;; everything matches.
     (final-class FSM-class::FSM-consuming
        (class read-only))
 
@@ -100,9 +102,29 @@
        'do-nothing)))
    
 (define (scm-regexp->fsm scm-re)
-   (co-instantiate ((entry (instantiate::FSM-node
-			      (id -1)
-			      (next *tmp-node*)))
+   (define multi-line? #f)
+   (define case-sensitive? #t)
+
+   (define (add-implicit-loop scm-re)
+      (define (needs-implicit-loop? scm-re)
+	 ;;   if a regexp starts with '^' and it's not a multi-line, then
+	 ;;   we do not need the implicit 'everything*?' in front of the
+	 ;;   regexp.
+	 (match-case scm-re
+	    ((:seq (or :bos :bol :^) ???-)
+	     ;; no need for loop
+	     #f)
+	    (else #t)))
+
+      (if (needs-implicit-loop? scm-re)
+	  `(:seq (:quantified #f 0 #f :every-internal)
+		 :start-internal
+		 ,scm-re)
+	  `(:seq :start-internal ,scm-re)))
+
+   (co-instantiate ((tmp-entry (instantiate::FSM-node
+				  (id -1)
+				  (next *tmp-node*)))
 		    (exit (instantiate::FSM-final
 			     (id 0)
 			     (next exit))))
@@ -112,17 +134,19 @@
 					     backrefs-mset)
 	 (let ((backrefs-map (map cons
 				  (sort <fx (mset->list backrefs-mset))
-				  (iota (mset-size backrefs-mset)))))
+				  (iota (mset-size backrefs-mset))))
+	       (loop-scm-re (add-implicit-loop scm-re)))
 	    (receive (nb-nodes c-nb)
-	       (scm-re->fsm scm-re entry exit
+	       (scm-re->fsm loop-scm-re tmp-entry exit
 			    1  ;; exit-node got '0'-id.
 			    (car cluster-count-box)
-			    #t ;; case-sensitive
-			    #f ;; no multi-line
+			    case-sensitive?
+			    multi-line?
 			    backrefs-map)
 	       [assert (c-nb) (zero? c-nb)]
 	       (instantiate::FSM
-		  (entry (FSM-node-next entry))
+		  ;; real entry is 'next' of tmp-entry
+		  (entry (FSM-node-next tmp-entry))
 		  (exit exit)
 		  (nb-nodes nb-nodes)
 		  (nb-clusters (car cluster-count-box))
@@ -198,6 +222,21 @@
 	     (not (word-boundary str current-pos))))))
    
    (match-case scm-re
+      ;; internal clauses.
+      (:start-internal
+       (with-access::FSM-node entry (next)
+	  (set! next (instantiate::FSM-start
+			(id nodes-nb)
+			(next exit))))
+       (values (+fx nodes-nb 1) clusters-nb))
+      (:every-internal
+       (with-access::FSM-node entry (next)
+	  (set! next (instantiate::FSM-every-char
+			(id nodes-nb)
+			(next exit))))
+       (values (+fx nodes-nb 1) clusters-nb))
+
+      ;; public clauses.
       ((:or . ?alternatives)
        (cond
 	  ((null? alternatives)
@@ -276,12 +315,8 @@
        (cond
 	  ((and (zero? n1)
 		(not n2)) ;; x* {0, #f}
-	   (co-instantiate ((?-entry (instantiate::FSM-?
-					(id nodes-nb)
-					(next non-empty)
-					(exit exit)
-					(greedy? greedy?)))
-			    (non-empty (instantiate::FSM-non-empty
+	   ;; the first iteration starts at the exit-node.
+	   (co-instantiate ((non-empty (instantiate::FSM-non-empty
 					  (id (+fx nodes-nb 1))
 					  (next *tmp-node*)
 					  (other *-exit)))
@@ -292,7 +327,7 @@
 				       (clusters-end (*fx clusters-nb 2))
 				       (next exit))))
 	      (with-access::FSM-node entry (next)
-		 (set! next ?-entry))
+		 (set! next *-exit))
 	      (receive (n-nb c-nb)
 		 (recurse atom non-empty *-exit (+fx nodes-nb 3) clusters-nb)
 		 (with-access::FSM-*-exit *-exit (clusters-begin)

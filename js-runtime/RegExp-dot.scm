@@ -73,6 +73,14 @@
 	  "forgot a node-type"
 	  n))
 
+(define-method (dot-out n::FSM-start ht-id ht-done)
+   (unless (hashtable-get ht-done n)
+      (hashtable-put! ht-done n #t)
+      (print (get-id n ht-id) "[label=\"start\"];")
+      (with-access::FSM-start n (next)
+	 (dot-out next ht-id ht-done)
+	 (print (get-id n ht-id) " -> " (get-id next ht-id) ";"))))
+
 (define-method (dot-out n::FSM-final ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
@@ -160,6 +168,16 @@
       (with-access::FSM-char n (next c)
 	 (print (get-id n ht-id) "[label=\"'"
 		c "'\"]; // char")
+	 (dot-out next ht-id ht-done)
+	 (print (get-id n ht-id) " -> "
+		(get-id next ht-id) ";"))))
+
+(define-method (dot-out n::FSM-every-char ht-id ht-done)
+   (unless (hashtable-get ht-done n)
+      (hashtable-put! ht-done n #t)
+      (with-access::FSM-char n (next c)
+	 (print (get-id n ht-id) "[label=\""
+		every "\"]; // char")
 	 (dot-out next ht-id ht-done)
 	 (print (get-id n ht-id) " -> "
 		(get-id next ht-id) ";"))))

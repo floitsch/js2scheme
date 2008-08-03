@@ -133,6 +133,14 @@
 				       (bit-orllong l1 l2))
 		       (loop (+fx i 1))))))))))
 
+(define (class-out c)
+   (with-access::RE-class c (bits)
+      (tprint (format "~x ~x ~x ~x"
+		      (s64vector-ref bits 3)
+		      (s64vector-ref bits 2)
+		      (s64vector-ref bits 1)
+		      (s64vector-ref bits 0)))))
+
 ;; precomputed char-classes.
 (define *case-sensitive-classes*
    (let ((v (make-vector 256)))
@@ -164,12 +172,13 @@
 	 v)))
 
 (define (inverted-constant re-class)
-   (let ((inverted (class-invert! *digits-class*)))
+   (let ((inverted (class-invert! re-class)))
       (with-access::RE-class inverted (constant?)
 	 (set! constant? #t)
 	 inverted)))
 
 (define *empty-class* (instantiate::RE-class (constant? #t)))
+(define *every-class* (inverted-constant *empty-class*))
 
 (define *digits-class*
    (let ((re-class (instantiate::RE-class
@@ -182,15 +191,15 @@
    (let ((re-class (instantiate::RE-class
 		      (constant? #t))))
       (class-add-ns! re-class #x09 #x0B #x0C #x20 #xA0)
-      re-class))
+      (class-invert! re-class)))
 
 (define *no-white-class* (inverted-constant *white-class*))
 
 (define *any-class*
    (let ((re-class (instantiate::RE-class
-		      (constant? #t))))
+		      (constant? #f)))) ;; set during invertion
       (class-add-ns! re-class #xA #xD) ;; TODO: add when 16bit #x2028 #x2029
-      re-class))
+      (inverted-constant re-class)))
 (define *no-any-class* (inverted-constant *any-class*))
 
 (define *word-class*
