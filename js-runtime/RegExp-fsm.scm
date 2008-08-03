@@ -67,6 +67,7 @@
     ;; be matched first to continue.
     (final-class FSM-cluster-assert::FSM-0-cost
        entry::FSM-node
+       (contains-clusters?::bool (default #f))
        (negative?::bool read-only))) ;; when set, then #f to continue.
 
    (export (scm-regexp->fsm scm-re)))
@@ -444,13 +445,14 @@
 
 		(let (;; backrefs start at 1
 		      ;; clusters-nb starts at 0
-		      (backref-entry (assq (+fx clusters-nb 1) backrefs-map)))
+		      (backref-entry (assq c-nb backrefs-map)))
 		   ;; backref-cluster is only updated at exit: this allows for
 		   ;; example to match: /(b\1|ab)*/.exec('abbab')
 		   ;; the matcher will automatically copy the opening-index
 		   ;; from the cluster-vector to the backref-vector.
 		   (when backref-entry
-		      (set! backref-exit-index (+fx (*fx backref-entry 2) 1))))
+		      (set! backref-exit-index
+			    (+fx (*fx (cdr backref-entry) 2) 1))))
 
 		;; note that we decrease the clusters-nb here
 		(values n-nb (-fx c-nb 1))))))
@@ -468,12 +470,17 @@
 			   (d-exit (instantiate::FSM-final
 				      (id (+fx nodes-nb 1))
 				      (next d-exit))))
+	     (with-access::FSM-node entry (next)
+		(set! next d-entry))
 	     (receive (n-nb c-nb)
 		;; temporarily assign the entry to the 'next'-field.
 		(recurse d d-entry d-exit (+fx nodes-nb 2) clusters-nb)
-		(with-access::FSM-cluster-assert d-entry (next entry)
+		(with-access::FSM-cluster-assert d-entry
+		      (next entry contains-clusters?)
 		   (set! entry next)
-		   (set! next exit))))))
+		   (set! next exit)
+		   (set! contains-clusters? (not (=fx clusters-nb c-nb))))
+		(values n-nb c-nb)))))
       ((:backref ?n)
        ;; note that 'n' starts counting from 1.
        ;; 'clusters-nb' starts from 0.

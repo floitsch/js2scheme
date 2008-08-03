@@ -176,8 +176,7 @@
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
       (with-access::FSM-char n (next c)
-	 (print (get-id n ht-id) "[label=\""
-		every "\"]; // char")
+	 (print (get-id n ht-id) "[label=\"every\"]; // char")
 	 (dot-out next ht-id ht-done)
 	 (print (get-id n ht-id) " -> "
 		(get-id next ht-id) ";"))))

@@ -4,7 +4,8 @@
 	   jsre-RegExp-dot
 	   jsre-RegExp-state)
    (import multi-top-level)
-   (export (regexp-run fsm::FSM str::bstring start-index::bint))
+   (export (regexp-match fsm::FSM str::bstring start-index::bint)
+	   (regexp-test fsm::FSM str::bstring start-index::bint))
    (static
     (class Node-use
        (occupied-by::pair-nil (default '()))
@@ -19,6 +20,19 @@
     ))
 
 ;; for a description of the process look at RegExp-fsm
+
+(define (regexp-match fsm str start-index)
+   (exec fsm str start-index #f))
+
+(define (regexp-test fsm str start-index)
+   (exec fsm str start-index #t))
+
+;; outside of multi-top-level
+;;  -> every call to these procedures create new top-levels
+(define (fresh-recursive-match fsm state str start-index)
+   (recursive-exec fsm state str start-index #f))
+(define (fresh-recursive-test fsm state str start-index)
+   (recursive-exec fsm state str start-index #t))
 
 (multi-top-level (class Globals
 		    *fsm*
@@ -65,7 +79,7 @@
       (with-access::Node-use (vector-ref *node-uses* id) (occupied-by)
 	 (set! occupied-by '()))))
 
-(define (regexp-run fsm str start-index)
+(define (exec fsm str start-index only-test?)
    (set! *fsm* fsm)
    (when *debug*
       (with-output-to-file "fsm.dot"
@@ -78,12 +92,20 @@
 						      #f))
 		       (node entry))))
 	 (node-uses-init! nb-nodes)
-	 (let ((match (run (list state) str start-index)))
+	 (let ((match (run (list state) str start-index only-test?)))
 	    (and match
-		 (with-access::FSM-state match (start-index final-index
-							    clusters)
-		    (cons (substring str start-index final-index)
-			  clusters)))))))
+		 (or only-test?
+		     (with-access::FSM-state match (start-index final-index
+								clusters)
+			(cons (substring str start-index final-index)
+			      clusters))))))))
+
+;; state must already point to start of nested fsm.
+(define (recursive-exec fsm state str start-index only-test?)
+   (set! *fsm* fsm)
+   (with-access::FSM fsm (nb-nodes)
+      (node-uses-init! nb-nodes)
+      (run (list state) str start-index only-test?)))
 
 (define *frozen-states* '())
 (define *nb-frozen-layers* 0)
@@ -151,53 +173,59 @@
 (define *reached-final* #unspecified)
 
 ;; run one iteration at a time
-(define (run states str index)
-   (when *debug*
-      (with-output-to-file (format "~a.dot" index)
-	 (lambda ()
-	    (running->dot *fsm* states *frozen-states*
-			  (substring str 0 index)))))
-
+(define (run states str index only-test?)
    ;; first propagate states.
-   (bind-exit (reached-final)
-      (set! *reached-final* reached-final)
-      ;; 
-      (for-each (lambda (state)
-		   (with-access::FSM-state state (node)
-		      (propagate node state str index)))
-		states))
-   ;; then clear any information we left at the nodes.
-   (clear-visitors!)
+   (let ((reached-final?
+	  (bind-exit (reached-final)
+	     (set! *reached-final* reached-final)
+	     ;; 
+	     (for-each (lambda (state)
+			  (with-access::FSM-state state (node)
+			     (propagate node state str index)))
+		       states)
+	     #f)))
+      
+      ;; then clear any information we left at the nodes.
+      (clear-visitors!)
 
-   ;; get the states for the next round.
-   ;; this might defrost some old states if no state was left.
-   (receive (new-states new-index)
-      (next-round-states! index)
-      (cond
-	 ((null? new-states)
-	  #f) ;; no match
-	 ((FSM-final? (FSM-state-node (car states)))
-	  ;; first state in priority-list is final. Can't get any better...
-	  (car states))
-	 ((>=fx index (string-length str))
-	  ;; end of string. If there's a state pointing to the final-node we
-	  ;; have a winner.
-	  (let ((winner (any (lambda (state)
-				(and (FSM-final? (FSM-state-node state))
-				     state))
-			     states)))
-	     ;; if there's a winner return it. otherwise see if there are still
-	     ;; states waiting (by rerunning the procedure).
-	     (or winner
-		 (run '() str index))))
-	 (else ;; consume thus advancing to the next index
-	  (for-each (lambda (state)
-		       (with-access::FSM-state state (node)
-			  (advance node state str index)))
-		    new-states)
-	  (let ((live-states (reverse! *rev-pushed-states*)))
-	     (set! *rev-pushed-states* '())
-	     (run live-states str (+fx index 1)))))))
+
+      ;; get the states for the next round.
+      ;; this might defrost some old states if no state was left.
+      (receive (new-states new-index)
+	 (next-round-states! index)
+	 (when *debug*
+	    (with-output-to-file (format "~a.dot" index)
+	       (lambda ()
+		  (running->dot *fsm* new-states *frozen-states*
+				(substring str 0 index)))))
+
+	 (cond
+	    ((and only-test? reached-final?)
+	     #t) ;; we reached a final node. no need to look which state.
+	    ((null? new-states)
+	     #f) ;; no match
+	    ((FSM-final? (FSM-state-node (car new-states)))
+	     ;; first state in priority-list is final. Can't get any better...
+	     (car states))
+	    ((>=fx index (string-length str))
+	     ;; end of string. If there's a state pointing to the final-node we
+	     ;; have a winner.
+	     (let ((winner (any (lambda (state)
+				   (and (FSM-final? (FSM-state-node state))
+					state))
+				new-states)))
+		;; if there's a winner return it. otherwise see if there are still
+		;; states waiting (by rerunning the procedure).
+		(or winner
+		    (run '() str index only-test?))))
+	    (else ;; consume thus advancing to the next index
+	     (for-each (lambda (state)
+			  (with-access::FSM-state state (node)
+			     (advance node state str index)))
+		       new-states)
+	     (let ((live-states (reverse! *rev-pushed-states*)))
+		(set! *rev-pushed-states* '())
+		(run live-states str (+fx index 1) only-test?)))))))
 
 ;; target is off-limit if it is occupied by a state with same backref-cluster,
 ;; or if it is forbidden.
@@ -445,36 +473,39 @@
 	 (forbidden?-set! other old-forbidden?))))
 
 (define-method (propagate n::FSM-backref state str index)
-   (unless (FSM-sleeping-state? state)
-      (with-access::FSM-backref n (backref-nb next case-sensitive?)
-	 (with-access::FSM-state state (backref-clusters)
-	    (let* ((tmp (*fx backref-nb 2))
-		   (start (vector-ref backref-clusters tmp))
-		   (stop (vector-ref backref-clusters (+fx tmp 1)))
-		   (prefix? (if case-sensitive?
-				string-prefix?
-				string-prefix-ci?)))
-	       ;; as the start is only updated when there is a stop
-	       ;; (see FSM-backref-cluster-exit) then there must be a stop
-	       ;; if there's a start.
-	       (cond
-		  ((or (not start)
-		       (=fx start stop)) ;; empty string
-		   (propagate-check next state str index))
-		  ((>=fx index (string-length str))
-		   ;; can't match, but string-prefix? would crash
-		   'do-nothing)
-		  ((prefix? str str start stop index)
-		   ;; node has now to wait stop-start before it can continue.
-		   (widen!::FSM-sleeping-state state
-		      (cycles-to-sleep (-fx stop start)))
-		   ;; for the first iteration we can say, that we occupy this
-		   ;; node. after that no.
-		   (unless (off-limit? n state)
-		      (occupy! n state)))
-		  (else
-		   ;; no match. nothing to do
-		   'do-nothing)))))))
+   (if (FSM-sleeping-state? state)
+       ;; do not occupy (as this would conflict with other states) but still
+       ;; push the state, as it is still alive.
+       (push-state! state)
+       (with-access::FSM-backref n (backref-nb next case-sensitive?)
+	  (with-access::FSM-state state (backref-clusters)
+	     (let* ((tmp (*fx backref-nb 2))
+		    (start (vector-ref backref-clusters tmp))
+		    (stop (vector-ref backref-clusters (+fx tmp 1)))
+		    (prefix? (if case-sensitive?
+				 string-prefix?
+				 string-prefix-ci?)))
+		;; as the start is only updated when there is a stop
+		;; (see FSM-backref-cluster-exit) then there must be a stop
+		;; if there's a start.
+		(cond
+		   ((or (not start)
+			(=fx start stop)) ;; empty string
+		    (propagate-check next state str index))
+		   ((>=fx index (string-length str))
+		    ;; can't match, but string-prefix? would crash
+		    'do-nothing)
+		   ((prefix? str str start stop index)
+		    ;; node has now to wait stop-start before it can continue.
+		    (widen!::FSM-sleeping-state state
+		       (cycles-to-sleep (-fx stop start)))
+		    ;; for the first iteration we can say, that we occupy this
+		    ;; node. after that no.
+		    (unless (off-limit? n state)
+		       (occupy! n state)))
+		   (else
+		    ;; no match. nothing to do
+		    'do-nothing)))))))
 
 (define-method (propagate n::FSM-assert state str index)
    (with-access::FSM-assert n (next condition)
@@ -529,29 +560,29 @@
 	 (propagate-check next state str index))))
 
 (define-method (propagate n::FSM-cluster-assert state str index)
-   (with-access::FSM-cluster-assert n (entry next negative?)
+   (with-access::FSM-cluster-assert n (entry next contains-clusters? negative?)
       ;; perform test of next node, to avoid expensive checks.
-      (unless (if negative?
+      (unless (if (or negative? (not contains-clusters?))
 		  ;; if negative, then backrefs won't change, and we can use
 		  ;; target-off-limit?.
 		  (off-limit? next state)
 		  (forbidden? next)) ;; otherwise only look at 'forbidden?'
 	 (with-access::FSM-state state (node)
-	    ;; TODO: this must not be here!!
-	    (let ((old-frozen *frozen-states*)
-		  (old-rev-next-round *rev-pushed-states*))
-	       (set! *frozen-states* '())
-	       (set! *rev-pushed-states* '())
-	       (set! node entry)
-	       (let ((match (run (list state) str index)))
-		  (set! *frozen-states* old-frozen)
-		  (set! *rev-pushed-states* old-rev-next-round)
-		  (cond
-		     ((or (and negative? (not match))
-			  (and (not negative?) match))
-		      (propagate next state str index)) ;; no need for check.
-		     (else
-		      'nothing-to-do)))))))) ;; assert failed
+	    (set! node entry)
+
+	    (if (or negative?
+		    (not contains-clusters?))
+		(let ((matched? (fresh-recursive-test *fsm* state str index)))
+		   (cond
+		      ((or (and negative? (not matched?))
+			   (and (not negative?) matched?))
+		       (propagate-check next state str index))
+		      (else
+		       'nothing-to-do))) ;; assert failed
+		;; we need the real state. -> more expensive...
+		(let ((match-state (fresh-recursive-match *fsm* state str index)))
+		   (when match-state
+		      (propagate-check next match-state str index))))))))
 
 ;; just consumed a character. now waiting for propagation in the next round.
 (define (wait-at n::FSM-node state::FSM-state)
@@ -587,7 +618,8 @@
 	     (begin
 		;; just update the sleep-cycles and put us back into the queue.
 		(set! cycles-to-sleep (-fx cycles-to-sleep 1))
-		(push-state! state))))))
+		;; wait here again.
+		(wait-at n state))))))
 
 (define-method (advance n::FSM-char state str index)
    (with-access::FSM-char n (next c)
