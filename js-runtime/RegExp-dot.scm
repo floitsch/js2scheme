@@ -3,7 +3,7 @@
 	   jsre-RegExp-fsm
 	   jsre-RegExp-state)
    (export (regexp->dot fsm)
-	   (running->dot fsm states frozen-states str)))
+	   (running->dot fsm states frozen-states str index)))
 
 (define (dot-header)
    (print "digraph g {")
@@ -18,19 +18,19 @@
    (dot-out-fsm fsm)
    (dot-footer))
 
-(define (running->dot fsm states frozen-states str)
+(define (running->dot fsm states frozen-states str index)
    (dot-header)
-   (print (gensym 'str) "[label=\"" str "\",shape=record];")
+   (print (gensym 'str) "[label=\"" (substring str 0 index) "\",shape=record];")
    (let ((ht-ids (dot-out-fsm fsm)))
-      (dot-out-states states ht-ids #f)
+      (dot-out-states states ht-ids #f str index)
       (for-each (lambda (frozen)
-		   (dot-out-states (car frozen) ht-ids (cdr frozen)))
+		   (dot-out-states (car frozen) ht-ids (cdr frozen) str index))
 		frozen-states))
    (dot-footer))
 
-(define (dot-out-states states ht-ids frozen-index)
+(define (dot-out-states states ht-ids frozen-index str index)
    (for-each (lambda (state prio)
-		(dot-state-out state ht-ids prio frozen-index))
+		(dot-state-out state ht-ids prio frozen-index str index))
 	     states
 	     (iota (length states))))
 
@@ -48,15 +48,20 @@
 	  (hashtable-put! ht obj id)
 	  id)))
 
-(define (dot-state-out state::FSM-state ht-ids prio frozen-index)
-   (with-access::FSM-state state (node clusters backref-clusters)
+(define (dot-state-out state::FSM-state ht-ids prio frozen-index str index)
+   (with-access::FSM-state state (node clusters backref-clusters loops
+				       start-index)
       (let ((s-id (gensym 'state)))
 	 (print s-id
 		"[shape=record,"
 		(if frozen-index
 		    "style=dashed,"
 		    "")
-		"label=\"" prio
+		"label=\""
+		(if (>= start-index 0)
+		    (substring str start-index index)
+		    "")
+		"|" prio
 		(if (FSM-sleeping-state? state)
 		    (with-access::FSM-sleeping-state state (cycles-to-sleep)
 		       (format " [~a]" cycles-to-sleep))
@@ -65,13 +70,20 @@
 		    (format " *<~a>*" frozen-index)
 		    "")
 		"|" clusters
-		"|" backref-clusters "\"];")
+		"|" backref-clusters
+		"|" (map FSM-loop-info-iterations loops) "\"];")
 	 (print s-id " -> " (get-id node ht-ids) ";"))))
 
 (define-generic (dot-out n::FSM-node ht-id ht-done)
-   (error "dot"
-	  "forgot a node-type"
-	  n))
+   (unless (hashtable-get ht-done n)
+      (hashtable-put! ht-done n #t)
+      (print (get-id n ht-id) "[label=\"ERROR\"];")
+      (with-access::FSM-start n (next)
+	 (dot-out next ht-id ht-done)
+	 (print (get-id n ht-id) " -> " (get-id next ht-id) ";"))))
+;   (error "dot"
+;	  "forgot a node-type"
+;	  n))
 
 (define-method (dot-out n::FSM-start ht-id ht-done)
    (unless (hashtable-get ht-done n)
@@ -101,7 +113,7 @@
 (define-method (dot-out n::FSM-? ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
-      (print (get-id n ht-id) "[label=\"\"]; // ?")
+      (print (get-id n ht-id) "[label=\"?\"]; // ?")
       (with-access::FSM-? n (next exit greedy?)
 	 (dot-out next ht-id ht-done)
 	 (dot-out exit ht-id ht-done)
@@ -111,7 +123,7 @@
 (define-method (dot-out n::FSM-*-exit ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
-      (print (get-id n ht-id) "[label=\"\"]; // *-entry")
+      (print (get-id n ht-id) "[label=\"*-exit\"]; // *-exit")
       (with-access::FSM-*-exit n (loop-body next greedy?)
 	 (dot-out loop-body ht-id ht-done)
 	 (dot-out next ht-id ht-done)
@@ -123,16 +135,17 @@
       (hashtable-put! ht-done n #t)
       (with-access::FSM-repeat-entry n (repeat-exit next)
 	 (with-access::FSM-repeat-exit repeat-exit (min max)
-	    (print (get-id n ht-id) "[label=\"\"]; "
+	    (print (get-id n ht-id) "[label=\"repeat-entry\"]; "
 		   "// {" min ", " (or max "") "}")
-	    (dot-out next ht-id ht-done)))))
+	    (dot-out next ht-id ht-done)
+	    (print (get-id n ht-id) " -> " (get-id next ht-id) ";")))))
 
 (define-method (dot-out n::FSM-repeat-exit ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
       (with-access::FSM-repeat-exit n (loop-body next min max greedy?)
 	 (let ((rep-desc (format "{~a, ~a}" min (or max ""))))
-	    (print (get-id n ht-id) "[label=\"\"]; // repeat-exit " rep-desc)
+	    (print (get-id n ht-id) "[label=\"repeat-exit\"]; // repeat-exit " rep-desc)
 	    (dot-out loop-body ht-id ht-done)
 	    (dot-out next ht-id ht-done)
 	    (print (get-id n ht-id) " -> " (get-id loop-body ht-id)
@@ -145,7 +158,7 @@
 (define-method (dot-out n::FSM-non-empty ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
-      (print (get-id n ht-id) "[label=\"\"]; // non-empty")
+      (print (get-id n ht-id) "[label=\"non-empty\"]; // non-empty")
       (with-access::FSM-non-empty n (next other)
 	 (dot-out next ht-id ht-done)
 	 (dot-out other ht-id ht-done)

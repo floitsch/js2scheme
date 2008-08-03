@@ -168,7 +168,7 @@
 	  (restore-waiting-states!)
 	  (values next-round-states index))))
 
-(define *debug* #t)
+(define *debug* #f)
 
 (define *reached-final* #unspecified)
 
@@ -197,7 +197,7 @@
 	    (with-output-to-file (format "~a.dot" index)
 	       (lambda ()
 		  (running->dot *fsm* new-states *frozen-states*
-				(substring str 0 index)))))
+				str index))))
 
 	 (cond
 	    ((and only-test? reached-final?)
@@ -206,7 +206,7 @@
 	     #f) ;; no match
 	    ((FSM-final? (FSM-state-node (car new-states)))
 	     ;; first state in priority-list is final. Can't get any better...
-	     (car states))
+	     (car new-states))
 	    ((>=fx index (string-length str))
 	     ;; end of string. If there's a state pointing to the final-node we
 	     ;; have a winner.
@@ -230,35 +230,41 @@
 ;; target is off-limit if it is occupied by a state with same backref-cluster,
 ;; or if it is forbidden.
 (define (off-limit? n::FSM-node state::FSM-state)
-   (define (same-brefs? backrefs1 backrefs2)
-      (equal? backrefs1 backrefs2))
-      
-   (define (better-loops? loops1 loops2) ;; either the same or l1 beats l2.
-      (or (eq? loops1 loops2)
-	  (every? (lambda (l1 l2)
-		     (with-access::FSM-loop-info l1 (loop-exit)
+   ;; defender is the state occupying the node
+   ;; attacker is the new state.
+   ;; --------
+
+   (define (same-brefs? backrefs-defending backrefs-attacker)
+      (equal? backrefs-attacker backrefs-defending))
+
+   ;; either the same or defending beats attacker.
+   ;; in this case the attacker just can't get better then the defender.
+   (define (better-loops? loops-defending loops-attacker)
+      (or (eq? loops-defending loops-attacker)
+	  (every? (lambda (l-d l-a)
+		     (with-access::FSM-loop-info l-a (loop-exit)
 			(with-access::FSM-repeat-exit loop-exit (min max
 								     greedy?)
 			   ;; both must be in same loops. so no need to get
-			   ;; loop-exit from l2
-			   (let ((it1 (FSM-loop-info-iterations l1))
-				 (it2 (FSM-loop-info-iterations l2)))
-			      (or (=fx it1 it2)
+			   ;; loop-exit from l-d
+			   (let ((it-defend (FSM-loop-info-iterations l-d))
+				 (it-attack (FSM-loop-info-iterations l-a)))
+			      (or (=fx it-defend it-attack)
 				  (and greedy?
 				       (not max)
-				       (>fx it1 it2))
+				       (>fx it-defend it-attack))
 				  (and (not greedy?)
-				       (>=fx it1 min)
-				       (<fx it1 it2)))))))
-		  loops1
-		  loops2)))
+				       (>=fx it-defend min)
+				       (<fx it-defend it-attack)))))))
+		  loops-defending
+		  loops-attacker)))
 
    (or (forbidden? n)
        (any? (lambda (other-state)
-		(and (same-brefs? (FSM-state-backref-clusters state)
-				  (FSM-state-backref-clusters other-state))
-		     (better-loops? (FSM-state-loops state)
-				    (FSM-state-loops other-state))))
+		(and (same-brefs? (FSM-state-backref-clusters other-state)
+				  (FSM-state-backref-clusters state))
+		     (better-loops? (FSM-state-loops other-state)
+				    (FSM-state-loops state))))
 	     (occupied-by n))))
 
 (define (occupy! n::FSM-node state::FSM-state)

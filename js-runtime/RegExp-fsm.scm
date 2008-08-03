@@ -99,9 +99,75 @@
        (recurse d))
       ((:backref ?n)
        (mset-put! mset n))
+      ((or :bos :bol :^
+	  :eol :eos :$
+	  :word-boundary :wbdry
+	  :not-word-boundary :not-wbdry)
+       ;; assertions
+       'do-nothing)
+      ((or (? char?)
+	   ((or :any
+	       :digit :not-digit
+	       :space :not-space
+	       :word :not-word
+	       :xdigit :not-xdigit
+	       :neg-char :one-of-chars)
+	    ???-))
+       ;; classes
+       'do-nothing)
+      (:empty
+       'do-nothing)
       (else
-       'do-nothing)))
-   
+       (error "count-clusters-and-search-backrefs"
+	      "invalid clause"
+	      scm-re))))
+
+(define (never-empty? scm-re)
+   (match-case scm-re
+      ((:or . ?alternatives)
+       (every? never-empty? alternatives))
+      ((:seq . ?els)
+       (any? never-empty? els))
+      ;; assertions
+      (((or :quantified :between) ?greedy? ?n1 ?n2 ?atom)
+       (and (not (zero? n1))
+	    (never-empty? atom)))
+      (((and (or :pos-lookahead-cluster :lookahead
+		 :neg-lookahead-cluster :neg-lookahead)
+	     ?pos/neg?)
+	?d)
+       #f)
+      (((or :cluster :sub) ?d)
+       (never-empty? d))
+      ((:backref ?n)
+       #f)
+      ((or :bos :bol :^
+	  :eol :eos :$
+	  :word-boundary :wbdry
+	  :not-word-boundary :not-wbdry)
+       ;; assertions
+       #f)
+      ((or (? char?)
+	   ((or :any
+	       :digit :not-digit
+	       :space :not-space
+	       :word :not-word
+	       :xdigit :not-xdigit
+	       :neg-char :one-of-chars)
+	    ???-))
+       ;; classes
+       #t)
+      (:empty
+       #f)
+      ((or :every-internal)
+       #t)
+      ((or :start-internal)
+       #f)
+      (else
+       (error "never-empty?"
+	      "forgot clause"
+	      scm-re))))
+
 (define (scm-regexp->fsm scm-re)
    (define multi-line? #f)
    (define case-sensitive? #t)
@@ -218,7 +284,7 @@
 		 (=fx index (string-length str)))))
 	 ((:word-boundary :wbdry)
 	  word-boundary)
-	 ((:not word-boundary :not-wbdry)
+	 ((:not-word-boundary :not-wbdry)
 	  (lambda (str current-pos)
 	     (not (word-boundary str current-pos))))))
    
@@ -236,6 +302,20 @@
 			(id nodes-nb)
 			(next exit))))
        (values (+fx nodes-nb 1) clusters-nb))
+      ((:non-empty-internal ?atom)
+       (if (never-empty? atom)
+	   (receive (n-nb c-nb)
+	      (recurse atom entry exit nodes-nb clusters-nb)
+	      (values n-nb c-nb #f))
+	   (let ((non-empty (instantiate::FSM-non-empty
+			       (id nodes-nb)
+			       (next *tmp-node*)
+			       (other exit))))
+	      (with-access::FSM-node entry (next)
+		 (set! next non-empty))
+	      (receive (n-nb c-nb)
+		 (recurse atom non-empty exit (+fx nodes-nb 1) clusters-nb)
+		 (values n-nb c-nb #t)))))
 
       ;; public clauses.
       ((:or . ?alternatives)
@@ -317,59 +397,69 @@
 	  ((and (zero? n1)
 		(not n2)) ;; x* {0, #f}
 	   ;; the first iteration starts at the exit-node.
-	   (co-instantiate ((non-empty (instantiate::FSM-non-empty
-					  (id (+fx nodes-nb 1))
-					  (next *tmp-node*)
-					  (other *-exit)))
-			    (*-exit (instantiate::FSM-*-exit
-				       (id (+fx nodes-nb 2))
-				       (loop-body non-empty)
-				       (greedy? greedy?)
-				       (clusters-end (*fx clusters-nb 2))
-				       (next exit))))
+	   (let ((*-exit (instantiate::FSM-*-exit
+			    (id nodes-nb)
+			    (next *tmp-node*)
+			    (loop-body *tmp-node*)
+			    (greedy? greedy?)
+			    (clusters-end (*fx clusters-nb 2)))))
 	      (with-access::FSM-node entry (next)
 		 (set! next *-exit))
-	      (receive (n-nb c-nb)
-		 (recurse atom non-empty *-exit (+fx nodes-nb 3) clusters-nb)
-		 (with-access::FSM-*-exit *-exit (clusters-begin)
+	      (receive (n-nb c-nb created-non-empty?)
+		 (recurse `(:non-empty-internal ,atom)
+			  *-exit *-exit
+			  (+fx nodes-nb 1) clusters-nb)
+		 (with-access::FSM-*-exit *-exit (clusters-begin loop-body
+								 next)
+		    (set! loop-body next)
+		    (set! next exit)
 		    (set! clusters-begin (*fx c-nb 2)))
 		 (values n-nb c-nb))))
 	  ((and (=fx n1 1)
 		(not n2)) ;; x+ {1, #f}
-	   ;; the first iteration starts at the node inside the non-empty ->
-	   ;; the first iteration might be empty.
-	   ;; Only in the second iteration is the non-empty used.
-	   (co-instantiate ((non-empty (instantiate::FSM-non-empty
-					  (id nodes-nb)
-					  (next *tmp-node*)
-					  (other *-exit)))
-			    (*-exit (instantiate::FSM-*-exit
-				       (id (+fx nodes-nb 1))
-				       (loop-body non-empty)
-				       (greedy? greedy?)
-				       (clusters-end (*fx clusters-nb 2))
-				       (next exit))))
-	      (receive (n-nb c-nb)
-		 (recurse atom non-empty *-exit (+fx nodes-nb 2) clusters-nb)
+	   (let ((*-exit (instantiate::FSM-*-exit
+			    (id (+fx nodes-nb 1))
+			    (next *tmp-node*)
+			    (loop-body *tmp-node*)
+			    (greedy? greedy?)
+			    (clusters-end (*fx clusters-nb 2)))))
+	      (receive (n-nb c-nb created-non-empty?)
+		 (recurse `(:non-empty-internal ,atom)
+			  *-exit *-exit
+			  (+fx nodes-nb 1) clusters-nb)
+		 ;; if the body could be empty then the first iteration starts
+		 ;; at the node inside the non-empty -> the first iteration
+		 ;; might be empty.
+		 ;; Only in the second iteration is the non-empty used.
 		 (with-access::FSM-node entry (next)
-		    (set! next (FSM-node-next non-empty)))
-		 (with-access::FSM-*-exit *-exit (clusters-begin)
+		    (if created-non-empty?
+			(let* ((non-empty (FSM-node-next *-exit))
+			       (non-empty-body (FSM-node-next non-empty)))
+			   (set! next non-empty-body))
+			(set! next (FSM-node-next *-exit))))
+		 (with-access::FSM-*-exit *-exit (clusters-begin loop-body
+								 next)
+		    (set! loop-body next)
+		    (set! next exit)
 		    (set! clusters-begin (*fx c-nb 2)))
 		 (values n-nb c-nb))))
+	  ((and (=fx n1 1)
+		(=fx n2 1)) ;; {1, 1}
+	   (recurse atom entry exit nodes-nb clusters-nb))
 	  ((and (zero? n1)
 		(=fx n2 1)) ;; x? {0, 1}
-	   (let* ((non-empty (instantiate::FSM-non-empty
-				(id nodes-nb)
-				(next *tmp-node*)
-				(other exit)))
-		  (?-entry (instantiate::FSM-?
+	   (let* ((?-entry (instantiate::FSM-?
 			      (id (+fx nodes-nb 1))
-			      (next non-empty)
+			      (next *tmp-node*)
 			      (exit exit)
 			      (greedy? greedy?))))
 	      (with-access::FSM-node entry (next)
 		 (set! next ?-entry))
-	      (recurse atom non-empty exit (+fx nodes-nb 2) clusters-nb)))
+	      (receive (n-nb c-nb created-non-empty?)
+		 (recurse `(:non-empty-internal ,atom)
+			  ?-entry exit
+			  (+fx nodes-nb 2) clusters-nb)
+		 (values n-nb c-nb))))
 	  ((and (zero? n1)
 		(zero? n2)) ;; nonsensical
 	   ;; we still need to recurse to get the correct clusters
@@ -387,7 +477,11 @@
 	      ;; this is the reason we have to do the cluster-numbering at the
 	      ;; same time as the fsm-construction.
 	      (values nodes-nb c-nb)))
-	  (else
+	  ((zero? n1) ;; {0, n2}. simplify to '{1, n2}?'
+	   (recurse `(:quantified ,greedy? 0 1
+				  (:quantified ,greedy? 1 ,n2 ,atom))
+		    entry exit nodes-nb clusters-nb))
+	  (else ;; {1, n2}
 	   (co-instantiate ((rep-entry (instantiate::FSM-repeat-entry
 					  (id nodes-nb)
 					  (next *tmp-node*)
@@ -400,31 +494,15 @@
 					 (max n2)
 					 (greedy? greedy?)
 					 (clusters-end (*fx 2 clusters-nb)))))
-	      (let ((new-nodes-nb (if (zero? min)
-				      (+fx nodes-nb 4) ;; will be used shortly
-				      (+fx nodes-nb 2))))
-		 
-		 (if (zero? min)
-		     (let* ((non-empty (instantiate::FSM-non-empty
-					  (id (+fx nodes-nb 2))
-					  (next rep-entry)
-					  (other rep-exit)))
-			    (?-entry (instantiate::FSM-?
-				       (id (+fx nodes-nb 3))
-				       (next non-empty)
-				       (exit exit)
-				       (greedy? greedy?))))
-			(with-access::FSM-node entry (next)
-			   (set! next ?-entry)))
-		     (with-access::FSM-node entry (next)
-			(set! next rep-entry)))
-		 (receive (n-nb c-nb)
-		    (recurse atom rep-entry rep-exit new-nodes-nb clusters-nb)
-		    (with-access::FSM-repeat-exit rep-exit (loop-body
-							    clusters-begin)
-		       (set! loop-body (FSM-node-next rep-entry))
-		       (set! clusters-begin (*fx c-nb 2)))
-		    (values n-nb c-nb)))))))
+	      (with-access::FSM-node entry (next)
+		 (set! next rep-entry))
+	      (receive (n-nb c-nb)
+		 (recurse atom rep-entry rep-exit (+fx nodes-nb 2) clusters-nb)
+		 (with-access::FSM-repeat-exit rep-exit (loop-body
+							 clusters-begin)
+		    (set! loop-body (FSM-node-next rep-entry))
+		    (set! clusters-begin (*fx c-nb 2)))
+		 (values n-nb c-nb))))))
       (((or :cluster :sub) ?d)
        (let* ((cluster-entry (instantiate::FSM-cluster-entry
 				(id nodes-nb)
