@@ -584,7 +584,8 @@
 		:word :not-word
 		:xdigit :not-xdigit
 		:neg-char
-		:one-of-chars)
+		:one-of-chars
+		)
 	    . ?-))
        (let* ((class-or-c (RegExp-class-create scm-re case-sensitive?))
 	      (t (if (char? class-or-c)
@@ -603,6 +604,22 @@
        (with-access::FSM-node entry (next)
 	  (set! next exit))
        (values nodes-nb clusters-nb))
+      ((:case-sensitive  ?re)
+       (scm-re->fsm re entry exit nodes-nb clusters-nb
+		    #t multi-line?
+		    backrefs-map))
+      ((:case-insensitive  ?re)
+       (scm-re->fsm re entry exit nodes-nb clusters-nb
+		    #f multi-line?
+		    backrefs-map))
+      ((:multi-line ?re)
+       (scm-re->fsm re entry exit nodes-nb clusters-nb
+		    case-sensitive? #t
+		    backrefs-map))
+      ((:no-multi-line ?re)
+       (scm-re->fsm re entry exit nodes-nb clusters-nb
+		    case-sensitive? #f
+		    backrefs-map))
       (else
        (error "fsm"
 	      "could not match scm-re"
