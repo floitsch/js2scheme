@@ -221,23 +221,14 @@
 	 (print (get-id n ht-id) " -> "
 		(get-id next ht-id) ";"))))
 
-(define-method (dot-out n::FSM-cluster-entry ht-id ht-done)
+(define-method (dot-out n::FSM-cluster ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
-      (with-access::FSM-cluster-entry n (next cluster-index)
-	 (print (get-id n ht-id) "[label=\"+" cluster-index "\"]; // cluster")
-	 (dot-out next ht-id ht-done)
-	 (print (get-id n ht-id) " -> "
-		(get-id next ht-id) ";"))))
-
-(define-method (dot-out n::FSM-cluster-exit ht-id ht-done)
-   (unless (hashtable-get ht-done n)
-      (hashtable-put! ht-done n #t)
-      (with-access::FSM-cluster-exit n (next cluster-index backref-exit-index)
-	 (if backref-exit-index
-	     (print (get-id n ht-id) "[label=\"-" cluster-index "/"
-		    backref-exit-index "\"]; // cluster/backref")
-	     (print (get-id n ht-id) "[label=\"-" cluster-index "\"]; // cluster"))
+      (with-access::FSM-cluster n (next cluster-index backref-cluster-index)
+	 (if backref-cluster-index
+	     (print (get-id n ht-id) "[label=\"" cluster-index "/"
+		    backref-cluster-index "\"]; // cluster/backref")
+	     (print (get-id n ht-id) "[label=\"" cluster-index "\"]; // cluster"))
 	 (dot-out next ht-id ht-done)
 	 (print (get-id n ht-id) " -> "
 		(get-id next ht-id) ";"))))

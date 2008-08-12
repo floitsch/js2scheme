@@ -19,6 +19,8 @@
        *reached-final*)
     ))
 
+(define *debug* #f)
+
 ;; for a description of the process look at RegExp-fsm
 
 (define (regexp-match fsm str start-index)
@@ -35,11 +37,11 @@
    (recursive-exec fsm state str start-index #t))
 
 (multi-top-level (class Globals
-		    *fsm*
-		    *node-uses*
-		    *frozen-states*::pair-nil
-		    *nb-frozen-layers*::bint
-		    *rev-pushed-states*::pair-nil
+ 		    *fsm*
+ 		    *node-uses*
+ 		    *frozen-states*::pair-nil
+ 		    *nb-frozen-layers*::bint
+ 		    *rev-pushed-states*::pair-nil
 		    *reached-final*)
 		 
 (define *fsm* #unspecified)
@@ -168,8 +170,6 @@
 	  (restore-waiting-states!)
 	  (values next-round-states index))))
 
-(define *debug* #f)
-
 (define *reached-final* #unspecified)
 
 ;; run one iteration at a time
@@ -188,17 +188,10 @@
       ;; then clear any information we left at the nodes.
       (clear-visitors!)
 
-
       ;; get the states for the next round.
       ;; this might defrost some old states if no state was left.
       (receive (new-states new-index)
 	 (next-round-states! index)
-	 (when *debug*
-	    (with-output-to-file (format "~a.dot" index)
-	       (lambda ()
-		  (running->dot *fsm* new-states *frozen-states*
-				str index))))
-
 	 (cond
 	    ((and only-test? reached-final?)
 	     #t) ;; we reached a final node. no need to look which state.
@@ -496,6 +489,7 @@
 		;; if there's a start.
 		(cond
 		   ((or (not start)
+			(not stop)
 			(=fx start stop)) ;; empty string
 		    (propagate-check next state str index))
 		   ((>=fx index (string-length str))
@@ -535,34 +529,18 @@
 		(unless (off-limit? n state)
 		   (occupy! n state))))))))
 
-(define-method (propagate n::FSM-cluster-entry state str index)
-   (with-access::FSM-cluster-entry n (next cluster-index)
-      (with-access::FSM-state state (clusters)
-	 ;; copy on write
-	 (set! clusters (copy-vector clusters (vector-length clusters)))
-	 (vector-set! clusters cluster-index index)
-	 (propagate-check next state str index))))
-
-(define-method (propagate n::FSM-cluster-exit state str index)
-   (with-access::FSM-cluster-exit n (next cluster-index backref-exit-index)
+(define-method (propagate n::FSM-cluster state str index)
+   (with-access::FSM-cluster n (next cluster-index backref-cluster-index)
       (with-access::FSM-state state (clusters backref-clusters)
 	 ;; copy on write
 	 (set! clusters (copy-vector clusters (vector-length clusters)))
 	 (vector-set! clusters cluster-index index)
-
-	 (when backref-exit-index
+	 (when backref-cluster-index
 	    ;; copy on write
 	    (set! backref-clusters
 		  (copy-vector backref-clusters
 			       (vector-length backref-clusters)))
-	    ;; update the exit-index
-	    (vector-set! backref-clusters backref-exit-index index)
-	    ;; and update the entry-index too.
-	    ;; we can't update the backref-cluster at entering, as this would
-	    ;; not allow to match for instance /(b\1|ab)*/.exec('abbab')
-	    (vector-set! backref-clusters (-fx backref-exit-index 1)
-			 (vector-ref clusters (-fx cluster-index 1))))
-
+	    (vector-set! backref-clusters backref-cluster-index index))
 	 (propagate-check next state str index))))
 
 (define-method (propagate n::FSM-cluster-assert state str index)

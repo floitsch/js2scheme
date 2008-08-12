@@ -209,7 +209,7 @@
 	 (else
 	  ;; TODO: get chars of IdentifierPart.
 	  ;;       for now just accept it.
-	  `(char ,(consume-char!))))))
+	  (consume-char!)))))
    
 (define (back-reference)
    ;; back-reference

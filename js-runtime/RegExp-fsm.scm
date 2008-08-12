@@ -57,11 +57,9 @@
        ;; returns #f or the number of consumed chars.
        (condition::procedure read-only))
 
-    (final-class FSM-cluster-entry::FSM-0-cost
-       (cluster-index::bint (default -1)))
-    (final-class FSM-cluster-exit::FSM-0-cost
+    (final-class FSM-cluster::FSM-0-cost
        (cluster-index::bint (default -1))
-       (backref-exit-index (default #f)))
+       (backref-cluster-index (default #f)))
 
     ;; a cluster-assert does not consume any char, but its contained fsm must
     ;; be matched first to continue.
@@ -504,10 +502,10 @@
 		    (set! clusters-begin (*fx c-nb 2)))
 		 (values n-nb c-nb))))))
       (((or :cluster :sub) ?d)
-       (let* ((cluster-entry (instantiate::FSM-cluster-entry
+       (let* ((cluster-entry (instantiate::FSM-cluster
 				(id nodes-nb)
 				(next *tmp-node*)))
-	      (cluster-exit (instantiate::FSM-cluster-exit
+	      (cluster-exit (instantiate::FSM-cluster
 			       (id (+fx nodes-nb 1))
 			       (next exit))))
 	  (with-access::FSM-node entry (next)
@@ -515,24 +513,21 @@
 	  (receive (n-nb c-nb)
 	     (recurse d cluster-entry cluster-exit
 		      (+fx nodes-nb 2) clusters-nb)
-	     (with-access::FSM-cluster-entry cluster-entry (cluster-index)
-		(set! cluster-index (*fx (-fx c-nb 1) 2)))
-	     (with-access::FSM-cluster-exit cluster-exit (cluster-index
-							  backref-exit-index)
-		(set! cluster-index (+fx (*fx (-fx c-nb 1) 2) 1))
-
-		(let (;; backrefs start at 1
-		      ;; clusters-nb starts at 0
-		      (backref-entry (assq c-nb backrefs-map)))
-		   ;; backref-cluster is only updated at exit: this allows for
-		   ;; example to match: /(b\1|ab)*/.exec('abbab')
-		   ;; the matcher will automatically copy the opening-index
-		   ;; from the cluster-vector to the backref-vector.
+	     (let* ((backref-entry (assq c-nb backrefs-map)))
+		(with-access::FSM-cluster cluster-entry (cluster-index
+							 backref-cluster-index)
+		   (set! cluster-index (*fx (-fx c-nb 1) 2))
 		   (when backref-entry
-		      (set! backref-exit-index
+		      (set! backref-cluster-index
+			    (*fx (cdr backref-entry) 2))))
+		(with-access::FSM-cluster cluster-exit (cluster-index
+							backref-cluster-index)
+		   (set! cluster-index (+fx (*fx (-fx c-nb 1) 2) 1))
+		   (when backref-entry
+		      (set! backref-cluster-index
 			    (+fx (*fx (cdr backref-entry) 2) 1))))
-
-		;; note that we decrease the clusters-nb here
+		   
+		   ;; note that we decrease the clusters-nb here
 		(values n-nb (-fx c-nb 1))))))
       (((and (or :pos-lookahead-cluster :lookahead
 		 :neg-lookahead-cluster :neg-lookahead)
@@ -569,10 +564,11 @@
 		  "backref references bad cluster"
 		  n))
        
-       (let ((br (instantiate::FSM-backref
+       (let* ((backref-index (cdr (assq n backrefs-map)))
+	      (br (instantiate::FSM-backref
 		    (id nodes-nb)
 		    (next exit)
-		    (backref-nb (-fx n 1)) ;; adjust for 0-offset.
+		    (backref-nb backref-index)
 		    (case-sensitive? case-sensitive?))))
 	  (with-access::FSM-node entry (next)
 	     (set! next br))
