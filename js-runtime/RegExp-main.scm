@@ -11,6 +11,10 @@
    (scm-regexp->fsm (js-regexp->scm-regexp str)))
 
 (define (my-main args)
+   (when (and (pair? (cdr args))
+	      (string=? (cadr args) "-v"))
+      (set! *debug* #t)
+      (set-cdr! args (cddr args)))
    ;(regexp->dot (str->fsm "^(a)bc"))
    ;(print (regexp-run (str->fsm "^(a)bc") "abcd"))
    ;(regexp->dot (scm-regexp->fsm (js-regexp->scm-regexp "^ab(c|d)*e+?[^f][g-i-j]$k(?:l|mno)$") #f #f))

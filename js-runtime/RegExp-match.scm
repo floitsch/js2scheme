@@ -5,7 +5,8 @@
 	   jsre-RegExp-state)
    (import multi-top-level)
    (export (regexp-match fsm::FSM str::bstring start-index::bint)
-	   (regexp-test fsm::FSM str::bstring start-index::bint))
+	   (regexp-test fsm::FSM str::bstring start-index::bint)
+	   *debug*) ;; only for now...
    (static
     (class Node-use
        (occupied-by::pair-nil (default '()))
@@ -192,6 +193,11 @@
       ;; this might defrost some old states if no state was left.
       (receive (new-states new-index)
 	 (next-round-states! index)
+	 (when *debug*
+	    (with-output-to-file (format "~a.dot" index)
+	       (lambda ()
+		  (running->dot *fsm* new-states *frozen-states*
+				str index))))
 	 (cond
 	    ((and only-test? reached-final?)
 	     #t) ;; we reached a final node. no need to look which state.
@@ -267,27 +273,6 @@
       (push-state! state)))
 
 
-;; At the beginning of every iteration all contained clusters must be reset.
-(define (clear-clusters! state::FSM-state loop-exit::FSM-loop-exit)
-   (with-access::FSM-loop-exit loop-exit (clusters-begin clusters-end)
-      (with-access::FSM-state state (clusters)
-	 ;; lazy copy. If none of the clusters is set, no need to duplicate the
-	 ;; vector.
-	 (let loop ((i clusters-begin)
-		    (copied? #f))
-	    (cond
-	       ((>= i clusters-end)
-		'done)
-	       ((and (not copied?)
-		     (vector-ref clusters i))
-		(set! clusters
-		      (copy-vector clusters (vector-length clusters)))
-		(loop i #t))
-	       (else
-		(vector-set! clusters i #f)
-		(loop (+fx i 1) copied?)))))))
-   
-
 (define (propagate-check n::FSM-node state::FSM-state
 			 str::bstring index::bint)
    (unless (forbidden? n)
@@ -349,7 +334,6 @@
    (with-access::FSM-*-exit n (loop-body greedy? next)
       (define (repeat state)
 	 (forbidden?-set! n #t) ;; we don't allow empty iterations.
-	 (clear-clusters! state n)
 	 (propagate-check loop-body state str index)
 	 (forbidden?-set! n #f))
 
@@ -386,7 +370,6 @@
 				 (index-time index)
 				 (loop-exit n))
 			      (cdr loops)))
-	    (clear-clusters! state n)
 	    (propagate-check loop-body state str index)))
 
       (define (leave state)
@@ -542,6 +525,44 @@
 			       (vector-length backref-clusters)))
 	    (vector-set! backref-clusters backref-cluster-index index))
 	 (propagate-check next state str index))))
+
+(define-method (propagate n::FSM-cluster-clear state str index)
+   (with-access::FSM-cluster-clear n (next start-index stop-index
+					   backref-start-index
+					   backref-stop-index)
+      (with-access::FSM-state state (clusters backref-clusters)
+	 ;; lazy copy. If none of the clusters is set, no need to duplicate the
+	 ;; vector.
+	 (let loop ((i start-index)
+		    (copied? #f))
+	    (cond
+	       ((>= i stop-index)
+		'done)
+	       ((and (not copied?)
+		     (vector-ref clusters i))
+		(set! clusters
+		      (copy-vector clusters (vector-length clusters)))
+		(loop i #t))
+	       (else
+		(vector-set! clusters i #f)
+		(loop (+fx i 1) copied?))))
+	 
+	 (when backref-start-index
+	    (let loop ((i backref-start-index)
+		       (copied? #f))
+	       (cond
+		  ((>= i backref-stop-index)
+		   'done)
+		  ((and (not copied?)
+			(vector-ref backref-clusters i))
+		   (set! backref-clusters
+			 (copy-vector backref-clusters
+				      (vector-length backref-clusters)))
+		   (loop i #t))
+		  (else
+		   (vector-set! backref-clusters i #f)
+		   (loop (+fx i 1) copied?))))))
+      (propagate-check next state str index)))
 
 (define-method (propagate n::FSM-cluster-assert state str index)
    (with-access::FSM-cluster-assert n (entry next contains-clusters? negative?)

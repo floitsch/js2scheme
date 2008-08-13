@@ -233,6 +233,24 @@
 	 (print (get-id n ht-id) " -> "
 		(get-id next ht-id) ";"))))
 
+(define-method (dot-out n::FSM-cluster-clear ht-id ht-done)
+   (unless (hashtable-get ht-done n)
+      (hashtable-put! ht-done n #t)
+      (with-access::FSM-cluster-clear n (next start-index stop-index
+					      backref-start-index
+					      backref-stop-index)
+	 (if backref-start-index
+	     (print (get-id n ht-id) "[label=\""
+		    start-index "-" stop-index "/"
+		    backref-start-index "-" backref-stop-index
+		    "\"]; // cluster-clear")
+	     (print (get-id n ht-id) "[label=\""
+		    start-index "-" stop-index
+		    "\"]; // cluster-clear"))
+	 (dot-out next ht-id ht-done)
+	 (print (get-id n ht-id) " -> "
+		(get-id next ht-id) ";"))))
+   
 (define-method (dot-out n::FSM-cluster-assert ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
