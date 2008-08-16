@@ -50,7 +50,9 @@
 
 (define (dot-state-out state::FSM-state ht-ids prio frozen-index str index)
    (with-access::FSM-state state (node clusters backref-clusters loops
-				       start-index)
+				       start-index
+				       sharing-clusters?
+				       sharing-br-clusters?)
       (let ((s-id (gensym 'state)))
 	 (print s-id
 		"[shape=record,"
@@ -69,8 +71,8 @@
 		(if frozen-index
 		    (format " *<~a>*" frozen-index)
 		    "")
-		"|" clusters
-		"|" backref-clusters
+		"|" clusters " " sharing-clusters?
+		"|" backref-clusters " " sharing-br-clusters?
 		"|" (map FSM-loop-info-iterations loops) "\"];")
 	 (print s-id " -> " (get-id node ht-ids) ";"))))
 

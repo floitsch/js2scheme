@@ -13,6 +13,11 @@
        (start-index::bint (default -1))
        (final-index::bint (default -1))
        node::FSM-node
-       (loops::pair-nil (default '()))) ;; list of FSM-loop-infos
+       (loops::pair-nil (default '())) ;; list of FSM-loop-infos
+       ;; optimization fields
+       (sharing-clusters?::bool (default #f))
+       (sharing-br-clusters?::bool (default #f))
+       (still-needed?::bool (default #f)) ;; do not change the state.
+       (occupying?::bool (default #f))) ;; state is occupying a node.
     (wide-class FSM-sleeping-state::FSM-state
        cycles-to-sleep::bint)))

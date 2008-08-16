@@ -171,6 +171,24 @@
 	  (restore-waiting-states!)
 	  (values next-round-states index))))
 
+(define (duplicate-state::FSM-state state::FSM-state)
+   (with-access::FSM-state state (sharing-clusters? sharing-br-clusters?)
+      (set! sharing-clusters? #t)
+      (set! sharing-br-clusters? #t))
+   (duplicate::FSM-state state
+      (still-needed? #f)
+      (occupying? #f)))
+
+(define (modifiable-state::FSM-state state::FSM-state)
+   (with-access::FSM-state state (still-needed? occupying?)
+      (if (or still-needed? occupying?)
+	  (duplicate-state state)
+	  state)))
+
+(define (modifiable?::bool state::FSM-state)
+   (with-access::FSM-state state (still-needed? occupying?)
+      (not (or still-needed? occupying?))))
+   
 (define *reached-final* #unspecified)
 
 ;; run one iteration at a time
@@ -181,7 +199,10 @@
 	     (set! *reached-final* reached-final)
 	     ;; 
 	     (for-each (lambda (state)
-			  (with-access::FSM-state state (node)
+			  (with-access::FSM-state state (node still-needed?
+							      occupying?)
+			     (set! still-needed? #f)
+			     (set! occupying? #f)
 			     (propagate node state str index)))
 		       states)
 	     #f)))
@@ -237,7 +258,7 @@
       (equal? backrefs-attacker backrefs-defending))
 
    ;; either the same or defending beats attacker.
-   ;; in this case the attacker just can't get better then the defender.
+   ;; in this case the attacker just can't get better than the defender.
    (define (better-loops? loops-defending loops-attacker)
       (or (eq? loops-defending loops-attacker)
 	  (every? (lambda (l-d l-a)
@@ -267,10 +288,15 @@
 	     (occupied-by n))))
 
 (define (occupy! n::FSM-node state::FSM-state)
-   (with-access::FSM-state state (node)
-      (set! node n)
-      (occupied-by-push! n state)
-      (push-state! state)))
+   (with-access::FSM-state state (node occupying?)
+      (cond
+	 (occupying?
+	  (occupy! n (duplicate-state state)))
+	 (else
+	  (set! node n)
+	  (set! occupying? #t)
+	  (occupied-by-push! n state)
+	  (push-state! state)))))
 
 
 (define (propagate-check n::FSM-node state::FSM-state
@@ -291,11 +317,17 @@
 (define-method (propagate n::FSM-start state str index)
    (with-access::FSM-start n (next)
       (with-access::FSM-state state (start-index)
+	 ;; start-index may be updated without duplicating.
+	 ;; CARE: this might not be true anymore when we implement Knuth-Morris
+	 ;; algo.
 	 (set! start-index index))
       (propagate-check next state str index)))
 
 (define-method (propagate n::FSM-final state str index)
    (unless (off-limit? n state) ;; final node could be 'forbidden'
+      ;; this is slightly hacky: if state was already occupying a node we are
+      ;; changing its final-index too... -> a state might have a final-index
+      ;; set even though it did not reach the final node yet...
       (with-access::FSM-state state (final-index)
 	 (set! final-index index))
       ;; clear frozen nodes. we have reached the final node, and all frozen
@@ -313,49 +345,54 @@
 	       (not (any? forbidden? alternatives)))
 	  (occupy! n state))
 	 (else
-	  ;; be careful: during propagation the nodes might change.
-	  (let ((dupl (duplicate::FSM-state state)))
-	     (propagate-check next dupl str index))
-	  
-	  (let loop ((choices alternatives))
-	     (cond
-		((null? choices) ;; empty choices list...
-		 'done)
-		((null? (cdr choices)) ;; last entry, so we can use orig now.
-		 (propagate-check (car choices) state str index))
-		(else
-		 (let ((dupl (duplicate::FSM-state state)))
-		    (propagate-check (car choices) dupl str index))
-		 (loop (cdr choices)))))))))
+	  (with-access::FSM-state state (still-needed?)
+	     (let ((old-still-needed? still-needed?))
+		(set! still-needed? #t)
+		(propagate-check next state str index)
+		(let loop ((alts alternatives))
+		   (cond
+		      ((null? alts)
+		       ;; should never happen.
+		       (set! still-needed? old-still-needed?)
+		       'done)
+		      ((null? (cdr alts))
+		       (set! still-needed? old-still-needed?)
+		       (propagate-check (car alts) state str index))
+		      (else
+		       (propagate-check (car alts) state str index)
+		       (loop (cdr alts)))))))))))
 
 (define-method (propagate n::FSM-repeat-entry state str index)
    (with-access::FSM-repeat-entry n (repeat-exit next)
-      (with-access::FSM-state state (loops)
-	 (set! loops (cons (instantiate::FSM-loop-info
-			      (iterations 0)
-			      (index-time index)
-			      (loop-exit repeat-exit))
-			   loops))
-	 (propagate-check next state str index))))
+      (let ((my-state (modifiable-state state)))
+	 (with-access::FSM-state my-state (loops)
+	    (set! loops (cons (instantiate::FSM-loop-info
+				 (iterations 0)
+				 (index-time index)
+				 (loop-exit repeat-exit))
+			      loops))
+	    (propagate-check next my-state str index)))))
 
 (define-method (propagate n::FSM-repeat-exit state str index)
    (with-access::FSM-repeat-exit n (loop-body next min max greedy?)
 
       (define (repeat state new-count)
-	 (with-access::FSM-state state (loops)
-	    ;; replace first loop-info
-	    (set! loops (cons (instantiate::FSM-loop-info
-				 (iterations new-count)
-				 (index-time index)
-				 (loop-exit n))
-			      (cdr loops)))
-	    (propagate-check loop-body state str index)))
+	 (let ((my-state (modifiable-state state)))
+	    (with-access::FSM-state my-state (loops)
+	       ;; replace first loop-info
+	       (set! loops (cons (instantiate::FSM-loop-info
+				    (iterations new-count)
+				    (index-time index)
+				    (loop-exit n))
+				 (cdr loops)))
+	       (propagate-check loop-body my-state str index))))
 
       (define (leave state)
-	 (with-access::FSM-state state (loops)
-	    ;; we are leaving. -> remove loop-info
-	    (set! loops (cdr loops))
-	    (propagate-check next state str index)))
+	 (let ((my-state (modifiable-state state)))
+	    (with-access::FSM-state my-state (loops)
+	       ;; we are leaving. -> remove loop-info
+	       (set! loops (cdr loops))
+	       (propagate-check next my-state str index))))
 
       (with-access::FSM-state state (loops)
 	 (with-access::FSM-loop-info (car loops) (iterations index-time)
@@ -391,24 +428,26 @@
 		   ;;
 		   ;; Due to our treatment, we can forbid this node and avoid
 		   ;; further repetitions.
-		   (forbidden?-set! n #t)
-		   (let ((dupl (duplicate::FSM-state state)))
-		      (repeat dupl new-count))
-		   (unless (=fx new-count (-fx min 1))
-		      (let ((dupl (duplicate::FSM-state state)))
-			 (repeat dupl (-fx min 1))))
-		   (let ((dupl (duplicate::FSM-state state)))
-		      (if greedy?
-			  (begin
-			     (repeat state min)
-			     (forbidden?-set! n #f)
-			     (leave dupl))
-			  (begin
-			     (forbidden?-set! n #f)
-			     (leave state)
-			     (forbidden?-set! n #t)
-			     (repeat dupl min)
-			     (forbidden?-set! n #f)))))
+		   (with-access::FSM-state state (still-needed?)
+		      (let ((old-still-needed? still-needed?))
+			 (set! still-needed? #t)
+			 (forbidden?-set! n #t)
+			 (repeat state new-count)
+			 (unless (=fx new-count (-fx min 1))
+			    (repeat state (-fx min 1)))
+			 (if greedy?
+			     (begin
+				(repeat state min)
+				(forbidden?-set! n #f)
+				(set! still-needed? old-still-needed?)
+				(leave state))
+			     (begin
+				(forbidden?-set! n #f)
+				(leave state)
+				(forbidden?-set! n #t)
+				(set! still-needed? old-still-needed?)
+				(repeat state min)
+				(forbidden?-set! n #f))))))
 		  ((not reached-min?)
 		   ;; we have not yet reached the min-amount.
 		   ;; -> we have to repeat.
@@ -417,14 +456,18 @@
 		   ;; reached max nb of iterations. -> can't repeat.
 		   (leave state))
 		  (else
-		   (let ((dupl (duplicate::FSM-state state)))
-		      (if greedy?
-			  (begin
-			     (repeat state new-count)
-			     (leave dupl))
-			  (begin
-			     (leave state)
-			     (repeat dupl new-count)))))))))))
+		   (with-access::FSM-state state (still-needed?)
+		      (let ((old-still-needed? still-needed?))
+			 (set! still-needed? #t)
+			 (if greedy?
+			     (begin
+				(repeat state new-count)
+				(set! still-needed? old-still-needed?)
+				(leave state))
+			     (begin
+				(leave state)
+				(set! still-needed? old-still-needed?)
+				(repeat state new-count))))))))))))
 
 (define-method (propagate n::FSM-non-empty state str index)
    (with-access::FSM-non-empty n (next other)
@@ -491,57 +534,79 @@
 		(unless (off-limit? n state)
 		   (occupy! n state))))))))
 
+(define (state-with-modifiable-clusters::FSM-state s::FSM-state)
+   (with-access::FSM-state s (clusters sharing-clusters?)
+      (cond
+	 ((not sharing-clusters?)
+	  s)
+	 ((not (modifiable? s))
+	  (state-with-modifiable-clusters (modifiable-state s)))
+	 (else
+	  (set! clusters (copy-vector clusters (vector-length clusters)))
+	  s))))
+(define (state-with-modifiable-br-clusters::FSM-state s::FSM-state)
+   (with-access::FSM-state s (backref-clusters sharing-br-clusters?)
+      (cond
+	 ((not sharing-br-clusters?)
+	  s)
+	 ((not (modifiable? s))
+	  (state-with-modifiable-clusters (modifiable-state s)))
+	 (else
+	  (set! backref-clusters
+		(copy-vector backref-clusters
+			     (vector-length backref-clusters)))
+	  s))))
+
 (define-method (propagate n::FSM-cluster state str index)
    (with-access::FSM-cluster n (next cluster-index backref-cluster-index)
-      (with-access::FSM-state state (clusters backref-clusters)
-	 ;; copy on write
-	 (set! clusters (copy-vector clusters (vector-length clusters)))
-	 (vector-set! clusters cluster-index index)
-	 (when backref-cluster-index
-	    ;; copy on write
-	    (set! backref-clusters
-		  (copy-vector backref-clusters
-			       (vector-length backref-clusters)))
-	    (vector-set! backref-clusters backref-cluster-index index))
-	 (propagate-check next state str index))))
+      (let ((my-state (state-with-modifiable-clusters state)))
+	 (with-access::FSM-state my-state (clusters backref-clusters)
+	    (vector-set! clusters cluster-index index)
+	    (if backref-cluster-index
+		(let ((my-state2 (state-with-modifiable-br-clusters my-state)))
+		   (vector-set! backref-clusters backref-cluster-index index)
+		   (propagate-check next my-state2 str index))
+		(propagate-check next my-state str index))))))
 
 (define-method (propagate n::FSM-cluster-clear state str index)
+   ;; search for the first entry in vector v[from..to] that is not #f
+   (define (find-not-false v from to)
+      (cond
+	 ((>= from to)
+	  #f)
+	 ((vector-ref v from)
+	  from)
+	 (else
+	  (find-not-false v (+fx from 1) to))))
+
+   ;; set v[from..to] to false
+   (define (set-to-false v from to)
+      (cond
+	 ((>= from to)
+	  'done)
+	 (else
+	  (vector-set! v from #f)
+	  (set-to-false v (+fx from 1) to))))
+
    (with-access::FSM-cluster-clear n (next start-index stop-index
 					   backref-start-index
 					   backref-stop-index)
-      (with-access::FSM-state state (clusters backref-clusters)
-	 ;; lazy copy. If none of the clusters is set, no need to duplicate the
-	 ;; vector.
-	 (let loop ((i start-index)
-		    (copied? #f))
-	    (cond
-	       ((>= i stop-index)
-		'done)
-	       ((and (not copied?)
-		     (vector-ref clusters i))
-		(set! clusters
-		      (copy-vector clusters (vector-length clusters)))
-		(loop i #t))
-	       (else
-		(vector-set! clusters i #f)
-		(loop (+fx i 1) copied?))))
-	 
+      (let ((my-state state))
+	 (let ((i (find-not-false (FSM-state-clusters my-state)
+				  start-index stop-index)))
+	    (when i
+	       (set! my-state (state-with-modifiable-clusters my-state))
+	       (set-to-false (FSM-state-clusters my-state)
+			     i stop-index)))
 	 (when backref-start-index
-	    (let loop ((i backref-start-index)
-		       (copied? #f))
-	       (cond
-		  ((>= i backref-stop-index)
-		   'done)
-		  ((and (not copied?)
-			(vector-ref backref-clusters i))
-		   (set! backref-clusters
-			 (copy-vector backref-clusters
-				      (vector-length backref-clusters)))
-		   (loop i #t))
-		  (else
-		   (vector-set! backref-clusters i #f)
-		   (loop (+fx i 1) copied?))))))
-      (propagate-check next state str index)))
+	    (let ((i (find-not-false (FSM-state-backref-clusters my-state)
+				     backref-start-index
+				     backref-stop-index)))
+	       (when i
+		  (set! my-state (state-with-modifiable-br-clusters my-state))
+		  (set-to-false (FSM-state-backref-clusters my-state)
+				i backref-stop-index))))
+      (propagate-check next my-state str index))))
 
 (define-method (propagate n::FSM-cluster-assert state str index)
    (with-access::FSM-cluster-assert n (entry next contains-clusters? negative?)
@@ -551,22 +616,27 @@
 		  ;; target-off-limit?.
 		  (off-limit? next state)
 		  (forbidden? next)) ;; otherwise only look at 'forbidden?'
-	 (with-access::FSM-state state (node)
-	    (set! node entry)
-
-	    (if (or negative?
-		    (not contains-clusters?))
-		(let ((matched? (fresh-recursive-test *fsm* state str index)))
-		   (cond
-		      ((or (and negative? (not matched?))
-			   (and (not negative?) matched?))
-		       (propagate-check next state str index))
-		      (else
-		       'nothing-to-do))) ;; assert failed
-		;; we need the real state. -> more expensive...
-		(let ((match-state (fresh-recursive-match *fsm* state str index)))
-		   (when match-state
-		      (propagate-check next match-state str index))))))))
+	 (let ((my-state (modifiable-state state)))
+	    ;; we do not need to duplicate if the state is just 'still-needed'
+	    ;; but I don't care...
+	    (with-access::FSM-state my-state (node)
+	       (set! node entry)
+	       
+	       (if (or negative?
+		       (not contains-clusters?))
+		   (let ((matched? (fresh-recursive-test *fsm* my-state
+							 str index)))
+		      (cond
+			 ((or (and negative? (not matched?))
+			      (and (not negative?) matched?))
+			  (propagate-check next my-state str index))
+			 (else
+			  'nothing-to-do))) ;; assert failed
+		   ;; we need the real state. -> more expensive...
+		   (let ((match-state (fresh-recursive-match *fsm* my-state
+							     str index)))
+		      (when match-state
+			 (propagate-check next match-state str index)))))))))
 
 ;; just consumed a character. now waiting for propagation in the next round.
 (define (wait-at n::FSM-node state::FSM-state)
