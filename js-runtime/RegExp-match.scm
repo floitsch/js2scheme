@@ -315,12 +315,12 @@
       (occupy! n state)))
 
 (define-method (propagate n::FSM-start state str index)
-   (with-access::FSM-start n (next)
+   (with-access::FSM-start n (next offset)
       (with-access::FSM-state state (start-index)
 	 ;; start-index may be updated without duplicating.
 	 ;; CARE: this might not be true anymore when we implement Knuth-Morris
 	 ;; algo.
-	 (set! start-index index))
+	 (set! start-index (-fx index offset)))
       (propagate-check next state str index)))
 
 (define-method (propagate n::FSM-final state str index)

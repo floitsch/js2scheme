@@ -90,8 +90,8 @@
 (define-method (dot-out n::FSM-start ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
-      (print (get-id n ht-id) "[label=\"start\"];")
-      (with-access::FSM-start n (next)
+      (with-access::FSM-start n (offset next)
+	 (print (get-id n ht-id) "[label=\"start-" offset "\"];")
 	 (dot-out next ht-id ht-done)
 	 (print (get-id n ht-id) " -> " (get-id next ht-id) ";"))))
 

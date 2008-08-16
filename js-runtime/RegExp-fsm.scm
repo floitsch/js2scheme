@@ -14,7 +14,8 @@
     (class FSM-consuming::FSM-node) ;; consumes char to pass
     (class FSM-0-cost::FSM-node) ;; just used for propagation
     (class FSM-sleeping::FSM-node) ;; might have states sleeping on the nodes
-    (final-class FSM-start::FSM-0-cost)
+    (final-class FSM-start::FSM-0-cost
+       (offset::bint (default 0)))
     (final-class FSM-final::FSM-node) ;; neither consuming nor 0-cost
     (final-class FSM-disjunction::FSM-node
        ;; the first alternative is inside the 'next'-field.
@@ -170,21 +171,50 @@
    (define case-sensitive? #t)
 
    (define (add-implicit-loop scm-re)
-      (define (needs-implicit-loop? scm-re)
+      (define (one-char-consuming? sub-re)
+	 (match-case sub-re
+	    ((or (? char?)
+		 ((or :any
+		      :digit :not-digit
+		      :space :not-space
+		      :word :not-word
+		      :xdigit :not-xdigit
+		      :neg-char
+		      :one-of-chars
+		      )
+		  . ?-))
+	     #t)
+	    (else #f)))
+
+      (match-case scm-re
 	 ;;   if a regexp starts with '^' and it's not a multi-line, then
 	 ;;   we do not need the implicit 'everything*?' in front of the
 	 ;;   regexp.
-	 (match-case scm-re
-	    ((:seq (or :bos :bol :^) ???-)
-	     ;; no need for loop
-	     #f)
-	    (else #t)))
+	 ((:seq (or :bos :bol :^) ???-)
+	  `(:seq (:start-internal 0) ,scm-re))
 
-      (if (needs-implicit-loop? scm-re)
+	 ;; quantified followed by consuming nodes are less costly.
+	 ;; -> try to push :start-internal so they are not directly following
+	 ;; the implicit loop.
+	 ;; Hackishly implemented, but better than nothing.
+	 ;;---
+
+	 ((:seq (and (? one-char-consuming?)
+		     ?sub-re)
+		. ?rest)
+	  ;; sub-re consumes one char.
 	  `(:seq (:quantified #f 0 #f :every-internal)
-		 :start-internal
-		 ,scm-re)
-	  `(:seq :start-internal ,scm-re)))
+		 ,sub-re (:start-internal 1) ,@rest))
+	 ((? one-char-consuming?)
+	  `(:seq (:quantified #f 0 #f :every-internal)
+		 ,scm-re (:start-internal 1)))
+
+	 ;; generic approach.
+	 (else
+	  `(:seq (:quantified #f 0 #f :every-internal)
+		 (:start-internal 0)
+		 ,scm-re))))
+	  
 
    (co-instantiate ((tmp-entry (instantiate::FSM-node
 				  (id -1)
@@ -336,11 +366,12 @@
    
    (match-case scm-re
       ;; internal clauses.
-      (:start-internal
+      ((:start-internal ?offset)
        (with-access::FSM-node entry (next)
 	  (set! next (instantiate::FSM-start
 			(id nodes-nb)
-			(next exit))))
+			(next exit)
+			(offset offset))))
        (values (+fx nodes-nb 1) clusters-nb))
       (:every-internal
        (with-access::FSM-node entry (next)
