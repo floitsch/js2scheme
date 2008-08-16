@@ -278,20 +278,6 @@
    (unless (forbidden? n)
       (propagate n state str index)))
 
-(define (propagate-in-order choices state str index)
-   ;; be careful: during propagation the nodes might change.
-
-   (let loop ((choices choices))
-      (cond
-	 ((null? choices) ;; empty choices list...
-	  'done)
-	 ((null? (cdr choices)) ;; last entry, so we can use orig now.
-	  (propagate-check (car choices) state str index))
-	 (else
-	  (let ((dupl (duplicate::FSM-state state)))
-	     (propagate-check (car choices) dupl str index))
-	     (loop (cdr choices))))))
-
 (define-generic (propagate n::FSM-node state::FSM-state
 			   str::bstring index::bint)
    (error "FSM-match"
@@ -320,34 +306,27 @@
       (*reached-final* #t)))
 
 (define-method (propagate n::FSM-disjunction state str index)
-   (with-access::FSM-disjunction n (next alternatives)
-      (propagate-in-order (cons next alternatives) state str index)))
-
-(define-method (propagate n::FSM-? state str index)
-   (with-access::FSM-? n (next exit greedy?)
-      (let ((choices (if greedy?
-			 (list next exit)
-			 (list exit next))))
-	 (propagate-in-order choices state str index))))
-
-(define-method (propagate n::FSM-*-exit state str index)
-   (with-access::FSM-*-exit n (loop-body greedy? next)
-      (define (repeat state)
-	 (forbidden?-set! n #t) ;; we don't allow empty iterations.
-	 (propagate-check loop-body state str index)
-	 (forbidden?-set! n #f))
-
-      (define (leave state)
-	 (propagate-check next state str index))
-
-      (let ((dupl (duplicate::FSM-state state)))
-	  (if greedy?
-	      (begin
-		 (repeat state)
-		 (leave dupl))
-	      (begin
-		 (leave state)
-		 (repeat dupl))))))
+   (with-access::FSM-disjunction n (next alternatives all-consuming?)
+      (cond
+	 ((and all-consuming?
+	       (not (forbidden? next))
+	       (not (any? forbidden? alternatives)))
+	  (occupy! n state))
+	 (else
+	  ;; be careful: during propagation the nodes might change.
+	  (let ((dupl (duplicate::FSM-state state)))
+	     (propagate-check next dupl str index))
+	  
+	  (let loop ((choices alternatives))
+	     (cond
+		((null? choices) ;; empty choices list...
+		 'done)
+		((null? (cdr choices)) ;; last entry, so we can use orig now.
+		 (propagate-check (car choices) state str index))
+		(else
+		 (let ((dupl (duplicate::FSM-state state)))
+		    (propagate-check (car choices) dupl str index))
+		 (loop (cdr choices)))))))))
 
 (define-method (propagate n::FSM-repeat-entry state str index)
    (with-access::FSM-repeat-entry n (repeat-exit next)
@@ -595,61 +574,83 @@
       (set! node n)
       (push-state! state)))
 
+;; 'advance' may _not_ change a state! we have propagate for that...
 (define-generic (advance n::FSM-node state::FSM-state str::bstring index::bint)
+   (let ((next (consume n state str index)))
+      (when next
+	 (wait-at next state))))
+
+;; we are here, if all alternatives are consuming.
+;; we will only duplicate the state if the state can actually consume a
+;; character. this should considerably reduce the duplications.
+(define-method (advance n::FSM-disjunction state str index)
+   (with-access::FSM-disjunction n (next alternatives)
+      (let ((first-next (consume next state str index)))
+	 (when first-next
+	    (wait-at first-next state))
+	 (let loop ((choices alternatives)
+		    (need-to-dupl? first-next))
+	    (cond
+	       ((null? choices)
+		'done)
+	       ((consume (car choices) state str index)
+		=>
+		(lambda (choice-next)
+		   (if need-to-dupl?
+		       (let ((dupl (duplicate::FSM-state state)))
+			  (wait-at choice-next dupl))
+		       (wait-at choice-next state))
+		   (loop (cdr choices)
+			 #t)))
+	       (else
+		(loop (cdr choices)
+		      need-to-dupl?)))))))
+
+;; returns #f if can't consume.
+;; otherwise returns the target where the state should go.
+;; allows for instance for dispatching nodes.
+;; must _not_ change a state! we have propagate for that...
+(define-generic (consume n::FSM-node state::FSM-state str::bstring index::bint)
    (error "FSM-match"
 	  "forgot node-type"
 	  n))
 
-(define-method (advance n::FSM-final state str index)
-   ;; just put us back in the waiting-list of this node.
-   ;; there might be several nodes waiting now. but during propagate only one
-   ;; will survive.
-   (wait-at n state))
+(define-method (consume n::FSM-final state str index)
+   ;; always consumes a char, and puts the state back to this node.
+   n)
 
-(define-method (advance n::FSM-0-cost state str index)
+(define-method (consume n::FSM-0-cost state str index)
    (error "FSM-match"
-	  "0-cost node to be advanced"
+	  "0-cost node to try to consume"
 	  n))
 
-(define-method (advance n::FSM-backref state str index)
+(define-method (consume n::FSM-sleeping state str index)
    ;; must be a sleeping node.
-   (with-access::FSM-backref n (next)
+   (with-access::FSM-node n (next)
       (with-access::FSM-sleeping-state state (cycles-to-sleep)
-	 (if (=fx cycles-to-sleep 1)
-	     (begin
-		;; we match the last character and propagate.
-		(shrink! state)
-		(wait-at next state))
-	     (begin
-		;; just update the sleep-cycles and put us back into the queue.
-		(set! cycles-to-sleep (-fx cycles-to-sleep 1))
-		;; wait here again.
-		(wait-at n state))))))
+	 (cond
+	    ((=fx cycles-to-sleep 1)
+	     ;; we match the last character and propagate.
+	     (shrink! state)
+	     next)
+	    (else
+	     ;; just update the sleep-cycles and put us back into the queue.
+	     (set! cycles-to-sleep (-fx cycles-to-sleep 1))
+	     ;; wait here again.
+	     n)))))
 
-(define-method (advance n::FSM-char state str index)
+(define-method (consume n::FSM-char state str index)
    (with-access::FSM-char n (next c)
       (when (char=? c (string-ref str index))
-	 (wait-at next state))))
+	 next)))
 
-(define-method (advance n::FSM-every-char state str index)
+(define-method (consume n::FSM-every-char state str index)
    (with-access::FSM-char n (next)
-      (wait-at next state)))
+      next))
 
-(define-method (advance n::FSM-class state str index)
+(define-method (consume n::FSM-class state str index)
    (with-access::FSM-class n (next class)
       (when (RegExp-class-match class (string-ref str index))
-	 (wait-at next state))))
-
-(define-method (advance n::FSM-condition state str index)
-   (with-access::FSM-condition n (next)
-      (with-access::FSM-sleeping-state state (cycles-to-sleep)
-	 (if (=fx cycles-to-sleep 1)
-	     (begin
-		;; we match the last character and propagate.
-		(shrink! state)
-		(wait-at next state))
-	     (begin
-		;; just update the sleep-cycles and put us back into the queue.
-		(set! cycles-to-sleep (-fx cycles-to-sleep 1))
-		(push-state! state))))))
+	 next)))
 )
+

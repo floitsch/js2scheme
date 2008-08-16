@@ -13,31 +13,26 @@
        next::FSM-node) ;; final node points to itself.
     (class FSM-consuming::FSM-node) ;; consumes char to pass
     (class FSM-0-cost::FSM-node) ;; just used for propagation
+    (class FSM-sleeping::FSM-node) ;; might have states sleeping on the nodes
     (final-class FSM-start::FSM-0-cost)
     (final-class FSM-final::FSM-node) ;; neither consuming nor 0-cost
-    (final-class FSM-disjunction::FSM-0-cost
+    (final-class FSM-disjunction::FSM-node
        ;; the first alternative is inside the 'next'-field.
-       (alternatives::pair-nil (default '())))
+       (alternatives::pair-nil (default '()))
+       (all-consuming?::bool (default #f)))
 
-    (class FSM-loop-exit::FSM-0-cost
-       ;; next becomes 'exit'.
-       (greedy?::bool read-only)
-       loop-body::FSM-node)
-    (final-class FSM-?::FSM-0-cost
-       ;; body is in 'next'.
-       (exit::FSM-node read-only) ;; the short-cut.
-       (greedy?::bool read-only))
-    (final-class FSM-*-exit::FSM-loop-exit)
     (final-class FSM-repeat-entry::FSM-0-cost
        (repeat-exit::FSM-repeat-exit read-only))
-    (final-class FSM-repeat-exit::FSM-loop-exit
+    (final-class FSM-repeat-exit::FSM-0-cost
+       (greedy?::bool read-only)
+       loop-body::FSM-node
        (min::bint read-only)
        ;; max must not be 0.
        (max read-only)) ;; either bint or #f
     (final-class FSM-non-empty::FSM-0-cost
        (other::FSM-node read-only))
 
-    (final-class FSM-backref::FSM-node ;; might consume, but not always
+    (final-class FSM-backref::FSM-sleeping ;; might consume, but not always
        backref-nb::bint
        (case-sensitive?::bool read-only))
     
@@ -51,7 +46,7 @@
        ;; does not consume any char!
        (condition::procedure read-only))
 
-    (final-class FSM-condition::FSM-node ;; might consume, but not always
+    (final-class FSM-condition::FSM-sleeping ;; might consume, but not always
        ;; returns #f or the number of consumed chars.
        (condition::procedure read-only))
 
@@ -262,8 +257,14 @@
 	      (stop-index (*fx to 2))
 	      (backref-start-index br-start)
 	      (backref-stop-index br-stop)))))
-			   
-	
+
+;; if all alternatives are consuming, then set the bool.
+(define (check-consuming-alternatives dis-node::FSM-disjunction)
+   (with-access::FSM-disjunction dis-node (next alternatives all-consuming?)
+      (when (and (FSM-consuming? next)
+	       (every? FSM-consuming? alternatives))
+	 (set! all-consuming? #t))))
+
 ;; clusters-nb == nb of remaining open parenthesis.
 ;; IMPORTANT: we construct the fsm from right to left. -> clusters-nb is 0 at
 ;;            the end and not at the beginning.
@@ -387,12 +388,13 @@
 	      (let loop ((rev-alts (reverse alternatives))
 			 (n-nb (+fx nodes-nb 1))
 			 (c-nb clusters-nb))
-		 (if (null? (cdr rev-alts))
-		     (recurse (car rev-alts) dis-node exit n-nb c-nb)
-		     (receive (new-n-nb new-c-nb)
-			(recurse (car rev-alts)
-				 dis-node exit
-				 n-nb c-nb)
+		 (receive (new-n-nb new-c-nb)
+		    (recurse (car rev-alts) dis-node exit n-nb c-nb)
+		    (cond
+		       ((null? (cdr rev-alts))
+			(check-consuming-alternatives dis-node)
+			(values new-n-nb new-c-nb))
+		       (else
 			(with-access::FSM-disjunction dis-node (next
 								alternatives)
 			   ;; move the alt-node from the next-field to the
@@ -400,7 +402,7 @@
 			   (set! alternatives (cons next alternatives))
 			   (loop (cdr rev-alts)
 				 new-n-nb
-				 new-c-nb)))))))))
+				 new-c-nb))))))))))
       ((:seq . ?els)
        (if (null? els) ;; not even sure if that's possible
 	   (with-access::FSM-node entry (next)
@@ -439,40 +441,12 @@
       ;; quantified
       (((or :quantified :between) ?greedy? ?n1 ?n2 ?atom)
        (cond
-	  ((and (zero? n1)
-		(not n2)) ;; x* {0, #f}
-	   ;; the first iteration starts at the exit-node.
-	   (let ((*-exit (instantiate::FSM-*-exit
-			    (id nodes-nb)
-			    (next *tmp-node*)
-			    (loop-body *tmp-node*)
-			    (greedy? greedy?))))
-	      (with-access::FSM-node entry (next)
-		 (set! next *-exit))
-	      (receive (n-nb c-nb created-non-empty?)
-		 (recurse `(:non-empty-internal ,atom)
-			  *-exit *-exit
-			  (+fx nodes-nb 1) clusters-nb)
-		 (with-access::FSM-*-exit *-exit (loop-body next)
-		    (let ((cluster-clear (create-cluster-clear c-nb clusters-nb
-							       backrefs-map
-							       n-nb next)))
-		       (if cluster-clear
-			   (begin
-			      (set! loop-body cluster-clear)
-			      (set! next exit)
-			      (values (+fx n-nb 1) c-nb))
-			   (begin
-			      (set! loop-body next)
-			      (set! next exit)
-			      (values n-nb c-nb))))))))
-	  ((and (=fx n1 1)
-		(not n2)) ;; x+ {1, #f}
-	   (let ((*-exit (instantiate::FSM-*-exit
+	  ((and (or (=fx n1 0)
+		    (=fx n1 1))
+		(not n2)) ;; x+ {1, #f} | x* {0, #f}
+	   (let ((*-exit (instantiate::FSM-disjunction
 			    (id (+fx nodes-nb 1))
-			    (next *tmp-node*)
-			    (loop-body *tmp-node*)
-			    (greedy? greedy?))))
+			    (next *tmp-node*))))
 	      (receive (n-nb c-nb created-non-empty?)
 		 (recurse `(:non-empty-internal ,atom)
 			  *-exit *-exit
@@ -482,40 +456,51 @@
 		 ;; might be empty.
 		 ;; Only in the second iteration is the non-empty used.
 		 (with-access::FSM-node entry (next)
-		    (if created-non-empty?
+		    (cond
+		       ((=fx n1 0)
+			(set! next *-exit))
+		       (created-non-empty?
 			(let* ((non-empty (FSM-node-next *-exit))
 			       (non-empty-body (FSM-node-next non-empty)))
-			   (set! next non-empty-body))
-			(set! next (FSM-node-next *-exit))))
-		 (with-access::FSM-*-exit *-exit (loop-body next)
-		    (let ((cluster-clear (create-cluster-clear c-nb clusters-nb
-							       backrefs-map
-							       n-nb next)))
-		       (if cluster-clear
+			   (set! next non-empty-body)))
+		       (else
+			(set! next (FSM-node-next *-exit)))))
+		 (with-access::FSM-disjunction *-exit (next alternatives)
+		    (let* ((cluster-clear (create-cluster-clear c-nb clusters-nb
+								backrefs-map
+								n-nb next))
+			   (new-n-nb (if cluster-clear (+fx n-nb 1) n-nb))
+			   (loop-body (or cluster-clear next)))
+		       (if greedy?
 			   (begin
-			      (set! loop-body cluster-clear)
-			      (set! next exit)
-			      (values (+fx n-nb 1) c-nb))
+			      (set! next loop-body)
+			      (set! alternatives (list exit)))
 			   (begin
-			      (set! loop-body next)
 			      (set! next exit)
-			      (values n-nb c-nb))))))))
+			      (set! alternatives (list loop-body))))
+		       (check-consuming-alternatives *-exit)
+		       (values new-n-nb c-nb))))))
 	  ((and (=fx n1 1)
 		(=fx n2 1)) ;; {1, 1}
 	   (recurse atom entry exit nodes-nb clusters-nb))
 	  ((and (zero? n1)
 		(=fx n2 1)) ;; x? {0, 1}
-	   (let* ((?-entry (instantiate::FSM-?
+	   (let* ((?-entry (instantiate::FSM-disjunction
 			      (id (+fx nodes-nb 1))
-			      (next *tmp-node*)
-			      (exit exit)
-			      (greedy? greedy?))))
+			      (next *tmp-node*))))
 	      (with-access::FSM-node entry (next)
 		 (set! next ?-entry))
 	      (receive (n-nb c-nb created-non-empty?)
 		 (recurse `(:non-empty-internal ,atom)
 			  ?-entry exit
 			  (+fx nodes-nb 2) clusters-nb)
+		 (with-access::FSM-disjunction ?-entry (next alternatives)
+		    (if greedy?
+			(set! alternatives (list exit))
+			(begin
+			   (set! alternatives (list next))
+			   (set! next exit))))
+		 (check-consuming-alternatives ?-entry)
 		 (values n-nb c-nb))))
 	  ((and (zero? n1)
 		(zero? n2)) ;; nonsensical
