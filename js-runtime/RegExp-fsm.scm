@@ -1,6 +1,7 @@
 (module jsre-RegExp-fsm
    (import jsre-RegExp-classes
-	   mset)
+	   mset
+	   multi-top-level)
    (export
     (class FSM
        entry::FSM-node
@@ -36,7 +37,9 @@
     (final-class FSM-backref::FSM-sleeping ;; might consume, but not always
        backref-nb::bint
        (case-sensitive?::bool read-only))
-    
+
+    (final-class FSM-KMP::FSM-consuming ;; Knuth Morris Pratt
+       (failure::FSM-consuming read-only)) ;; either FSM-KMP or loop-character.
     (final-class FSM-char::FSM-consuming
        (c::char read-only))
     (final-class FSM-every-char::FSM-consuming) ;; everything matches.
@@ -68,7 +71,10 @@
        (contains-clusters?::bool (default #f))
        (negative?::bool read-only))) ;; when set, then #f to continue.
 
-   (export (scm-regexp->fsm scm-re)))
+   (export (scm-regexp->fsm scm-re))
+
+   (static (final-class Globals
+	      *nb-nodes*::bint)))
 
 (define *tmp-node*
    (co-instantiate ((t (instantiate::FSM-node (id -1) (next t))))
@@ -157,7 +163,7 @@
        #t)
       (:empty
        #f)
-      ((or :every-internal)
+      ((or :every)
        #t)
       ((or :start-internal)
        #f)
@@ -166,26 +172,27 @@
 	      "forgot clause"
 	      scm-re))))
 
+(define (one-char-consuming? re)
+   (match-case re
+      ((or (? char?)
+	   ((or :every
+	       :any
+	       :digit :not-digit
+	       :space :not-space
+	       :word :not-word
+	       :xdigit :not-xdigit
+	       :neg-char
+	       :one-of-chars
+	       )
+	    . ?-))
+       #t)
+      (else #f)))
+
 (define (scm-regexp->fsm scm-re)
    (define multi-line? #f)
    (define case-sensitive? #t)
 
    (define (add-implicit-loop scm-re)
-      (define (one-char-consuming? sub-re)
-	 (match-case sub-re
-	    ((or (? char?)
-		 ((or :any
-		      :digit :not-digit
-		      :space :not-space
-		      :word :not-word
-		      :xdigit :not-xdigit
-		      :neg-char
-		      :one-of-chars
-		      )
-		  . ?-))
-	     #t)
-	    (else #f)))
-
       (match-case scm-re
 	 ;;   if a regexp starts with '^' and it's not a multi-line, then
 	 ;;   we do not need the implicit 'everything*?' in front of the
@@ -199,63 +206,88 @@
 	 ;; Hackishly implemented, but better than nothing.
 	 ;;---
 
-	 ((:seq (and (? one-char-consuming?)
-		     ?sub-re)
-		. ?rest)
-	  ;; sub-re consumes one char.
-	  `(:seq (:quantified #f 0 #f :every-internal)
-		 ,sub-re (:start-internal 1) ,@rest))
+	 ((:seq . ?els)
+	  `(:seq (:quantified #f 0 #f :every)
+		 ,@(let loop ((consuming '())
+			      (els els)
+			      (i 0))
+		      (cond
+			 ((null? els)
+			  (reverse! (cons `(:start-internal ,i) consuming)))
+			 ((not (one-char-consuming? (car els)))
+			  (append! (reverse! (cons `(:start-internal ,i)
+						   consuming))
+				   els))
+			 (else
+			  (loop (cons (car els) consuming)
+				(cdr els)
+				(+fx i 1)))))))
 	 ((? one-char-consuming?)
-	  `(:seq (:quantified #f 0 #f :every-internal)
+	  `(:seq (:quantified #f 0 #f :every)
 		 ,scm-re (:start-internal 1)))
 
 	 ;; generic approach.
 	 (else
-	  `(:seq (:quantified #f 0 #f :every-internal)
+	  `(:seq (:quantified #f 0 #f :every)
 		 (:start-internal 0)
 		 ,scm-re))))
 	  
 
+   (let ((backrefs-mset (make-mset))
+	 (cluster-count-box (list 0)))
+      (count-clusters-and-search-backrefs scm-re cluster-count-box
+					  backrefs-mset)
+      (let ((backrefs-map (map (lambda (backref-index compressed-index)
+				  ;; we prefer to count clusters from 0 and
+				  ;; not 1. -> - 1
+				  (cons (-fx backref-index 1)
+					compressed-index))
+			       (sort <fx (mset->list backrefs-mset))
+			       (iota (mset-size backrefs-mset))))
+	    (loop-scm-re (add-implicit-loop scm-re)))
+	 (create-fsm loop-scm-re
+		     (car cluster-count-box)
+		     case-sensitive?
+		     multi-line?
+		     backrefs-map
+		     (mset-size backrefs-mset)))))
+
+(multi-top-level (final-class Globals
+		    *nb-nodes*::bint)
+
+(define *nb-nodes* 0)		 
+(define (get-id)
+   (let ((t *nb-nodes*))
+      (set! *nb-nodes* (+fx *nb-nodes* 1))
+      t))
+
+(define (create-fsm scm-re cluster-count case-sensitive? multi-line?
+		    backrefs-map nb-backref-clusters)
    (co-instantiate ((tmp-entry (instantiate::FSM-node
 				  (id -1)
 				  (next *tmp-node*)))
 		    (exit (instantiate::FSM-final
 			     (id 0)
 			     (next exit))))
-      (let ((backrefs-mset (make-mset))
-	    (cluster-count-box (list 0)))
-	 (count-clusters-and-search-backrefs scm-re cluster-count-box
-					     backrefs-mset)
-	 (let ((backrefs-map (map (lambda (backref-index compressed-index)
-				     ;; we prefer to count clusters from 0 and
-				     ;; not 1. -> - 1
-				     (cons (-fx backref-index 1)
-					   compressed-index))
-				  (sort <fx (mset->list backrefs-mset))
-				  (iota (mset-size backrefs-mset))))
-	       (loop-scm-re (add-implicit-loop scm-re)))
-	    (receive (nb-nodes c-nb)
-	       (scm-re->fsm loop-scm-re tmp-entry exit
-			    1  ;; exit-node got '0'-id.
-			    (car cluster-count-box)
-			    case-sensitive?
-			    multi-line?
-			    backrefs-map)
-	       [assert (c-nb) (zero? c-nb)]
-	       (instantiate::FSM
-		  ;; real entry is 'next' of tmp-entry
-		  (entry (FSM-node-next tmp-entry))
-		  (exit exit)
-		  (nb-nodes nb-nodes)
-		  (nb-clusters (car cluster-count-box))
-		  (nb-backref-clusters (mset-size backrefs-mset))))))))
-
+      (scm-re->fsm scm-re tmp-entry exit
+		   cluster-count
+		   case-sensitive?
+		   multi-line?
+		   backrefs-map)
+      (instantiate::FSM
+	 ;; real entry is 'next' of tmp-entry
+	 (entry (FSM-node-next tmp-entry))
+	 (exit exit)
+	 (nb-nodes *nb-nodes*)
+	 (nb-clusters cluster-count)
+	 (nb-backref-clusters nb-backref-clusters))))
+   
 ;; return a FSM-cluster-clear if from < to. Otherwise non is needed and #f is
 ;; returned.
 ;; Looks for backref-clusters too. (if a cluster inside the interval is used as
 ;; backref-cluster then the corresponding backref-cluster entry must be cleared
 ;; too.
-(define (create-cluster-clear from to backrefs-map id next)
+(define (create-cluster-clear from to backrefs-map next)
    (and (<fx from to)
 	(let* ((br-start (let loop ((i from))
 			    (cond
@@ -282,7 +314,7 @@
 				    (loop (-fx i 1))))))))
 	   (instantiate::FSM-cluster-clear
 	      (next next)
-	      (id id)
+	      (id (get-id))
 	      (start-index (*fx from 2))
 	      (stop-index (*fx to 2))
 	      (backref-start-index br-start)
@@ -303,12 +335,12 @@
 ;; these two nodes. It will update the 'next'-field of 'entry', and will point
 ;; all leaving 'next's to 'exit'.
 ;; returns the next nodes-nb and clusters-nb.
-(define (scm-re->fsm scm-re entry exit nodes-nb clusters-nb
+(define (scm-re->fsm scm-re entry exit clusters-nb
 		     case-sensitive? multi-line?
 		     backrefs-map)
 
-   (define (recurse scm-re entry exit nodes-nb clusters-nb) ;; shorter to type
-      (scm-re->fsm scm-re entry exit nodes-nb clusters-nb
+   (define (recurse scm-re entry exit clusters-nb) ;; shorter to type
+      (scm-re->fsm scm-re entry exit clusters-nb
 		   case-sensitive? multi-line?
 		   backrefs-map))
 	 
@@ -365,34 +397,40 @@
 	     (not (word-boundary str current-pos))))))
    
    (match-case scm-re
+      ;; Knuth-Morris-Pratt
+;       ((:seq ((or :quantified :between) ?greedy (or 0 1) #f
+; 					(and (? one-char-consuming?) ?loop-re))
+; 	     . ?rest)
+;        (let ((loop-class (let* ((class-or-c (RegExp-class-create scm-re case-sensitive?))
+; 	      (t (if (char? class-or-c)
+
       ;; internal clauses.
       ((:start-internal ?offset)
        (with-access::FSM-node entry (next)
 	  (set! next (instantiate::FSM-start
-			(id nodes-nb)
+			(id (get-id))
 			(next exit)
 			(offset offset))))
-       (values (+fx nodes-nb 1) clusters-nb))
-      (:every-internal
+       clusters-nb)
+      (:every
        (with-access::FSM-node entry (next)
 	  (set! next (instantiate::FSM-every-char
-			(id nodes-nb)
+			(id (get-id))
 			(next exit))))
-       (values (+fx nodes-nb 1) clusters-nb))
+       clusters-nb)
+      ;; internal non-empty returns 2 values.
       ((:non-empty-internal ?atom)
        (if (never-empty? atom)
-	   (receive (n-nb c-nb)
-	      (recurse atom entry exit nodes-nb clusters-nb)
-	      (values n-nb c-nb #f))
+	   (let ((c-nb (recurse atom entry exit clusters-nb)))
+	      (values c-nb #f))
 	   (let ((non-empty (instantiate::FSM-non-empty
-			       (id nodes-nb)
+			       (id (get-id))
 			       (next *tmp-node*)
 			       (other exit))))
 	      (with-access::FSM-node entry (next)
 		 (set! next non-empty))
-	      (receive (n-nb c-nb)
-		 (recurse atom non-empty exit (+fx nodes-nb 1) clusters-nb)
-		 (values n-nb c-nb #t)))))
+	      (let ((c-nb (recurse atom non-empty exit clusters-nb)))
+		 (values c-nb #t)))))
 
       ;; public clauses.
       ((:or . ?alternatives)
@@ -402,7 +440,7 @@
 		  "Disjunction must have at least one alternative"
 		  '()))
 	  ((null? (cdr alternatives))
-	   (recurse (car alternatives) entry exit nodes-nb clusters-nb))
+	   (recurse (car alternatives) entry exit clusters-nb))
 	  (else
 	   ;; alternatives must be processed in reverse order (to make the
 	   ;; clusters-nb work).
@@ -412,19 +450,17 @@
 	   ;; As we reverse the list first, it is the last one that receives
 	   ;; special care.
 	   (let ((dis-node (instantiate::FSM-disjunction
-			      (id nodes-nb)
+			      (id (get-id))
 			      (next *tmp-node*))))
 	      (with-access::FSM-node entry (next)
 		 (set! next dis-node))
 	      (let loop ((rev-alts (reverse alternatives))
-			 (n-nb (+fx nodes-nb 1))
 			 (c-nb clusters-nb))
-		 (receive (new-n-nb new-c-nb)
-		    (recurse (car rev-alts) dis-node exit n-nb c-nb)
+		 (let ((new-c-nb (recurse (car rev-alts) dis-node exit c-nb)))
 		    (cond
 		       ((null? (cdr rev-alts))
 			(check-consuming-alternatives dis-node)
-			(values new-n-nb new-c-nb))
+			new-c-nb)
 		       (else
 			(with-access::FSM-disjunction dis-node (next
 								alternatives)
@@ -432,29 +468,24 @@
 			   ;; alternatives field.
 			   (set! alternatives (cons next alternatives))
 			   (loop (cdr rev-alts)
-				 new-n-nb
 				 new-c-nb))))))))))
       ((:seq . ?els)
        (if (null? els) ;; not even sure if that's possible
 	   (with-access::FSM-node entry (next)
 	      (set! next exit)
-	      (values nodes-nb clusters-nb))
+	      clusters-nb)
 	   ;; we must build the sequences in reverse-order (actually this
 	   ;; production was the whole reason for all the trouble with the
 	   ;; clusters-nb).
 	   (let loop ((exit exit)
 		      (rev-els (reverse els))
-		      (n-nb nodes-nb)
 		      (c-nb clusters-nb))
 	      (if (null? (cdr rev-els))
-		  (recurse (car rev-els) entry exit n-nb c-nb)
-		  (receive (new-n-nb new-c-nb)
-		     (recurse (car rev-els)
-			      entry exit n-nb c-nb)
+		  (recurse (car rev-els) entry exit c-nb)
+		  (let ((new-c-nb (recurse (car rev-els) entry exit c-nb)))
 		     (with-access::FSM-node entry (next)
 			(loop next
 			      (cdr rev-els)
-			      new-n-nb
 			      new-c-nb)))))))
       ;; assertions
       ((and (or :^ :bol :bos
@@ -463,12 +494,12 @@
 		:not-wbdry :not-word-boundary) ?assertion)
        (let* ((test-fun (assertion-test-fun assertion))
 	      (assert-node (instantiate::FSM-assert
-			      (id nodes-nb)
+			      (id (get-id))
 			      (condition test-fun)
 			      (next exit))))
 	  (with-access::FSM-node entry (next)
 	     (set! next assert-node))
-	  (values (+fx nodes-nb 1) clusters-nb)))
+	  clusters-nb))
       ;; quantified
       (((or :quantified :between) ?greedy? ?n1 ?n2 ?atom)
        (cond
@@ -476,12 +507,12 @@
 		    (=fx n1 1))
 		(not n2)) ;; x+ {1, #f} | x* {0, #f}
 	   (let ((*-exit (instantiate::FSM-disjunction
-			    (id (+fx nodes-nb 1))
+			    (id (get-id))
 			    (next *tmp-node*))))
-	      (receive (n-nb c-nb created-non-empty?)
+	      (receive (c-nb created-non-empty?)
 		 (recurse `(:non-empty-internal ,atom)
 			  *-exit *-exit
-			  (+fx nodes-nb 1) clusters-nb)
+			  clusters-nb)
 		 ;; if the body could be empty then the first iteration starts
 		 ;; at the node inside the non-empty -> the first iteration
 		 ;; might be empty.
@@ -499,8 +530,7 @@
 		 (with-access::FSM-disjunction *-exit (next alternatives)
 		    (let* ((cluster-clear (create-cluster-clear c-nb clusters-nb
 								backrefs-map
-								n-nb next))
-			   (new-n-nb (if cluster-clear (+fx n-nb 1) n-nb))
+								next))
 			   (loop-body (or cluster-clear next)))
 		       (if greedy?
 			   (begin
@@ -510,21 +540,21 @@
 			      (set! next exit)
 			      (set! alternatives (list loop-body))))
 		       (check-consuming-alternatives *-exit)
-		       (values new-n-nb c-nb))))))
+		       c-nb)))))
 	  ((and (=fx n1 1)
 		(=fx n2 1)) ;; {1, 1}
-	   (recurse atom entry exit nodes-nb clusters-nb))
+	   (recurse atom entry exit clusters-nb))
 	  ((and (zero? n1)
 		(=fx n2 1)) ;; x? {0, 1}
 	   (let* ((?-entry (instantiate::FSM-disjunction
-			      (id (+fx nodes-nb 1))
+			      (id (get-id))
 			      (next *tmp-node*))))
 	      (with-access::FSM-node entry (next)
 		 (set! next ?-entry))
-	      (receive (n-nb c-nb created-non-empty?)
+	      (receive (c-nb created-non-empty?)
 		 (recurse `(:non-empty-internal ,atom)
 			  ?-entry exit
-			  (+fx nodes-nb 2) clusters-nb)
+			  clusters-nb)
 		 (with-access::FSM-disjunction ?-entry (next alternatives)
 		    (if greedy?
 			(set! alternatives (list exit))
@@ -532,35 +562,32 @@
 			   (set! alternatives (list next))
 			   (set! next exit))))
 		 (check-consuming-alternatives ?-entry)
-		 (values n-nb c-nb))))
+		 c-nb)))
 	  ((and (zero? n1)
 		(zero? n2)) ;; nonsensical
 	   ;; we still need to recurse to get the correct clusters
-	   (receive (n-nb c-nb)
-	      (recurse atom
-		       entry
-		       exit
-		       nodes-nb
-		       clusters-nb)
+	   (let* ((current-nodes-nb *nb-nodes*)
+		  (c-nb (recurse atom
+				entry
+				exit
+				clusters-nb)))
 	      ;; now shortcut the unnecessary nodes.
 	      (with-access::FSM-node entry (next)
 		 (set! next exit))
-	      ;; we can reuse the old nodes-nb, but we have to keep the new
-	      ;; clusters-nb.
-	      ;; this is the reason we have to do the cluster-numbering at the
-	      ;; same time as the fsm-construction.
-	      (values nodes-nb c-nb)))
+	      ;; reset the nodes-nb.
+	      (set! *nb-nodes* current-nodes-nb)
+	      c-nb))
 	  ((zero? n1) ;; {0, n2}. simplify to '{1, n2}?'
 	   (recurse `(:quantified ,greedy? 0 1
 				  (:quantified ,greedy? 1 ,n2 ,atom))
-		    entry exit nodes-nb clusters-nb))
+		    entry exit clusters-nb))
 	  (else ;; {1, n2}
 	   (co-instantiate ((rep-entry (instantiate::FSM-repeat-entry
-					  (id nodes-nb)
+					  (id (get-id))
 					  (next *tmp-node*)
 					  (repeat-exit rep-exit)))
 			    (rep-exit (instantiate::FSM-repeat-exit
-					 (id (+fx nodes-nb 1))
+					 (id (get-id))
 					 (next exit)
 					 (loop-body *tmp-node*)
 					 (min n1)
@@ -568,50 +595,43 @@
 					 (greedy? greedy?))))
 	      (with-access::FSM-node entry (next)
 		 (set! next rep-entry))
-	      (receive (n-nb c-nb)
-		 (recurse atom rep-entry rep-exit (+fx nodes-nb 2) clusters-nb)
+	      (let* ((c-nb (recurse atom rep-entry rep-exit clusters-nb))
+		     (cluster-clear (create-cluster-clear
+				     c-nb clusters-nb
+				     backrefs-map
+				     (FSM-node-next rep-entry))))
 		 (with-access::FSM-repeat-exit rep-exit (loop-body)
-		    (let ((cluster-clear (create-cluster-clear
-					  c-nb clusters-nb
-					  backrefs-map
-					  n-nb
-					  (FSM-node-next rep-entry))))
 		       (if cluster-clear
-			   (begin
-			      (set! loop-body cluster-clear)
-			      (values (+fx n-nb 1) c-nb))
-			   (begin
-			      (set! loop-body (FSM-node-next rep-entry))
-			      (values n-nb c-nb))))))))))
+			   (set! loop-body cluster-clear)
+			   (set! loop-body (FSM-node-next rep-entry)))
+		       c-nb))))))
       (((or :cluster :sub) ?d)
        (let* ((cluster-entry (instantiate::FSM-cluster
-				(id nodes-nb)
+				(id (get-id))
 				(next *tmp-node*)))
 	      (cluster-exit (instantiate::FSM-cluster
-			       (id (+fx nodes-nb 1))
+			       (id (get-id))
 			       (next exit))))
 	  (with-access::FSM-node entry (next)
 	     (set! next cluster-entry))
-	  (receive (n-nb c-nb)
-	     (recurse d cluster-entry cluster-exit
-		      (+fx nodes-nb 2) clusters-nb)
-	     (let* ((this-c-nb (-fx c-nb 1)) ;; id of this cluster.
-		    (backref-entry (assq this-c-nb backrefs-map)))
-		(with-access::FSM-cluster cluster-entry (cluster-index
-							 backref-cluster-index)
-		   (set! cluster-index (*fx this-c-nb 2))
-		   (when backref-entry
-		      (set! backref-cluster-index
-			    (*fx (cdr backref-entry) 2))))
-		(with-access::FSM-cluster cluster-exit (cluster-index
-							backref-cluster-index)
-		   (set! cluster-index (+fx (*fx this-c-nb 2) 1))
-		   (when backref-entry
-		      (set! backref-cluster-index
-			    (+fx (*fx (cdr backref-entry) 2) 1))))
+	  (let* ((c-nb (recurse d cluster-entry cluster-exit clusters-nb))
+		 (this-c-nb (-fx c-nb 1)) ;; id of this cluster.
+		 (backref-entry (assq this-c-nb backrefs-map)))
+	     (with-access::FSM-cluster cluster-entry (cluster-index
+						      backref-cluster-index)
+		(set! cluster-index (*fx this-c-nb 2))
+		(when backref-entry
+		   (set! backref-cluster-index
+			 (*fx (cdr backref-entry) 2))))
+	     (with-access::FSM-cluster cluster-exit (cluster-index
+						     backref-cluster-index)
+		(set! cluster-index (+fx (*fx this-c-nb 2) 1))
+		(when backref-entry
+		   (set! backref-cluster-index
+			 (+fx (*fx (cdr backref-entry) 2) 1))))
 		   
-		   ;; note that we decrease the clusters-nb here
-		(values n-nb (-fx c-nb 1))))))
+	     ;; note that we decrease the clusters-nb here
+	     (-fx c-nb 1))))
       (((and (or :pos-lookahead-cluster :lookahead
 		 :neg-lookahead-cluster :neg-lookahead)
 	     ?pos/neg?)
@@ -619,24 +639,24 @@
        (let ((negative? (or (eq? pos/neg? ':neg-lookahead-cluster)
 			    (eq? pos/neg? ':neg-lookahead))))
 	  (co-instantiate ((d-entry (instantiate::FSM-cluster-assert
-				       (id nodes-nb)
+				       (id (get-id))
 				       (next *tmp-node*)
 				       (negative? negative?)
 				       (entry *tmp-node*)))
 			   (d-exit (instantiate::FSM-final
-				      (id (+fx nodes-nb 1))
+				      (id (get-id))
 				      (next d-exit))))
 	     (with-access::FSM-node entry (next)
 		(set! next d-entry))
-	     (receive (n-nb c-nb)
-		;; temporarily assign the entry to the 'next'-field.
-		(recurse d d-entry d-exit (+fx nodes-nb 2) clusters-nb)
+	     (let ((c-nb
+		    ;; temporarily assign the entry to the 'next'-field.
+		    (recurse d d-entry d-exit clusters-nb)))
 		(with-access::FSM-cluster-assert d-entry
 		      (next entry contains-clusters?)
 		   (set! entry next)
 		   (set! next exit)
 		   (set! contains-clusters? (not (=fx clusters-nb c-nb))))
-		(values n-nb c-nb)))))
+		c-nb))))
       ((:backref ?n)
        ;; note that 'n' starts counting from 1.
        ;; 'clusters-nb' starts from 0.
@@ -650,13 +670,13 @@
        ;; backrefs-map starts from 0. -> -1
        (let* ((backref-index (cdr (assq (-fx n 1) backrefs-map)))
 	      (br (instantiate::FSM-backref
-		    (id nodes-nb)
+		    (id (get-id))
 		    (next exit)
 		    (backref-nb backref-index)
 		    (case-sensitive? case-sensitive?))))
 	  (with-access::FSM-node entry (next)
 	     (set! next br))
-	  (values (+fx nodes-nb 1) clusters-nb)))
+	  clusters-nb))
       ((or (? char?)
 	   ((or :any
 		:digit :not-digit
@@ -670,38 +690,38 @@
        (let* ((class-or-c (RegExp-class-create scm-re case-sensitive?))
 	      (t (if (char? class-or-c)
 		     (instantiate::FSM-char
-			(id nodes-nb)
+			(id (get-id))
 			(next exit)
 			(c class-or-c))
 		     (instantiate::FSM-class
-			(id nodes-nb)
+			(id (get-id))
 			(next exit)
 			(class class-or-c)))))
 	  (with-access::FSM-node entry (next)
 	     (set! next t))
-	  (values (+fx nodes-nb 1) clusters-nb)))
+	  clusters-nb))
       (:empty
        (with-access::FSM-node entry (next)
 	  (set! next exit))
-       (values nodes-nb clusters-nb))
+       clusters-nb)
       ((:case-sensitive  ?re)
-       (scm-re->fsm re entry exit nodes-nb clusters-nb
+       (scm-re->fsm re entry exit clusters-nb
 		    #t multi-line?
 		    backrefs-map))
       ((:case-insensitive  ?re)
-       (scm-re->fsm re entry exit nodes-nb clusters-nb
+       (scm-re->fsm re entry exit clusters-nb
 		    #f multi-line?
 		    backrefs-map))
       ((:multi-line ?re)
-       (scm-re->fsm re entry exit nodes-nb clusters-nb
+       (scm-re->fsm re entry exit clusters-nb
 		    case-sensitive? #t
 		    backrefs-map))
       ((:no-multi-line ?re)
-       (scm-re->fsm re entry exit nodes-nb clusters-nb
+       (scm-re->fsm re entry exit clusters-nb
 		    case-sensitive? #f
 		    backrefs-map))
       (else
        (error "fsm"
 	      "could not match scm-re"
 	      scm-re))))
-	     
+)

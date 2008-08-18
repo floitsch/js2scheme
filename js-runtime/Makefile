@@ -55,7 +55,7 @@ o/eval.o: eval.scm $(RUNTIME_BIGL_INCLUDES)
 	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
 
 o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -c -copt -g -copt -g -o $@ $<
+	$(BIGLOO) -c -copt -g -g -o $@ $<
 
 # for js2scm-comp script
 %.exe: $(RUNTIME_OBJECTS) o/%.o
