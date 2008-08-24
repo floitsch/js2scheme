@@ -54,15 +54,13 @@ o:
 o/eval.o: eval.scm $(RUNTIME_BIGL_INCLUDES)
 	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
 
-#o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
-#	$(BIGLOO) -c -g -o $@ $<
 o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -c -Obench -o $@ $<
+	$(BIGLOO) -c -g -o $@ $<
 # must not use -g for match...
+#o/RegExp-match.o: RegExp-match.scm $(RUNTIME_BGL_INCLUDES)
+#	$(BIGLOO) -c -O3 -o $@ $<
 o/RegExp-match.o: RegExp-match.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -c -Obench -o $@ $<
-%.class: %.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -jvm -g -o $@ $<
+	$(BIGLOO) -c -g -o $@ $<
 
 # for js2scm-comp script
 %.exe: $(RUNTIME_OBJECTS) o/%.o
@@ -75,9 +73,13 @@ REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot 
                   RegExp-match RegExp-state mset multi-top-level
 
 REGEXP_OBJECTS = $(REGEXP_MODULES:%=o/%.o)
-REGEXP_JVM_OBJECTS = $(REGEXP_MODULES:%=%.class)
 
 regexp: .afile $(REGEXP_OBJECTS) RegExp-KMP.scm
 	$(BIGLOO) -o $@ $(REGEXP_OBJECTS)
+
+REGEXP_JVM_OBJECTS = $(REGEXP_MODULES:%=%.class)
+%.class: %.scm $(RUNTIME_BGL_INCLUDES)
+	$(BIGLOO) -jvm -g -o $@ $<
 regexp.jvm: .afile $(REGEXP_JVM_OBJECTS) RegExp-KMP.scm
 	$(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS)
+

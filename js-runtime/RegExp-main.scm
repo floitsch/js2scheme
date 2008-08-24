@@ -57,6 +57,8 @@
        (print (pregexp-match (cadr args) (read-string)))
        (let ((re (str->fsm (cadr args)))
 	     (str (read-string)))
+	  (tprint "big-regexp: " (pregexp (cadr args)))
+	  (tprint "my-regexp:  " (js-regexp->scm-regexp (cadr args)))
 	  (tprint "running reg-exp")
 	  (print (regexp-match re str 0))))
    )

@@ -155,7 +155,7 @@
    (let ((c (peek-char)))
       (case c
 	 ((#\.) (consume-char!)
-		'(:any))
+		':any)
 	 ((#\\) (atom-escape))
 	 ((#\() (cluster))
 	 ((#\[) (character-class))
@@ -337,8 +337,8 @@
 	       (loop (cdr res))))
 	 ;; chars is now a list of chars and ranges.
 	 (if invert?
-	     `(:neg-char (:one-of-chars ,chars))
-	     `(:one-of-chars ,chars)))))
+	     `(:neg-char (:one-of-chars ,@chars))
+	     `(:one-of-chars ,@chars)))))
 
 (define (class-escape)
    (let ((c (peek-char)))

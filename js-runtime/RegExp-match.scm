@@ -18,8 +18,7 @@
        *node-uses*
        *frozen-states*::pair-nil
        *nb-frozen-layers*::bint
-       *rev-pushed-states*::pair-nil
-       *reached-final*)
+       *rev-pushed-states*::pair-nil)
     ))
 (define-macro (receive . L) `(multiple-value-bind ,@L))
 (define *debug* #f)
@@ -44,8 +43,7 @@
  		    *node-uses*
  		    *frozen-states*::pair-nil
  		    *nb-frozen-layers*::bint
- 		    *rev-pushed-states*::pair-nil
-		    *reached-final*)
+ 		    *rev-pushed-states*::pair-nil)
 		 
 (define *fsm* #unspecified)
 
@@ -161,7 +159,7 @@
       (set! *rev-pushed-states* '())
 
       ;; HACK: hard-coded ad-hoc algo to cut next-round-states...
-      (when (> (bit-lsh len *nb-frozen-layers*)
+      (when (>fx (bit-lsh len *nb-frozen-layers*)
 	       *max-parallel-states*)
 	 (let ((keep-nb (max (bit-rsh *max-parallel-states*
 				      (+ *nb-frozen-layers* 1))
@@ -191,8 +189,6 @@
    (with-access::FSM-state state (still-needed? occupying?)
       (not (or still-needed? occupying?))))
    
-(define *reached-final* #unspecified)
-
 ;; run one iteration at a time
 (define (run states str index only-test?)
    (when *debug*
@@ -202,17 +198,13 @@
 			  str index))))
    ;; first propagate states.
    (let ((reached-final?
-	  (bind-exit (reached-final)
-	     (set! *reached-final* reached-final)
-	     ;; 
-	     (for-each (lambda (state)
+	     (any? (lambda (state)
 			  (with-access::FSM-state state (node still-needed?
 							      occupying?)
 			     (set! still-needed? #f)
 			     (set! occupying? #f)
 			     (propagate node state str index)))
-		       states)
-	     #f)))
+		       states)))
 
       (when reached-final?
 	 ;; clear frozen nodes. we have reached the final node, and all
@@ -324,7 +316,8 @@
 
 (define-method (propagate n::FSM-consuming state str index)
    (unless (off-limit? n state)
-      (occupy! n state)))
+      (occupy! n state))
+   #f)
 
 (define-method (propagate n::FSM-start state str index)
    (with-access::FSM-start n (next offset)
@@ -349,8 +342,8 @@
 	    ;; there cannot be any other node here. so just put us into the
 	    ;; queue.
 	    (occupy! n my-state)
-	    ;; abort propagation and go back to 'run'.
-	    (*reached-final* #t)))))
+	    ;; return #t to indicate we reached final ...
+	    #t))))
 
 (define (FSM-disjunction->FSM-opt-disjunction! n::FSM-disjunction)
    (define (consuming? n)
@@ -379,24 +372,25 @@
 	 ((and all-consuming?
 	       (not (forbidden? next))
 	       (not (any? forbidden? alternatives)))
-	  (occupy! n state))
+	  (occupy! n state)
+	  #f)
 	 (else
 	  (with-access::FSM-state state (still-needed?)
 	     (let ((old-still-needed? still-needed?))
 		(set! still-needed? #t)
-		(propagate-check next state str index)
-		(let loop ((alts alternatives))
-		   (cond
-		      ((null? alts)
-		       ;; should never happen.
-		       (set! still-needed? old-still-needed?)
-		       'done)
-		      ((null? (cdr alts))
-		       (set! still-needed? old-still-needed?)
-		       (propagate-check (car alts) state str index))
-		      (else
-		       (propagate-check (car alts) state str index)
-		       (loop (cdr alts)))))))))))
+		(or (propagate-check next state str index)
+		    (let loop ((alts alternatives))
+		       (cond
+			  ((null? alts)
+			   ;; should never happen.
+			   (set! still-needed? old-still-needed?)
+			   'done)
+			  ((null? (cdr alts))
+			   (set! still-needed? old-still-needed?)
+			   (propagate-check (car alts) state str index))
+			  (else
+			   (or (propagate-check (car alts) state str index)
+			       (loop (cdr alts)))))))))))))
 
 (define-method (propagate n::FSM-repeat-entry state str index)
    (with-access::FSM-repeat-entry n (repeat-exit next)
@@ -467,6 +461,9 @@
 		   (with-access::FSM-state state (still-needed?)
 		      (let ((old-still-needed? still-needed?))
 			 (set! still-needed? #t)
+			 ;; the final node cannot be inside the loop.
+			 ;; -> as we set the forbidden here only leaving can
+			 ;; lead to the final node.
 			 (forbidden?-set! n #t)
 			 (repeat state new-count)
 			 (unless (=fx new-count (-fx min 1))
@@ -479,11 +476,13 @@
 				(leave state))
 			     (begin
 				(forbidden?-set! n #f)
-				(leave state)
-				(forbidden?-set! n #t)
-				(set! still-needed? old-still-needed?)
-				(repeat state min)
-				(forbidden?-set! n #f))))))
+				;; leave could reach the final node.
+				(or (leave state)
+				    (begin
+				       (forbidden?-set! n #t)
+				       (set! still-needed? old-still-needed?)
+				       (repeat state min)
+				       (forbidden?-set! n #f))))))))
 		  ((not reached-min?)
 		   ;; we have not yet reached the min-amount.
 		   ;; -> we have to repeat.
@@ -496,27 +495,31 @@
 		      (let ((old-still-needed? still-needed?))
 			 (set! still-needed? #t)
 			 (if greedy?
+			     (or (repeat state new-count)
+				 (begin
+				    (set! still-needed? old-still-needed?)
+				    (leave state)))
 			     (begin
-				(repeat state new-count)
-				(set! still-needed? old-still-needed?)
-				(leave state))
-			     (begin
-				(leave state)
-				(set! still-needed? old-still-needed?)
-				(repeat state new-count))))))))))))
+				(or (leave state)
+				    (begin
+				       (set! still-needed? old-still-needed?)
+				       (repeat state new-count))))))))))))))
 
 (define-method (propagate n::FSM-non-empty state str index)
    (with-access::FSM-non-empty n (next other)
       (let ((old-forbidden? (forbidden? other)))
 	 (forbidden?-set! other #t)
-	 (propagate-check next state str index)
-	 (forbidden?-set! other old-forbidden?))))
+	 (let ((tmp (propagate-check next state str index)))
+	    (forbidden?-set! other old-forbidden?)
+	    tmp))))
 
 (define-method (propagate n::FSM-backref state str index)
    (if (FSM-sleeping-state? state)
        ;; do not occupy (as this would conflict with other states) but still
        ;; push the state, as it is still alive.
-       (push-state! state)
+       (begin
+	  (push-state! state)
+	  #f)
        (with-access::FSM-backref n (backref-nb next case-sensitive?)
 	  (with-access::FSM-state state (backref-clusters)
 	     (let* ((tmp (*fx backref-nb 2))
@@ -543,7 +546,8 @@
 		    ;; for the first iteration we can say, that we occupy this
 		    ;; node. after that no.
 		    (unless (off-limit? n state)
-		       (occupy! n state)))
+		       (occupy! n state))
+		    #f)
 		   (else
 		    ;; no match. nothing to do
 		    'do-nothing)))))))
@@ -559,7 +563,7 @@
 	 (let ((res (condition str index)))
 	    (cond
 	       ((not res)
-		'do-nothing)
+		#f) ;; do nothing
 	       ((=fx res 0)
 		(propagate-check next state str index))
 	       (else
@@ -568,7 +572,8 @@
 		;; for the first iteration we can occupy this
 		;; node. after that no.
 		(unless (off-limit? n state)
-		   (occupy! n state))))))))
+		   (occupy! n state))
+		#f))))))
 
 (define (state-with-modifiable-clusters::FSM-state s::FSM-state)
    (with-access::FSM-state s (clusters sharing-clusters?)
@@ -667,7 +672,7 @@
 			      (and (not negative?) matched?))
 			  (propagate-check next my-state str index))
 			 (else
-			  'nothing-to-do))) ;; assert failed
+			  #f))) ;; do nothing. assert failed
 		   ;; we need the real state. -> more expensive...
 		   (let ((match-state (fresh-recursive-match *fsm* my-state
 							     str index)))

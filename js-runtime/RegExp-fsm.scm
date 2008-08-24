@@ -111,7 +111,7 @@
       ((? RegExp-class-pattern?)
        ;; classes
        'do-nothing)
-      ((or :empty (:empty))
+      (:empty
        'do-nothing)
       (else
        (error "count-clusters-and-search-backrefs"
@@ -146,9 +146,9 @@
       ((? RegExp-class-pattern?)
        ;; classes
        #t)
-      ((or :empty (:empty))
+      (:empty
        #f)
-      ((or :every (:every))
+      (:every
        #t)
       ((:start-internal ?-)
        #f)
@@ -159,7 +159,6 @@
 
 (define (one-char-consuming? re)
    (or (eq? re :every)
-       (equal? re '(:every))
        (RegExp-class-pattern? re)))
 
 (define (scm-regexp->fsm scm-re)
@@ -328,7 +327,7 @@
 			(next exit)
 			(offset offset))))
        clusters-nb)
-      ((or :every (:every))
+      (:every
        (with-access::FSM-node entry (next)
 	  (set! next (instantiate::FSM-everything
 			(id (get-id))
