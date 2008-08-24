@@ -7,10 +7,10 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			natives object global-object globals globals-tmp \
 			primitives runtime operators scope-object \
 			RegExp RegExp-parse RegExp-fsm RegExp-classes \
-			RegExp-dot RegExp-match RegExp-state mset \
-			multi-top-level
+			RegExp-dot RegExp-match RegExp-state \
+			mset multi-top-level
 
-RUNTIME_BGL_INCLUDES = macros.sch
+RUNTIME_BGL_INCLUDES = macros.sch RegExp-KMP.scm
 
 REPL_BGL_MODULES = repl
 
@@ -54,18 +54,30 @@ o:
 o/eval.o: eval.scm $(RUNTIME_BIGL_INCLUDES)
 	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
 
+#o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
+#	$(BIGLOO) -c -g -o $@ $<
 o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -c -copt -g -g -o $@ $<
+	$(BIGLOO) -c -Obench -o $@ $<
+# must not use -g for match...
+o/RegExp-match.o: RegExp-match.scm $(RUNTIME_BGL_INCLUDES)
+	$(BIGLOO) -c -Obench -o $@ $<
+%.class: %.scm $(RUNTIME_BGL_INCLUDES)
+	$(BIGLOO) -jvm -g -o $@ $<
 
 # for js2scm-comp script
 %.exe: $(RUNTIME_OBJECTS) o/%.o
 	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
 
 clean:
-	rm -f $(OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
+	rm -f $(OBJECTS) $(REGEXP_OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
 
 REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot \
                   RegExp-match RegExp-state mset multi-top-level
 
-regexp: $(REGEXP_MODULES:%=o/%.o)
-	$(BIGLOO) -o $@ $^
+REGEXP_OBJECTS = $(REGEXP_MODULES:%=o/%.o)
+REGEXP_JVM_OBJECTS = $(REGEXP_MODULES:%=%.class)
+
+regexp: .afile $(REGEXP_OBJECTS) RegExp-KMP.scm
+	$(BIGLOO) -o $@ $(REGEXP_OBJECTS)
+regexp.jvm: .afile $(REGEXP_JVM_OBJECTS) RegExp-KMP.scm
+	$(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS)

@@ -20,8 +20,7 @@
     (final-class FSM-final::FSM-node) ;; neither consuming nor 0-cost
     (final-class FSM-disjunction::FSM-node
        ;; the first alternative is inside the 'next'-field.
-       (alternatives::pair-nil (default '()))
-       (all-consuming?::bool (default #f)))
+       (alternatives::pair-nil (default '())))
 
     (final-class FSM-repeat-entry::FSM-0-cost
        (repeat-exit::FSM-repeat-exit read-only))
@@ -38,11 +37,9 @@
        backref-nb::bint
        (case-sensitive?::bool read-only))
 
-    (final-class FSM-KMP::FSM-consuming ;; Knuth Morris Pratt
-       (failure::FSM-consuming read-only)) ;; either FSM-KMP or loop-character.
     (final-class FSM-char::FSM-consuming
        (c::char read-only))
-    (final-class FSM-every-char::FSM-consuming) ;; everything matches.
+    (final-class FSM-everything::FSM-consuming) ;; everything matches.
     (final-class FSM-class::FSM-consuming
        (class read-only))
 
@@ -69,12 +66,14 @@
     (final-class FSM-cluster-assert::FSM-0-cost
        entry::FSM-node
        (contains-clusters?::bool (default #f))
-       (negative?::bool read-only))) ;; when set, then #f to continue.
+       (negative?::bool read-only)))   ;; when set, then #f to continue.
 
    (export (scm-regexp->fsm scm-re))
 
    (static (final-class Globals
-	      *nb-nodes*::bint)))
+	      *nb-nodes*::bint))
+
+   (include "RegExp-KMP.scm"))
 
 (define *tmp-node*
    (co-instantiate ((t (instantiate::FSM-node (id -1) (next t))))
@@ -104,22 +103,15 @@
       ((:backref ?n)
        (mset-put! mset n))
       ((or :bos :bol :^
-	  :eol :eos :$
-	  :word-boundary :wbdry
-	  :not-word-boundary :not-wbdry)
+	   :eol :eos :$
+	   :word-boundary :wbdry
+	   :not-word-boundary :not-wbdry)
        ;; assertions
        'do-nothing)
-      ((or (? char?)
-	   ((or :any
-	       :digit :not-digit
-	       :space :not-space
-	       :word :not-word
-	       :xdigit :not-xdigit
-	       :neg-char :one-of-chars)
-	    ???-))
+      ((? RegExp-class-pattern?)
        ;; classes
        'do-nothing)
-      (:empty
+      ((or :empty (:empty))
        'do-nothing)
       (else
        (error "count-clusters-and-search-backrefs"
@@ -146,26 +138,19 @@
       ((:backref ?n)
        #f)
       ((or :bos :bol :^
-	  :eol :eos :$
-	  :word-boundary :wbdry
-	  :not-word-boundary :not-wbdry)
+	   :eol :eos :$
+	   :word-boundary :wbdry
+	   :not-word-boundary :not-wbdry)
        ;; assertions
        #f)
-      ((or (? char?)
-	   ((or :any
-	       :digit :not-digit
-	       :space :not-space
-	       :word :not-word
-	       :xdigit :not-xdigit
-	       :neg-char :one-of-chars)
-	    ???-))
+      ((? RegExp-class-pattern?)
        ;; classes
        #t)
-      (:empty
+      ((or :empty (:empty))
        #f)
-      ((or :every)
+      ((or :every (:every))
        #t)
-      ((or :start-internal)
+      ((:start-internal ?-)
        #f)
       (else
        (error "never-empty?"
@@ -173,20 +158,9 @@
 	      scm-re))))
 
 (define (one-char-consuming? re)
-   (match-case re
-      ((or (? char?)
-	   ((or :every
-	       :any
-	       :digit :not-digit
-	       :space :not-space
-	       :word :not-word
-	       :xdigit :not-xdigit
-	       :neg-char
-	       :one-of-chars
-	       )
-	    . ?-))
-       #t)
-      (else #f)))
+   (or (eq? re :every)
+       (equal? re '(:every))
+       (RegExp-class-pattern? re)))
 
 (define (scm-regexp->fsm scm-re)
    (define multi-line? #f)
@@ -320,13 +294,6 @@
 	      (backref-start-index br-start)
 	      (backref-stop-index br-stop)))))
 
-;; if all alternatives are consuming, then set the bool.
-(define (check-consuming-alternatives dis-node::FSM-disjunction)
-   (with-access::FSM-disjunction dis-node (next alternatives all-consuming?)
-      (when (and (FSM-consuming? next)
-	       (every? FSM-consuming? alternatives))
-	 (set! all-consuming? #t))))
-
 ;; clusters-nb == nb of remaining open parenthesis.
 ;; IMPORTANT: we construct the fsm from right to left. -> clusters-nb is 0 at
 ;;            the end and not at the beginning.
@@ -335,75 +302,24 @@
 ;; these two nodes. It will update the 'next'-field of 'entry', and will point
 ;; all leaving 'next's to 'exit'.
 ;; returns the next nodes-nb and clusters-nb.
-(define (scm-re->fsm scm-re entry exit clusters-nb
-		     case-sensitive? multi-line?
+(define (scm-re->fsm scm-re entry::FSM-node exit::FSM-node clusters-nb::bint
+		     case-sensitive?::bool multi-line?::bool
 		     backrefs-map)
 
    (define (recurse scm-re entry exit clusters-nb) ;; shorter to type
       (scm-re->fsm scm-re entry exit clusters-nb
 		   case-sensitive? multi-line?
 		   backrefs-map))
-	 
 
-   (define (assertion-test-fun assert-id)
-      ;; 15.10.2.6
-      (define (word-boundary str index)
-	 (define (word-char? c)
-	    (or (char-alphabetic? c)
-		(char-numeric? c)
-		(char=? c #\_)))
-
-	 (let ((len (string-length str)))
-	    (cond
-	       ((zerofx? len)
-		#f)
-	       ((or (zerofx? index)
-		    (=fx index (-fx len 1)))
-		(word-char? (string-ref str index)))
-	       ((word-char? (string-ref str (-fx index 1)))
-		(not (word-char? (string-ref str index))))
-	       (else ;; index-1 is not word-char
-		(word-char? (string-ref str index))))))
-
-      (define (terminator-char? c)
-	 (let ((n (char->integer c)))
-	    (or (=fx n #xA) ;; Linefeed
-		(=fx n #xD) ;; Carriage Return
-		;; following entries can't happen unless we
-		;; have switched to UCS2
-		(=fx n #x2028) ;; Line separator
-		(=fx n #x2029)))) ;; Paragraph separator
-
-
-      (case assert-id
-	 ((:bol :bos :^)
-	  (if multi-line?
-	      (lambda (str index)
-		 (or (zerofx? index)
-			  (terminator-char? (string-ref str (-fx index 1)))))
-	      (lambda (str index)
-		 (zerofx? index))))
-	 ((:eol :eos :$)
-	  (if multi-line?
-	      (lambda (str index)
-		 (or (=fx index (string-length str))
-		     (terminator-char? (string-ref str index))))
-	      (lambda (str index)
-		 (=fx index (string-length str)))))
-	 ((:word-boundary :wbdry)
-	  word-boundary)
-	 ((:not-word-boundary :not-wbdry)
-	  (lambda (str current-pos)
-	     (not (word-boundary str current-pos))))))
-   
    (match-case scm-re
       ;; Knuth-Morris-Pratt
-;       ((:seq ((or :quantified :between) ?greedy (or 0 1) #f
-; 					(and (? one-char-consuming?) ?loop-re))
-; 	     . ?rest)
-;        (let ((loop-class (let* ((class-or-c (RegExp-class-create scm-re case-sensitive?))
-; 	      (t (if (char? class-or-c)
-
+      ((:seq ((or :quantified :between) ?greedy?
+					(and (or 0 1) ?min)
+					#f
+					(and (? one-char-consuming?) ?loop-re))
+	     . ?rest)
+       (KMP greedy? min loop-re rest
+	    recurse entry exit clusters-nb get-id))
       ;; internal clauses.
       ((:start-internal ?offset)
        (with-access::FSM-node entry (next)
@@ -412,9 +328,9 @@
 			(next exit)
 			(offset offset))))
        clusters-nb)
-      (:every
+      ((or :every (:every))
        (with-access::FSM-node entry (next)
-	  (set! next (instantiate::FSM-every-char
+	  (set! next (instantiate::FSM-everything
 			(id (get-id))
 			(next exit))))
        clusters-nb)
@@ -459,7 +375,6 @@
 		 (let ((new-c-nb (recurse (car rev-alts) dis-node exit c-nb)))
 		    (cond
 		       ((null? (cdr rev-alts))
-			(check-consuming-alternatives dis-node)
 			new-c-nb)
 		       (else
 			(with-access::FSM-disjunction dis-node (next
@@ -470,28 +385,75 @@
 			   (loop (cdr rev-alts)
 				 new-c-nb))))))))))
       ((:seq . ?els)
+       ;; els must not be '()
+       (define (split-reverse/KMP els)
+	  (let loop ((els (cdr els))
+		     (rev-els (list (car els))))
+	     (if (null? els)
+		 (values rev-els '())
+		 (match-case (car els)
+		    (((or :quantified :between) ?-
+						(or 0 1)
+						#f
+						(? one-char-consuming?))
+		     (values rev-els els))
+		    (else
+		     (loop (cdr els)
+			   (cons (car els) rev-els)))))))
+
+       ;; we must build the sequences in reverse-order (actually this
+       ;; production was the whole reason for all the trouble with the
+       ;; clusters-nb).
+       (define (do-seq exit rev-els c-nb)
+	  (if (null? (cdr rev-els))
+	      (recurse (car rev-els) entry exit c-nb)
+	      (let ((new-c-nb (recurse (car rev-els) entry exit c-nb)))
+		 (with-access::FSM-node entry (next)
+		    (do-seq next
+			    (cdr rev-els)
+			    new-c-nb)))))
+	  
        (if (null? els) ;; not even sure if that's possible
 	   (with-access::FSM-node entry (next)
 	      (set! next exit)
 	      clusters-nb)
-	   ;; we must build the sequences in reverse-order (actually this
-	   ;; production was the whole reason for all the trouble with the
-	   ;; clusters-nb).
-	   (let loop ((exit exit)
-		      (rev-els (reverse els))
-		      (c-nb clusters-nb))
-	      (if (null? (cdr rev-els))
-		  (recurse (car rev-els) entry exit c-nb)
-		  (let ((new-c-nb (recurse (car rev-els) entry exit c-nb)))
-		     (with-access::FSM-node entry (next)
-			(loop next
-			      (cdr rev-els)
-			      new-c-nb)))))))
+
+	   ;; furthermore search for KMP-patterns...
+	   (receive (rev-els KMP-els)
+	      (split-reverse/KMP els)
+	      (if (null? KMP-els)
+		  (do-seq exit rev-els clusters-nb)
+		  (let ((c-nb (recurse `(:seq ,@KMP-els)
+				       entry exit clusters-nb)))
+		     (do-seq (FSM-node-next entry) rev-els c-nb))))))
       ;; assertions
       ((and (or :^ :bol :bos
 		:$ :eol :eos
 		:wbdry :word-boundary
 		:not-wbdry :not-word-boundary) ?assertion)
+       (define (assertion-test-fun assert-id)
+	  ;; 15.10.2.6
+	  (case assert-id
+	     ((:bol :bos :^)
+	      (if multi-line?
+		  (lambda (str index)
+		     (or (zerofx? index)
+			 (terminator-char? (string-ref str (-fx index 1)))))
+		  (lambda (str index)
+		     (zerofx? index))))
+	     ((:eol :eos :$)
+	      (if multi-line?
+		  (lambda (str index)
+		     (or (=fx index (string-length str))
+			 (terminator-char? (string-ref str index))))
+		  (lambda (str index)
+		     (=fx index (string-length str)))))
+	     ((:word-boundary :wbdry)
+	      word-boundary)
+	     ((:not-word-boundary :not-wbdry)
+	      (lambda (str current-pos)
+		 (not (word-boundary str current-pos))))))
+
        (let* ((test-fun (assertion-test-fun assertion))
 	      (assert-node (instantiate::FSM-assert
 			      (id (get-id))
@@ -539,7 +501,6 @@
 			   (begin
 			      (set! next exit)
 			      (set! alternatives (list loop-body))))
-		       (check-consuming-alternatives *-exit)
 		       c-nb)))))
 	  ((and (=fx n1 1)
 		(=fx n2 1)) ;; {1, 1}
@@ -561,7 +522,6 @@
 			(begin
 			   (set! alternatives (list next))
 			   (set! next exit))))
-		 (check-consuming-alternatives ?-entry)
 		 c-nb)))
 	  ((and (zero? n1)
 		(zero? n2)) ;; nonsensical
@@ -677,16 +637,7 @@
 	  (with-access::FSM-node entry (next)
 	     (set! next br))
 	  clusters-nb))
-      ((or (? char?)
-	   ((or :any
-		:digit :not-digit
-		:space :not-space
-		:word :not-word
-		:xdigit :not-xdigit
-		:neg-char
-		:one-of-chars
-		)
-	    . ?-))
+      ((? RegExp-class-pattern?)
        (let* ((class-or-c (RegExp-class-create scm-re case-sensitive?))
 	      (t (if (char? class-or-c)
 		     (instantiate::FSM-char
@@ -700,7 +651,7 @@
 	  (with-access::FSM-node entry (next)
 	     (set! next t))
 	  clusters-nb))
-      (:empty
+      ((or :empty (:empty))
        (with-access::FSM-node entry (next)
 	  (set! next exit))
        clusters-nb)

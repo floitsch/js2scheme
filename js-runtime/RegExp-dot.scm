@@ -112,6 +112,17 @@
 		   (cons next alternatives)
 		   (iota (+fx 1 (length alternatives)))))))
 
+(define-method (dot-out n::FSM-KMP ht-id ht-done)
+   (unless (hashtable-get ht-done n)
+      (hashtable-put! ht-done n #t)
+      (print (get-id n ht-id) "[label=\"KMP\"];")
+      (with-access::FSM-KMP n (next fail)
+	 (dot-out next ht-id ht-done)
+	 (print (get-id n ht-id) " -> " (get-id next ht-id) ";")
+	 (dot-out fail ht-id ht-done)
+	 (print (get-id n ht-id) " -> " (get-id fail ht-id)
+		"[style=dashed, label=\"fail\"];"))))
+
 (define-method (dot-out n::FSM-repeat-entry ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
@@ -167,7 +178,7 @@
 	 (print (get-id n ht-id) " -> "
 		(get-id next ht-id) ";"))))
 
-(define-method (dot-out n::FSM-every-char ht-id ht-done)
+(define-method (dot-out n::FSM-everything ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
       (with-access::FSM-char n (next c)

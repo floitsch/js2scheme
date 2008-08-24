@@ -8,6 +8,8 @@
 	   (regexp-test fsm::FSM str::bstring start-index::bint)
 	   *debug*) ;; only for now...
    (static
+    (wide-class FSM-opt-disjunction::FSM-disjunction
+       (all-consuming?::bool (default #f)))
     (class Node-use
        (occupied-by::pair-nil (default '()))
        (forbidden?::bool (default #f)))
@@ -19,7 +21,7 @@
        *rev-pushed-states*::pair-nil
        *reached-final*)
     ))
-
+(define-macro (receive . L) `(multiple-value-bind ,@L))
 (define *debug* #f)
 
 ;; for a description of the process look at RegExp-fsm
@@ -193,6 +195,11 @@
 
 ;; run one iteration at a time
 (define (run states str index only-test?)
+   (when *debug*
+      (with-output-to-file (format "~aa.dot" index)
+	 (lambda ()
+	    (running->dot *fsm* states *frozen-states*
+			  str index))))
    ;; first propagate states.
    (let ((reached-final?
 	  (bind-exit (reached-final)
@@ -206,7 +213,12 @@
 			     (propagate node state str index)))
 		       states)
 	     #f)))
-      
+
+      (when reached-final?
+	 ;; clear frozen nodes. we have reached the final node, and all
+	 ;; frozen ones are of lower priority.
+	 (set! *frozen-states* '()))
+	 
       ;; then clear any information we left at the nodes.
       (clear-visitors!)
 
@@ -215,10 +227,10 @@
       (receive (new-states new-index)
 	 (next-round-states! index)
 	 (when *debug*
-	    (with-output-to-file (format "~a.dot" index)
+	    (with-output-to-file (format "~ab.dot" new-index)
 	       (lambda ()
 		  (running->dot *fsm* new-states *frozen-states*
-				str index))))
+				str new-index))))
 	 (cond
 	    ((and only-test? reached-final?)
 	     #t) ;; we reached a final node. no need to look which state.
@@ -227,7 +239,7 @@
 	    ((FSM-final? (FSM-state-node (car new-states)))
 	     ;; first state in priority-list is final. Can't get any better...
 	     (car new-states))
-	    ((>=fx index (string-length str))
+	    ((>=fx new-index (string-length str))
 	     ;; end of string. If there's a state pointing to the final-node we
 	     ;; have a winner.
 	     (let ((winner (any (lambda (state)
@@ -237,15 +249,15 @@
 		;; if there's a winner return it. otherwise see if there are still
 		;; states waiting (by rerunning the procedure).
 		(or winner
-		    (run '() str index only-test?))))
+		    (run '() str new-index only-test?))))
 	    (else ;; consume thus advancing to the next index
 	     (for-each (lambda (state)
 			  (with-access::FSM-state state (node)
-			     (advance node state str index)))
+			     (advance node state str new-index)))
 		       new-states)
 	     (let ((live-states (reverse! *rev-pushed-states*)))
 		(set! *rev-pushed-states* '())
-		(run live-states str (+fx index 1) only-test?)))))))
+		(run live-states str (+fx new-index 1) only-test?)))))))
 
 ;; target is off-limit if it is occupied by a state with same backref-cluster,
 ;; or if it is forbidden.
@@ -325,20 +337,44 @@
 
 (define-method (propagate n::FSM-final state str index)
    (unless (off-limit? n state) ;; final node could be 'forbidden'
-      ;; this is slightly hacky: if state was already occupying a node we are
-      ;; changing its final-index too... -> a state might have a final-index
-      ;; set even though it did not reach the final node yet...
-      (with-access::FSM-state state (final-index)
-	 (set! final-index index))
-      ;; clear frozen nodes. we have reached the final node, and all frozen
-      ;; ones are of lower priority.
-      (set! *frozen-states* '())
-      ;; there cannot be any other node here. so just put us into the queue.
-      (occupy! n state)
-      (*reached-final* #t)))
+      (with-access::FSM-state state (still-needed?)
+	 ;; still-needed? is irrelevant, as we will abort propagation.
+	 ;; yes. this is a hack...
+	 (set! still-needed? #f)
+	 (let ((my-state (modifiable-state state)))
+	    (with-access::FSM-state my-state (final-index)
+	       ;; do not modify if we have already set the index.
+	       (unless (>= final-index 0)
+		  (set! final-index index)))
+	    ;; there cannot be any other node here. so just put us into the
+	    ;; queue.
+	    (occupy! n my-state)
+	    ;; abort propagation and go back to 'run'.
+	    (*reached-final* #t)))))
 
+(define (FSM-disjunction->FSM-opt-disjunction! n::FSM-disjunction)
+   (define (consuming? n)
+      (when (and (FSM-disjunction? n)
+		 (not (FSM-opt-disjunction? n)))
+	 (FSM-disjunction->FSM-opt-disjunction! n))
+
+      (or (FSM-consuming? n)
+	  (and (FSM-opt-disjunction? n)
+	       (with-access::FSM-opt-disjunction n (all-consuming?)
+		  all-consuming?))))
+
+   (widen!::FSM-opt-disjunction n)
+   (with-access::FSM-opt-disjunction n (next alternatives all-consuming?)
+      (when (and (consuming? next)
+		 (every? consuming? alternatives))
+	 (set! all-consuming? #t))))
+   
 (define-method (propagate n::FSM-disjunction state str index)
-   (with-access::FSM-disjunction n (next alternatives all-consuming?)
+   (FSM-disjunction->FSM-opt-disjunction! n)
+   (propagate n state str index))
+   
+(define-method (propagate n::FSM-opt-disjunction state str index)
+   (with-access::FSM-opt-disjunction n (next alternatives all-consuming?)
       (cond
 	 ((and all-consuming?
 	       (not (forbidden? next))
@@ -645,15 +681,26 @@
       (push-state! state)))
 
 ;; 'advance' may _not_ change a state! we have propagate for that...
-(define-generic (advance n::FSM-node state::FSM-state str::bstring index::bint)
+(define (advance n::FSM-node state::FSM-state str::bstring index::bint)
    (let ((next (consume n state str index)))
       (when next
 	 (wait-at next state))))
+   
+;; returns #f if can't consume.
+;; otherwise returns the target where the state should go.
+;; allows for instance for dispatching nodes.
+;; must _not_ change a state! we have propagate for that...
+(define-generic (consume n::FSM-node state::FSM-state str::bstring index::bint)
+   (error "FSM-match"
+	  "forgot node-type"
+	  n))
 
 ;; we are here, if all alternatives are consuming.
 ;; we will only duplicate the state if the state can actually consume a
 ;; character. this should considerably reduce the duplications.
-(define-method (advance n::FSM-disjunction state str index)
+;;
+;; currently a bit hacky as it does the job of 'wait-at' too...
+(define-method (consume n::FSM-disjunction state str index)
    (with-access::FSM-disjunction n (next alternatives)
       (let ((first-next (consume next state str index)))
 	 (when first-next
@@ -662,7 +709,7 @@
 		    (need-to-dupl? first-next))
 	    (cond
 	       ((null? choices)
-		'done)
+		#f) ;; do not return any node
 	       ((consume (car choices) state str index)
 		=>
 		(lambda (choice-next)
@@ -676,14 +723,11 @@
 		(loop (cdr choices)
 		      need-to-dupl?)))))))
 
-;; returns #f if can't consume.
-;; otherwise returns the target where the state should go.
-;; allows for instance for dispatching nodes.
-;; must _not_ change a state! we have propagate for that...
-(define-generic (consume n::FSM-node state::FSM-state str::bstring index::bint)
-   (error "FSM-match"
-	  "forgot node-type"
-	  n))
+(define-method (consume n::FSM-KMP state str index)
+   (with-access::FSM-KMP n (next fail)
+      ;; try to consume 'next'. If it does not work try fail.
+      (or (consume next state str index)
+	  (consume fail state str index))))
 
 (define-method (consume n::FSM-final state str index)
    ;; always consumes a char, and puts the state back to this node.
@@ -711,16 +755,16 @@
 
 (define-method (consume n::FSM-char state str index)
    (with-access::FSM-char n (next c)
-      (when (char=? c (string-ref str index))
-	 next)))
+      (and (char=? c (string-ref str index))
+	   next)))
 
-(define-method (consume n::FSM-every-char state str index)
+(define-method (consume n::FSM-everything state str index)
    (with-access::FSM-char n (next)
       next))
 
 (define-method (consume n::FSM-class state str index)
    (with-access::FSM-class n (next class)
-      (when (RegExp-class-match class (string-ref str index))
-	 next)))
+      (and (RegExp-class-match class (string-ref str index))
+	   next)))
 )
 
