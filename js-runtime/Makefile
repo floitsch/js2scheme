@@ -7,10 +7,10 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			natives object global-object globals globals-tmp \
 			primitives runtime operators scope-object \
 			RegExp RegExp-parse RegExp-fsm RegExp-classes \
-			RegExp-dot RegExp-match RegExp-state \
+			RegExp-dot RegExp-match RegExp-state RegExp-char-set \
 			mset multi-top-level
 
-RUNTIME_BGL_INCLUDES = macros.sch RegExp-KMP.scm
+RUNTIME_BGL_INCLUDES = macros.sch RegExp-KMP.scm RegExp-constant-classes.scm
 
 REPL_BGL_MODULES = repl
 
@@ -70,16 +70,16 @@ clean:
 	rm -f $(OBJECTS) $(REGEXP_OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
 
 REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot \
-                  RegExp-match RegExp-state mset multi-top-level
+                  RegExp-match RegExp-state RegExp-char-set mset multi-top-level
 
 REGEXP_OBJECTS = $(REGEXP_MODULES:%=o/%.o)
 
-regexp: .afile $(REGEXP_OBJECTS) RegExp-KMP.scm
+regexp: .afile $(REGEXP_OBJECTS) RegExp-KMP.scm RegExp-constant-classes.scm
 	$(BIGLOO) -o $@ $(REGEXP_OBJECTS)
 
 REGEXP_JVM_OBJECTS = $(REGEXP_MODULES:%=%.class)
 %.class: %.scm $(RUNTIME_BGL_INCLUDES)
 	$(BIGLOO) -jvm -g -o $@ $<
-regexp.jvm: .afile $(REGEXP_JVM_OBJECTS) RegExp-KMP.scm
+regexp.jvm: .afile $(REGEXP_JVM_OBJECTS) RegExp-KMP.scm RegExp-constant-classes.scm
 	$(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS)
 
