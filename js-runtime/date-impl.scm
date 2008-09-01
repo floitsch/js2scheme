@@ -1,133 +1,140 @@
 (module jsre-date-impl
    )
 
+(define (modulofl n::double n2::double)
+   (let ((t (remainderfl n n2)))
+      (if (<fl t 0.0)
+	  (+fl t n2)
+	  t)))
+
 ;; TODO: year-from-time is used quite often, but recalculated each time.
-;; TODO: we might want to switch to llongs for Date-class.
 
 ;; 15.9.1.2
-(define *ms-per-day* #l86400000) ;; TODO llong
-(define (day::llong ms::llong)
-   (/llong ms *ms-per-day*))
-(define (time-within-day::llong ms::llong)
-   (remainderllong ms *ms-per-day*))
+(define *ms-per-day* 86400000.0)
+
+(define (day::double t::double)
+   (floorfl (/fl t *ms-per-day*)))
+(define (time-within-day::double t::double)
+   (modulofl t *ms-per-day*))
 
 ;; 15.9.1.3
-(define (days-in-year::bint y::bint)
+(define (js-leap-year?::bool y::double)
    (cond
-      ((not (zerofx? (modulo y 4)))
-       365)
-      ((not (zerofx? (modulo y 100)))
-       366)
-      ((not (zerofx? (modulo y 400)))
-       365)
+      ((not (zerofl? (remainderfl y 4.0)))
+       #f)
+      ((not (zerofl? (remainderfl y 100.0)))
+       #t)
+      ((not (zerofl? (remainderfl y 400.0)))
+       #f)
       (else
-       366)))
+       #t)))
+   
+(define (days-in-year::double y::double)
+   (if (js-leap-year? y)
+       366.0
+       365.0))
 
 ;; first day of year y
-(define (day-from-year::llong y::bint)
+(define (day-from-year::double y::double)
 ;    (+ (* 365 (- y 1970))
 ;       (/ (- y 1969) 4)
 ;       (- (/ (- y 1901) 100))
 ;       (/ (- y 1601) 400))
-   (+llong (-llong (+llong (*llong #l365 (fixnum->llong(-fx y 1970)))
-			   (fixnum->llong (/fx (-fx y 1969) 4)))
-		   (fixnum->llong (/fx (-fx y 1901) 100)))
-	   (fixnum->llong (/fx (-fx y 1601) 400))))
+   (+fl (-fl (+fl (*fl 365.0 (-fl y 1970.0))
+		  (floorfl (/fl (-fl y 1969.0) 4.0)))
+	     (floorfl (/fl (-fl y 1901.0) 100.0)))
+	(floorfl (/fl (-fl y 1601.0) 400.0))))
 
 ;; time value at start of year
-(define (time-from-year::llong y::bint)
-   (*llong *ms-per-day* (fixnum->llong (day-from-year y))))
+(define (time-from-year::double y::double)
+   (*fl *ms-per-day* (day-from-year y)))
 
 ;; a time value determines a year
-(define (year-from-time::bint t::llong)
-   (let loop ((y (+fx (llong->fixnum (/llong t (*llong 365 *ms-per-day*)))
-		      1970))) ;; get estimate. we will improve on that
+(define (year-from-time::double t::double)
+   (let loop ((y (+fl (truncatefl (/fl t (*fl 365.0 *ms-per-day*)))
+		      1970.0))) ;; get estimate. we will improve on that
       (let* ((t-y (time-from-year y))
-	     (diff (-llong t-y t))
-	     (diff-y (llong->fixnum (/llong diff (*llong 365 *ms-per-day*)))))
+	     (diff (-fl t-y t))
+	     (diff-y (truncatefl (/fl diff (*fl 365.0 *ms-per-day*)))))
 	 (cond
-	    ((and (zerofx? diff-y)
-		  (<=llong t-y t)
-		  (<llong (time-from-year (+llong y #l1)) t))
+	    ((and (zerofl? diff-y)
+		  (<=fl t-y t)
+		  (<fl t (time-from-year (+fl y 1.0))))
 	     y) ;; we got there
-	    ((and (zerofx? diff-y)
-		  (<=llong t-y t))
+	    ((and (zerofl? diff-y)
+		  (<=fl t-y t))
 	     ;; we are close. but a little bit too low
-	     (loop (+fx y 1)))
-	    ((zerollong? diff-y)
+	     ;; should only happen in leap-years.
+	     (loop (+fl y 1.0)))
+	    ((zerofl? diff-y)
 	     ;; close but too high
-	     (loop (-fx y 1)))
+	     (loop (-fl y 1.0)))
 	    (else
 	     ;; diff-y is not 0 -> use the estimate
-	     (loop (-fx y diff-y)))))))
+	     (loop (-fl y diff-y)))))))
 
-(define (in-leap-year?::bool t::llong)
-   (=llong (days-in-year (year-from-time t)) #l365))
-(define (in-leap-year::bint t::llong)
-   (if (in-leap-year? t) 0 1))
+(define (in-leap-year?::bool t::double)
+   (js-leap-year? (year-from-time t)))
+(define (in-leap-year::double t::double)
+   (if (in-leap-year? t) 0.0 1.0))
 
-;; 15.9.1.4
-(define (day-within-year::bint t::llong)
-   (llong->fixnum (-llong (day t) (day-from-year (year-from-time t)))))
-
-(define (month-from-time::bint t::llong)
-   (let ((day (day-within-year t))
-	 (leap-year (in-leap-year t)))
+;; 15.9.1.4 and 15.9.1.5
+(define (date-decomposition t::double)
+   (let* ((year (year-from-time t))
+	  (leap (if (js-leap-year? year) 1.0 0.0))
+	  (year-day (-fl (day t) (day-from-year year))))
       (cond
-	 ((<fx day 31) 0)
-	 ((<fx day (+fx 59 leap-year)) 1)
-	 ((<fx day (+fx 90 leap-year)) 2)
-	 ((<fx day (+fx 120 leap-year)) 3)
-	 ((<fx day (+fx 151 leap-year)) 4)
-	 ((<fx day (+fx 181 leap-year)) 5)
-	 ((<fx day (+fx 212 leap-year)) 6)
-	 ((<fx day (+fx 243 leap-year)) 7)
-	 ((<fx day (+fx 273 leap-year)) 8)
-	 ((<fx day (+fx 304 leap-year)) 9)
-	 ((<fx day (+fx 334 leap-year)) 10)
-	 (else 11))))
+	 ((<fl year-day 31.0)
+	  (values year 0.0 (+fl year-day 1.0)))
+	 ((<fl year-day (+fl 59.0 leap))
+	  (values year 1.0 (-fl year-day 30.0)))
+	 ((<fl year-day (+fl 90.0 leap))
+	  (values year 2.0 (-fl (-fl year-day 58.0) leap)))
+	 ((<fl year-day (+fl 120.0 leap))
+	  (values year 3.0 (-fl (-fl year-day 89.0) leap)))
+	 ((<fl year-day (+fl 151.0 leap))
+	  (values year 4.0 (-fl (-fl year-day 119.0) leap)))
+	 ((<fl year-day (+fl 181.0 leap))
+	  (values year 5.0 (-fl (-fl year-day 150.0) leap)))
+	 ((<fl year-day (+fl 212.0 leap))
+	  (values year 6.0 (-fl (-fl year-day 180.0) leap)))
+	 ((<fl year-day (+fl 243.0 leap))
+	  (values year 7.0 (-fl (-fl year-day 211.0) leap)))
+	 ((<fl year-day (+fl 273.0 leap))
+	  (values year 8.0 (-fl (-fl year-day 242.0) leap)))
+	 ((<fl year-day (+fl 304.0 leap))
+	  (values year 9.0 (-fl (-fl year-day 272.0) leap)))
+	 ((<fl year-day (+fl 334.0 leap))
+	  (values year 10.0 (-fl (-fl year-day 303.0) leap)))
+	 (else
+	  (values year 11.0 (-fl (-fl year-day 333.0) leap))))))
+	  
+(define (day-within-year::double t::double)
+   (-fl (day t) (day-from-year (year-from-time t))))
 
-;; 15.9.1.5
+;; between 0 and 11
+(define (month-from-time::double t::double)
+   (receive (year month date)
+      (date-decomposition t)
+      month))
+
 ;; day in month. between 1 and 31
-(define (date-from-time::bint t::llong)
-   (let ((day (day-within-year t))
-	 (month (month-from-time t))
-	 (leap-year (in-leap-year t)))
-      (case month
-	 ((0)  (+fx day 1))
-	 ((1)  (-fx day 30))
-	 ((2)  (-fx (-fx day 58)  leap-year))
-	 ((3)  (-fx (-fx day 89)  leap-year))
-	 ((4)  (-fx (-fx day 119) leap-year))
-	 ((5)  (-fx (-fx day 150) leap-year))
-	 ((6)  (-fx (-fx day 180) leap-year))
-	 ((7)  (-fx (-fx day 211) leap-year))
-	 ((8)  (-fx (-fx day 242) leap-year))
-	 ((9)  (-fx (-fx day 272) leap-year))
-	 ((10) (-fx (-fx day 303) leap-year))
-	 ((11) (-fx (-fx day 333) leap-year)))))
+(define (date-from-time::double t::double)
+   (receive (year month date)
+      (date-decomposition t)
+      date))
 
 ;; 15.9.1.6
-(define (week-day::bint t::llong)
-   ;; (modulo (+ (day t) 4) 7)
+(define (week-day::double t::double)
    ;; 4 for thursday, 01 january 1970
-   (let ((t (llong->fixnum (remainderllong (+llong (day t) #l4) #l7))))
-      (if (negative? t)
-	  (+fx t 7)
-	  t)))
+   (modulofl (+fl (day t) 4.0) 7.0))
 
 ;; 15.9.1.8
-;(define (localTZA::llong)
-;   (*llong #l1000 (fixnum->llong (date-timezone (current-date)))))
-
 ;; TODO: caching of TZA is not ok.
 (define *localTZA* (*fl 1000.0
 			(fixnum->flonum (date-timezone(current-date)))))
 
 ;; 15.9.1.9
-;(define (daylight-saving-TA::llong t::llong)
-;   ;; TODO: daylight-saving
-;   #l0)
 (define (daylight-saving-TA::double t::double)
    ;; TODO: daylight-saving
    0.0)
@@ -135,39 +142,30 @@
 
 ;; 15.9.1.9
 ;; (UTC (local-time t)) is not necessarily always equal to t.
-;(define (local-time::llong t::llong)
-;   (+llong (+llong t (localTZA))
-;	   (daylight-saving-TA t)))
+
 (define (local-time::double t::double)
    (+fl (+fl t *localTZA*) (daylight-saving-TA t)))
 
-;(define (UTC::long t::llong)
-;   (let ((local (localTZA))
-;	 (t-local (-llong t local)))
-;      (-llong t-local
-;	      (daylight-saving-TA t-local))))
 (define (UTC::double t::double)
    (let ((t-local (-fl t *localTZA*)))
       (-fl t-local (daylight-saving-TA t-local))))
 
 ;; 15.9.1.10
-(define (hours-from-time::bint t::llong)
-   (define *hours-per-day* #l24)
-   (define *ms-per-hour* #l3600000)
-   (llong->fixnum
-    (remainderllong (/llong t *ms-per-hour*) *hours-per-day*)))
-(define (min-from-time::bint t::llong)
-   (define *minutes-per-hour* #l60)
-   (define *ms-per-minute* #l60000)
-   (llong->fixnum
-    (remainderllong (/llong t *ms-per-minute*) *minutes-per-hour*)))
-(define (sec-from-time::bint t::llong)
-   (define *seconds-per-minute* #l60)
-   (define *ms-per-second* #l1000)
-   (llong->fixnum
-    (remainderllong (/llong t *ms-per-second*) *seconds-per-minute*)))
-(define (ms-from-time::bint t::llong)
-   (llong->fixnum (remainderllong t #l1000)))
+(define *hours-per-day* 24.0)
+(define *minutes-per-hour* 60.0)
+(define *seconds-per-minute* 60.0)
+(define *ms-per-hour* 3600000.0)
+(define *ms-per-minute* 60000.0)
+(define *ms-per-second* 1000.0)
+
+(define (hours-from-time::double t::double)
+   (modulofl (floorfl (/fl t *ms-per-hour*)) *hours-per-day*))
+(define (min-from-time::double t::double)
+   (modulofl (floorfl (/fl t *ms-per-minute*)) *minutes-per-hour*))
+(define (sec-from-time::double t::double)
+   (modulofl (floorfl (/fl t *ms-per-second*)) *seconds-per-minute*))
+(define (ms-from-time::double t::double)
+   (modulofl t *ms-per-second*))
 
 ;; 15.9.1.11
 (define (finite?::bool n::double)
@@ -176,13 +174,8 @@
 	    (-infinity? n))))
 
 (define (make-js-time::double hour::double min::double sec::double ms::double)
-   (define *ms-per-hour* 3600000.0)
-   (define *ms-per-minute* 60000.0)
-   (define *ms-per-second* 1000.0)
-   
    (if (not (and (finite? hour) (finite? min) (finite? sec) (finite? ms)))
        (NaN)
-       ;; we have to use floats here, as they could potentiall overshoot.
        (let ((hour-i (finite->integer hour))
 	     (min-i (finite->integer min))
 	     (sec-i (finite->integer sec))
@@ -196,35 +189,30 @@
 ;; we do not follow completely here. That is we allow a slightly larger
 ;; interval to still succeed. the result must hence be time-clipped.
 (define (make-js-day::double year::double month::double date::double)
-   ;; according to 15.9.1.1 we only allow 100.000.000 days.
-   ;; some years might take 366 days. So dividing by 365 gives a larger
-   ;; interval.
-   ;; TODO: find correct borders.
-   (define *min-years* (/fl -100000000.0 365.0))
-   (define *max-years* (/fl 100000000.0 365.0))
+   ;; min-date: 20/04/-271821 (-100.000.000 days)
+   ;; max-date: 13/09/275760  (+100.000.000 days)
+  
+   (define *min-years* -271821.0)
+   (define *min-month* 3.0) ;; april -> 3. only used when min-years is equal
+   (define *max-years* 275760.0)
+   (define *max-month* 8.0) ;; sep -> 8. only used when max-years is equal
 
-   (define (modulofl n::double n2::double)
-      (let ((t (remainderfl n n2)))
-	 (if (<fl t 0.0)
-	     (+fl t n2)
-	     t)))
-
-   (define (time-from-month::llong m::bint leap-year?::bool)
-      (let* ((leap-year (if leap-year? 1 0))
+   (define (time-from-month::double m::double leap-year?::bool)
+      (let* ((leap-year (if leap-year? 1.0 0.0))
 	     (nb-days (case m
-			((0) 0)
-			((1) 31)
-			((2) (+fx 59 leap-year))
-			((3) (+fx 90 leap-year))
-			((4) (+fx 120 leap-year))
-			((5) (+fx 151 leap-year))
-			((6) (+fx 181 leap-year))
-			((7) (+fx 212 leap-year))
-			((8) (+fx 243 leap-year))
-			((9) (+fx 273 leap-year))
-			((10) (+fx 304 leap-year))
-			((11) (+fx 334 leap-year)))))
-	 (*llong (fixnum->llong nb-days) *ms-per-day*)))
+			((0.0) 0)
+			((1.0) 31.0)
+			((2.0) (+fl 59.0 leap-year))
+			((3.0) (+fl 90.0 leap-year))
+			((4.0) (+fl 120.0 leap-year))
+			((5.0) (+fl 151.0 leap-year))
+			((6.0) (+fl 181.0 leap-year))
+			((7.0) (+fl 212.0 leap-year))
+			((8.0) (+fl 243.0 leap-year))
+			((9.0) (+fl 273.0 leap-year))
+			((10.0) (+fl 304.0 leap-year))
+			((11.0) (+fl 334.0 leap-year)))))
+	 (*fl nb-days *ms-per-day*)))
 
    (if (not (and (finite? year) (finite? month) (finite? date)))
        (NaN)
@@ -234,21 +222,23 @@
 	      (norm-year (+fl year-i (floorfl (/fl month-i 12.0))))
 	      (norm-month (modulofl month-i 12.0)))
 	  (if (or (<fl norm-year *min-years*)
-		  (>fl norm-year *max-years*))
+		  (and (=fl norm-year *min-years*)
+		       (<fl month-i *min-month*))
+		  (>fl norm-year *max-years*)
+		  (and (=fl norm-year *max-years*)
+		       (>fl month-i *max-month*)))
 	      (NaN)
-	      (let* ((y (flonum->fixnum norm-year))
-		     (t-y (time-from-year y))
-		     (leap-year? (=fx (days-in-year y) 366))
-		     (t-m (time-from-month (flonum->fixnum norm-month)
-					   leap-year?))
-		     (d (day (+llong t-y t-m))))
-		 (-fl (+fl (llong->flonum d) date-i) 1.0))))))
+	      (let ((t-y (time-from-year norm-year))
+		    (t-m (time-from-month (flonum->fixnum norm-month)
+					  (leap-year? norm-year)))
+		    (d (day (+fl t-y t-m))))
+		 (-fl (+fl d date-i) 1.0))))))
 
 ;; 15.9.1.13
 (define (make-js-date::double day::double time::double)
    (if (not (and (finite? day) (finite? time)))
        (NaN)
-       (+fl (*fl day (llong->flonum *ms-per-day*))
+       (+fl (*fl day *ms-per-day*)
 	    time)))
 
 (define (time-clip::double t::double)

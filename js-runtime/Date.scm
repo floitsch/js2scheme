@@ -14,9 +14,10 @@
 	   jsre-scope-object
 	   jsre-globals-tmp
 	   )
+   (include "date-impl.scm")
    (export *js-Date* ;; can be modified by user -> can't be ::procedure
 	   (class Js-Date::Js-Object
-	      ms::double) ;; TODO: switch to llong?
+	      ms::double)
 	   (Date-init)))
 
 (define *js-Date* #unspecified)
@@ -671,7 +672,6 @@
 
 
 (define (replace-seconds n s ms)
-   (define *ms-per-minute* 60000.0)
    (if (not ms)
        (replace-seconds n s (remainderfl n 1000.0))
        (let ((w/o-secs (-fl n (remainderfl n *ms-per-minute*))))
@@ -720,8 +720,6 @@
 ;; Note: ECMAScript spec does not contain any 15.9.5.32 (MS Word...)
 
 (define (replace-minutes n min s ms)
-   (define *ms-per-hour* 3600000.0)
-   (define *ms-per-minute* 60000.0)
    (cond
       ((not s)
        (replace-minutes n min (remainderfl n *ms-per-minute*) 0.0))
@@ -781,18 +779,15 @@
 		     ms))))))
 
 (define (replace-hours n h min s ms)
-   (define *ms-per-day* 86400000.0)
-   (define *ms-per-hour* 3600000.0)
-   (define *ms-per-minute* 60000.0)
    (cond
       ((not min)
-       (replace-hours n h (remainderfl n *ms-per-hour*) 0.0 0.0))
+       (replace-hours n h (modulofl n *ms-per-hour*) 0.0 0.0))
       ((not s)
-       (replace-hours n h min (remainderfl n *ms-per-minute*) 0.0))
+       (replace-hours n h min (modulofl n *ms-per-minute*) 0.0))
       ((not ms)
-       (replace-hours n h min s (remainderfl n 1000.0)))
+       (replace-hours n h min s (modulofl n 1000.0)))
       (else
-       (let ((w/o-hours (-fl n (remainderfl n *ms-per-day*))))
+       (let ((w/o-hours (-fl n (modulofl n *ms-per-day*))))
 	  (+fl h
 	       (+fl (+fl w/o-mins min)
 		    (+fl s ms)))))))
