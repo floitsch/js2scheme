@@ -30,10 +30,11 @@
 	   (js-string->number str)
 	   (any->number any)
 	   (any->primitive any hint)
-	   (any->integer::real any)
-	   (any->int32::real any)
-	   (any->uint32::real any)
-	   (any->uint16::real any)
+	   (finite->integer::double n::double)
+	   (any->integer::double any)
+	   (any->int32::double any)
+	   (any->uint32::double any)
+	   (any->uint16::double any)
 	   (any->string::bstring any)
 	   (any->object::Js-Object any)
 	   (js-object any) ;; TODO we really need a better name...
@@ -184,12 +185,10 @@
 	      (js-object->primitive o (or hint 'number)))))
       (else any)))
 
+(define (finite->integer n::double)
+   (truncatefl n))
+   
 (define (any->integer any)
-   (define (sign n)
-      (if (>=fl n 0.0)
-	  1.0
-	  -1.0))
-
    (let ((nb (any->number any)))
       (cond
 	 ((NaN? nb) +0.0)
@@ -199,7 +198,7 @@
 	      (=fl +0.0 nb))
 	  nb)
 	 (else
-	  (*fl (sign nb) (floor nb))))))
+	  (finite->integer nb)))))
 
 (define (any->int32 any)
    (let ((nb (any->number any)))
