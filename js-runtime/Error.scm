@@ -60,7 +60,7 @@
    (define *error-prototype* #unspecified)
    
    (define (create-Error-class name native-error?)
-      (let* ((proc (Error-lambda))
+      (let* ((proc (Error-lambda name))
 	     (text-repr (string-append "function(msg) { /* native "
 				       name
 				       " */ throw 'native'; }"))
@@ -91,7 +91,7 @@
 				   "constructor"
 				   proc
 				   (constructor-attributes))
-	 
+
 	 (js-property-generic-set! prototype  ;; 15.11.4.2 / 15.11.7.9
 				   "name"
 				   name
@@ -149,11 +149,14 @@
 (define-method (js-object->string::bstring o::Js-Error)
    "Error")
 
-(define (Error-lambda)
+(define (Error-lambda name)
    ;; 15.11.1.1 / 15.11.7.1
    (letrec ((error-proc (js-fun-lambda #f #f #f
 				       (msg)
-				       (js-new error-proc msg))))
+				       (if (string=? name "") ;; we need
+					   ;; different lambdas with different hashes...
+					   (js-new error-proc name) ;; can't happen
+					   (js-new error-proc msg)))))
       error-proc))
 
 (define (Error-new)
@@ -199,7 +202,6 @@
    (raise (js-new *js-Eval-Error* msg)))
 
 (define (delete-error msg)
-   (tprint *js-Type-Error-orig*)
    (raise (js-new *js-Type-Error-orig*
 		  (string-append "can't delete "
 				 (any->safe-string msg)))))
@@ -213,7 +215,10 @@
 			      (any->safe-string (&error-obj e)))))
       ((&error? e)
        (js-new *js-Error-orig*
-	       (format "~a: ~a"
+	       (format "~a ~a\n~a:\n~a\n~a"
+		       (&error-fname e)
+		       (&error-location e)
+		       (&error-proc e)
 		       (any->safe-string (&error-msg e))
 		       (any->safe-string (&error-obj e)))))
       ((&exception? e)
@@ -245,7 +250,12 @@
       ((Js-Bool? any) (if (Js-Bool-val any)
 			  "Bool<true>"
 			  "Bool<false>"))
-      ((Js-Date? any) (format "Date<~a>" (Js-Date-bdate any)))
+      ((Js-Date? any) (format "Date<~a>"
+			      (if (NaN? (Js-Date-t any))
+				  "invalid"
+				  (seconds->date
+				   (flonum->elong
+				    (/fl (Js-Date-t any) 1000.0))))))
       ((Js-Function? any) "Function-object")
       ((Js-Math? any) "Math")
       ((Js-Number? any) (format "Number<~a>" (Js-Number-value any)))
