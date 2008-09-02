@@ -758,7 +758,7 @@ function writeHeaderToLog( string ) {
 function stopTest() {
   var gc;
   if ( gc != undefined ) {
-    gc();
+    //gc();
   }
 }
 
@@ -793,7 +793,8 @@ function jsTestDriverEnd()
 
   try
   {
-    optionsReset();
+    // unless I am wrong this can not work [flo]
+    // optionsReset();
   }
   catch(ex)
   {
