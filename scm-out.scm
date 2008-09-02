@@ -790,4 +790,4 @@
 	  (flags (substring pattern/flags
 			    (+ last-/ 1)
 			    (string-length pattern/flags))))
-      `(new *js-RegExp* ,pattern ,flags)))
+      `(js-new *js-RegExp* ,pattern ,flags)))
