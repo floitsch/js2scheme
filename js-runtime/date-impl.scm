@@ -1,6 +1,3 @@
-(module jsre-date-impl
-   )
-
 (define (modulofl n::double n2::double)
    (let ((t (remainderfl n n2)))
       (if (<fl t 0.0)
@@ -228,10 +225,10 @@
 		  (and (=fl norm-year *max-years*)
 		       (>fl month-i *max-month*)))
 	      (NaN)
-	      (let ((t-y (time-from-year norm-year))
-		    (t-m (time-from-month (flonum->fixnum norm-month)
-					  (leap-year? norm-year)))
-		    (d (day (+fl t-y t-m))))
+	      (let* ((t-y (time-from-year norm-year))
+		     (t-m (time-from-month norm-month
+					   (js-leap-year? norm-year)))
+		     (d (day (+fl t-y t-m))))
 		 (-fl (+fl d date-i) 1.0))))))
 
 ;; 15.9.1.13
@@ -255,18 +252,17 @@
        (let ((utc/local-t (if UTC? t (local-time t))))
 	  (format "~a---~a"
 		  (seconds->date (flonum->elong
-				  (/fl utc/local-t #l1000000)))
+				  (/fl utc/local-t *ms-per-second*)))
 		  (flonum->llong t))))))
 (define (time->date-string::bstring t::double)
    (cond
       ((NaN? t)
        "Invalid Date")
       (else
-       (let* ((t-l (flonum->llong (local-time t)))
-	      (w (week-day t-l))
-	      (d (date-from-time t-l))
-	      (m (month-from-time t-l))
-	      (y (year-from-time t-l)))
+       (let* ((w (flonum->fixnum (week-day t)))
+	      (d (flonum->fixnum (date-from-time t)))
+	      (m (flonum->fixnum (month-from-time t)))
+	      (y (flonum->fixnum (year-from-time t))))
 	  (format "~a ~a ~a ~a"
 		  (vector-ref '#("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun") w)
 		  (vector-ref '#("Jan" "Feb" "Mar" "Mai" "Jun" "Jul" "Aug"
@@ -279,16 +275,15 @@
       ((NaN? t)
        "Invalid Date")
       (else
-       (let* ((t-l (flonum->llong (local-time t)))
-	      (h (hours-from-time t-l))
-	      (m (min-from-time t-l))
-	      (s (sec-from-time t-l)))
+       (let* ((h (flonum->fixnum (hours-from-time t)))
+	      (m (flonum->fixnum (min-from-time t)))
+	      (s (flonum->fixnum (sec-from-time t))))
 	  ;; TODO: include offset to UTC
 	  (format "~a:~a:~a" h m s)))))
 
 		  
 (define (string->time::double s::bstring)
-   (let ((llong-pos (string-cointains s "---")))
+   (let ((llong-pos (string-contains s "---")))
       (if (not llong-pos)
 	  (NaN)
 	  (let ((llong-str (substring s (+fx llong-pos 3)

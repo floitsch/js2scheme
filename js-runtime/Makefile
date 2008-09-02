@@ -10,7 +10,7 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			RegExp-dot RegExp-match RegExp-state RegExp-char-set \
 			mset multi-top-level
 
-RUNTIME_BGL_INCLUDES = macros.sch RegExp-KMP.scm RegExp-constant-classes.scm
+RUNTIME_BGL_INCLUDES = macros.sch RegExp-KMP.scm RegExp-constant-classes.scm date-impl.scm
 
 REPL_BGL_MODULES = repl
 
