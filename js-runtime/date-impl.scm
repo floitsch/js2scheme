@@ -122,19 +122,20 @@
       date))
 
 ;; 15.9.1.6
+;; 0 = Sun, 1 = Mon, ...
 (define (week-day::double t::double)
    ;; 4 for thursday, 01 january 1970
    (modulofl (+fl (day t) 4.0) 7.0))
 
 ;; 15.9.1.8
 ;; TODO: caching of TZA is not ok.
-(define *localTZA* (*fl 1000.0
-			(fixnum->flonum (date-timezone(current-date)))))
+(define *localTZA* (*fl -1000.0
+			(fixnum->flonum (date-timezone (current-date)))))
 
 ;; 15.9.1.9
 (define (daylight-saving-TA::double t::double)
    ;; TODO: daylight-saving
-   0.0)
+   *ms-per-hour*)
 
 
 ;; 15.9.1.9
@@ -250,9 +251,11 @@
        "Invalid Date")
       (else
        (let ((utc/local-t (if UTC? t (local-time t))))
-	  (format "~a---~a"
-		  (seconds->date (flonum->elong
-				  (/fl utc/local-t *ms-per-second*)))
+	  (format "~a ~a---~a"
+		  (time->date-string utc/local-t)
+		  (time->time-string utc/local-t)
+;		  (seconds->date (flonum->elong
+;				  (/fl utc/local-t *ms-per-second*)))
 		  (flonum->llong t))))))
 (define (time->date-string::bstring t::double)
    (cond
@@ -264,7 +267,7 @@
 	      (m (flonum->fixnum (month-from-time t)))
 	      (y (flonum->fixnum (year-from-time t))))
 	  (format "~a ~a ~a ~a"
-		  (vector-ref '#("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun") w)
+		  (vector-ref '#("Sun" "Mon" "Tue" "Wed" "Thu" "Fri" "Sat") w)
 		  (vector-ref '#("Jan" "Feb" "Mar" "Mai" "Jun" "Jul" "Aug"
 				       "Sep" "Oct" "Nov" "Dec")
 			      m)
@@ -275,9 +278,12 @@
       ((NaN? t)
        "Invalid Date")
       (else
-       (let* ((h (flonum->fixnum (hours-from-time t)))
-	      (m (flonum->fixnum (min-from-time t)))
-	      (s (flonum->fixnum (sec-from-time t))))
+       (let* ((h (integer->string/padding
+		  (flonum->fixnum (hours-from-time t)) 2))
+	      (m (integer->string/padding
+		  (flonum->fixnum (min-from-time t)) 2))
+	      (s (integer->string/padding
+		  (flonum->fixnum (sec-from-time t)) 2)))
 	  ;; TODO: include offset to UTC
 	  (format "~a:~a:~a" h m s)))))
 
