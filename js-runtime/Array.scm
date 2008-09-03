@@ -16,7 +16,8 @@
 	   jsre-globals-tmp
 	   )
    (export
-    *js-Array* ;; can be modified by user -> can't be ::procedure
+    *js-Array*
+    *js-Array-orig*
     (class Js-Array::Js-Object
        length::real) ;; TODO: really not optimal :(
     (Array-init)
@@ -26,6 +27,7 @@
 ;;       the array implementation based on hashtables is slow.
 
 (define *js-Array* #unspecified)
+(define *js-Array-orig* #unspecified)
 (define *js-Array-prototype*::Js-Object (js-undeclared))
 
 ;; extracts requested indices from object o and prototypes (if requested).
@@ -129,6 +131,7 @@
 
 (define (Array-init)
    (set! *js-Array* (Array-lambda))
+   (set! *js-Array-orig* *js-Array*)
    (globals-tmp-add! (lambda () (global-runtime-add! 'Array *js-Array*)))
    (let* ((text-repr "function(v) { /* native Array */ throw 'native'; }")
 	  (array-object (create-function-object *js-Array*

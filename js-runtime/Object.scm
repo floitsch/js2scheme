@@ -107,7 +107,7 @@
 		      this
 		      (any->object first-arg))))
 
-(define (Object-construct c . L)
+(define (Object-construct c)
    (create-empty-object-lambda c))
 
 (define (js-object-literal properties)

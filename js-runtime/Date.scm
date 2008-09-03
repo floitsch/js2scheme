@@ -276,7 +276,7 @@
 	   (Js-Date-t-set! this (time-clip (UTC js-date))))))
     this))
 
-(define (Date-construct c . L)
+(define (Date-construct c)
    (instantiate::Js-Date
       (props (make-props-hashtable))
       (proto *js-Date-prototype*)

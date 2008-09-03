@@ -100,8 +100,7 @@
 		 (or only-test?
 		     (with-access::FSM-state match (start-index final-index
 								clusters)
-			(cons (substring str start-index final-index)
-			      clusters))))))))
+			(list start-index final-index clusters))))))))
 
 ;; state must already point to start of nested fsm.
 (define (recursive-exec fsm state str start-index only-test?)
