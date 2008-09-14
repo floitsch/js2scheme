@@ -20,6 +20,7 @@
 	   jsre-RegExp-match)
    (export
     *js-RegExp* ;; can be modified by user -> can't be ::procedure
+    *js-RegExp-exec*
     (class Js-RegExp::Js-Object
        re)
     (RegExp-init)))
@@ -27,6 +28,7 @@
 (define *js-RegExp* #unspecified)
 (define *js-RegExp-orig* #unspecified)
 (define *js-RegExp-prototype*::Js-Object (js-undeclared))
+(define *js-RegExp-exec* #unspecified)
 
 (define-method (js-object->string::bstring o::Js-RegExp)
    "RegExp")
@@ -59,9 +61,12 @@
 				"constructor"
 				*js-RegExp*
 				(constructor-attributes))
+
+      (set! *js-RegExp-exec* (exec))
+
       (js-property-generic-set! prototype                ;; 15.10.6.2
 				"exec"
-				(exec)
+				*js-RegExp-exec*
 				(built-in-attributes))
       (js-property-generic-set! prototype                ;; 15.10.6.3
 				"test"
@@ -178,14 +183,14 @@
 	      (let ((start-index (car match))
 		    (final-index (cadr match))
 		    (clusters (caddr match))
-		    (a (js-new *js-Array-orig*)))
+		    (a (empty-js-Array)))
 		 (when global?
 		    (js-property-safe-set! this "lastIndex" final-index))
 		 (js-property-safe-set! a "index" (fixnum->flonum start-index))
 		 (js-property-safe-set! a "input" s)
 		 (let loop ((i 0))
 		    (cond
-		       ((>fx i (vector-length clusters))
+		       ((>fx (*fx i 2) (vector-length clusters))
 			a)
 		       ((=fx i 0)
 			(js-property-safe-set!
@@ -202,7 +207,8 @@
 			 (substring s
 				    (vector-ref clusters (*fx (-fx i 1) 2))
 				    (vector-ref clusters
-						(+fx (*fx (-fx i 1) 2) 1)))))))
+						(+fx (*fx (-fx i 1) 2) 1))))
+			(loop (+fx i 1)))))
 		 )))
 	  (else
 	   (js-property-safe-set! this "lastIndex" 0.0)
