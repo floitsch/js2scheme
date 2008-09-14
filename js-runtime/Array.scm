@@ -17,11 +17,12 @@
 	   )
    (export
     *js-Array*
-    *js-Array-orig*
     (class Js-Array::Js-Object
        length::real) ;; TODO: really not optimal :(
     (Array-init)
-    (js-array-literal length::bint els::pair-nil)))
+    (js-array-literal length::bint els::pair-nil)
+    (scm-list->js-array::Js-Array els::pair-nil)
+    (empty-js-Array::Js-Array)))
 
 ;; TODO: Array is really not optimal: number operations are bad, and
 ;;       the array implementation based on hashtables is slow.
@@ -246,7 +247,7 @@
     ()
     (fill-Array this nb-args get-arg)))
    
-(define (Array-construct::Js-Array f-o::Js-Function)   
+(define (Array-construct::Js-Array f-o)   
    (instantiate::Js-Array
       (props (make-props-hashtable))
       (proto *js-Array-prototype*)
@@ -264,6 +265,22 @@
 					     val)))
 		els)
       a))
+
+(define (empty-js-Array)
+   (Array-construct #unspecified))
+
+(define (scm-list->js-array els)
+   (let ((a (empty-js-Array)))
+      (let loop ((els els)
+		 (i 0))
+	 (if (null? els)
+	     a
+	     (begin
+		(js-property-safe-set! a
+				       (integer->string i)
+				       (car els))
+		(loop (cdr els)
+		      (+fx i 1)))))))
 
 (define (join-array a sep el->string)
    ;; 15.4.4.3 && 15.4.4.5
