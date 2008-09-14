@@ -17,7 +17,9 @@
    (include "date-impl.scm")
    (export *js-Date* ;; can be modified by user -> can't be ::procedure
 	   (class Js-Date::Js-Object
-	      t::double)
+	      t::double
+	      (cached-t::double (default 0.0))
+	      (dst::double (default 0.0)))
 	   (Date-init)))
 
 (define *js-Date* #unspecified)
@@ -282,10 +284,27 @@
       (proto *js-Date-prototype*)
       (t (NaN))))
 
+;; CARE: cache is clearly not thread-safe...
+(define (local-info-update! d)
+   (with-access::Js-Date d (t cached-t dst)
+      (cond
+	 ((=fl t cached-t)
+	  #t) ;; already set.
+	 (else
+	  (set! dst (daylight-saving-TA t))
+	  (set! cached-t t)))))
+	 
+
+;; same as 'local-time', but uses cached info, and directly takes Js-Date
+(define (Js-local-time::double d::Js-Date)
+   (local-info-update! d)
+   (with-access::Js-Date d (t dst)
+      (+fl (+fl t *localTZA*) dst)))
+
 (define (parse) ;; 15.9.4.2
    (js-fun this #f #f "Date.parse"
 	   (str)
-	   (string->time str)))
+	   (string->time (any->string str))))
 
 (define (UTC-method) ;; 15.9.4.3
    (js-fun this #f (nb-args get-arg)
@@ -328,7 +347,9 @@
 	      ((NaN? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
-	       (time->string (Js-Date-t this) #f)))))
+	       (local-info-update! this)
+	       (with-access::Js-Date this (t dst)
+		  (time->local-string t dst))))))
 
 (define (toDateString)                   ;; 15.9.5.3
    (js-fun this #f #f "Date.toDateString"
@@ -362,7 +383,9 @@
 	      ((NaN? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
-	       (time->string (Js-Date-t this) #f)))))
+	       (local-info-update! this)
+	       (with-access::Js-Date this (t dst)
+		  (time->local-string t dst))))))
 
 (define (toLocaleDateString)                   ;; 15.9.5.6
    ;; TODO: adapt for locale strings.
@@ -415,7 +438,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (year-from-time (local-time (Js-Date-t this)))))))
+	       (year-from-time (Js-local-time this))))))
 
 (define (getUTCFullYear)                       ;; 15.9.5.11
    (js-fun this #f #f "Date.getFullYear"
@@ -437,7 +460,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (month-from-time (local-time (Js-Date-t this)))))))
+	       (month-from-time (Js-local-time this))))))
 
 (define (getUTCMonth)                          ;; 15.9.5.13
    (js-fun this #f #f "Date.getUTCMonth"
@@ -459,7 +482,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (date-from-time (local-time (Js-Date-t this)))))))
+	       (date-from-time (Js-local-time this))))))
 
 (define (getUTCDate)                           ;; 15.9.5.15
    (js-fun this #f #f "Date.getUTCDate"
@@ -481,7 +504,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (week-day (local-time (Js-Date-t this)))))))
+	       (week-day (Js-local-time this))))))
 
 (define (getUTCDay)                           ;; 15.9.5.17
    (js-fun this #f #f "Date.getUTCDay"
@@ -503,7 +526,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (hours-from-time (local-time (Js-Date-t this)))))))
+	       (hours-from-time (Js-local-time this))))))
 
 (define (getUTCHours)                          ;; 15.9.5.19
    (js-fun this #f #f "Date.getUTCHours"
@@ -525,7 +548,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (min-from-time (local-time (Js-Date-t this)))))))
+	       (min-from-time (Js-local-time this))))))
 
 (define (getUTCMinutes)                        ;; 15.9.5.21
    (js-fun this #f #f "Date.getUTCMinutes"
@@ -547,7 +570,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (sec-from-time (local-time (Js-Date-t this)))))))
+	       (sec-from-time (Js-local-time this))))))
 
 (define (getUTCSeconds)                        ;; 15.9.5.23
    (js-fun this #f #f "Date.getUTCSeconds"
@@ -569,7 +592,7 @@
 	      ((NaN? (Js-Date-t this))
 	       (NaN))
 	      (else
-	       (ms-from-time (local-time (Js-Date-t this)))))))
+	       (ms-from-time (Js-local-time this))))))
 
 (define (getUTCMilliseconds)                       ;; 15.9.5.25
    (js-fun this #f #f "Date.getUTCMilliseconds"
@@ -593,7 +616,7 @@
 	      (else
 	       (let ((t (Js-Date-t this))
 		     (ms-per-minute 60000.0))
-		  (/fl (-fl t (local-time t))
+		  (/fl (-fl t (Js-local-time this))
 		       ms-per-minute))))))
 
 (define (setTime)                                  ;; 15.9.5.27
@@ -616,11 +639,15 @@
 	     (ms (or maybe-ms (ms-from-time t))))
 	  (make-js-date (day t) (make-js-time h m s ms)))))
 
-(define (update-UTC-time t h m s ms)
-   (time-clip (update-time t h m s ms)))
+(define (update-UTC-time! d::Js-Date h m s ms)
+   (with-access::Js-Date d (t)
+      (set! t (time-clip (update-time t h m s ms)))
+      t))
 
-(define (update-local-time t h m s ms)
-   (time-clip (UTC (update-time (local-time t) h m s ms))))
+(define (update-local-time! d::Js-Date h m s ms)
+   (with-access::Js-Date d (t)
+      (set! t (time-clip (UTC (update-time (Js-local-time d) h m s ms))))
+      t))
       
 (define (setMilliseconds)                          ;; 15.9.5.28
    (js-fun this #f #f "Date.setMilliseconds"
@@ -630,11 +657,9 @@
 	       (type-error "Date-setMilliseconds applied to" this))
 	      (else
 	       ;; UTC and local-time are ridiculous, but if the
-	       ;; date is completely at the limit then it could make a
-	       ;; difference...
-	       (with-access::Js-Date this (t)
-		  (set! t (update-local-time t #f #f #f (any->number ms)))
-		  t)))))
+	       ;; date is completely at the limit of floating point number
+	       ;; then it could make a difference...
+	       (update-local-time! this #f #f #f (any->number ms))))))
 
 (define (setUTCMilliseconds)                        ;; 15.9.5.29
    (js-fun this #f #f "Date.setUTCMilliseconds"
@@ -643,9 +668,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setUTCMilliseconds applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-UTC-time t #f #f #f (any->number ms)))
-		  t)))))
+	       (update-UTC-time! this #f #f #f (any->number ms))))))
 
 
 (define (setSeconds)                                  ;; 15.9.5.30
@@ -659,12 +682,9 @@
 	       ;; UTC and local-time are ridiculous here, but if the
 	       ;; date is completely at the limit then it could make a
 	       ;; difference...
-	       (with-access::Js-Date this (t)
-		  (set! t (update-local-time t #f #f
-					     (any->number s)
-					     (and (>=fx nb-args 2)
-						  (any->number ms))))
-		  t)))))
+	       (update-local-time! this #f #f
+				   (any->number s)
+				   (and (>=fx nb-args 2) (any->number ms)))))))
 
 (define (setUTCSeconds)                               ;; 15.9.5.31
    (js-fun this #f (nb-args get-arg)
@@ -674,12 +694,9 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setUTCSeconds applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-UTC-time t #f #f
-					   (any->number s)
-					   (and (>=fx nb-args 2)
-						(any->number ms))))
-		  t)))))
+	       (update-UTC-time! this #f #f
+				 (any->number s)
+				 (and (>=fx nb-args 2) (any->number ms)))))))
 
 ;; Note: ECMAScript spec does not contain any 15.9.5.32 (MS Word...)
 
@@ -691,14 +708,10 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setMinutes applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-local-time t #f
-					     (any->number m)
-					     (and (>=fx nb-args 2)
-						  (any->number s))
-					     (and (>=fx nb-args 3)
-						  (any->number ms))))
-		  t)))))
+	       (update-local-time! this #f
+				   (any->number m)
+				   (and (>=fx nb-args 2) (any->number s))
+				   (and (>=fx nb-args 3) (any->number ms)))))))
 
 (define (setUTCMinutes)                               ;; 15.9.5.34
    (js-fun this #f (nb-args get-arg)
@@ -708,14 +721,10 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setUTCMinutes applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-UTC-time t #f
-					     (any->number m)
-					     (and (>=fx nb-args 2)
-						  (any->number s))
-					     (and (>=fx nb-args 3)
-						  (any->number ms))))
-		  t)))))
+	       (update-UTC-time! this #f
+				 (any->number m)
+				 (and (>=fx nb-args 2) (any->number s))
+				 (and (>=fx nb-args 3) (any->number ms)))))))
 
 (define (setHours)                                    ;; 15.9.5.35
    (js-fun this #f (nb-args get-arg)
@@ -725,16 +734,11 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setHours applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-local-time t
-					     (any->number h)
-					     (and (>=fx nb-args 2)
-						  (any->number m))
-					     (and (>=fx nb-args 3)
-						  (any->number s))
-					     (and (>=fx nb-args 4)
-						  (any->number ms))))
-		  t)))))
+	       (update-local-time! this
+				   (any->number h)
+				   (and (>=fx nb-args 2) (any->number m))
+				   (and (>=fx nb-args 3) (any->number s))
+				   (and (>=fx nb-args 4) (any->number ms)))))))
 
 (define (setUTCHours)                                 ;; 15.9.5.36
    (js-fun this #f (nb-args get-arg)
@@ -744,16 +748,11 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setUTCHours applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-UTC-time t
-					   (any->number h)
-					   (and (>=fx nb-args 2)
-						(any->number m))
-					   (and (>=fx nb-args 3)
-						(any->number s))
-					   (and (>=fx nb-args 4)
-						(any->number ms))))
-		  t)))))
+	       (update-UTC-time! this
+				 (any->number h)
+				 (and (>=fx nb-args 2) (any->number m))
+				 (and (>=fx nb-args 3) (any->number s))
+				 (and (>=fx nb-args 4) (any->number ms)))))))
 
 (define (update-date t y m d)
    (cond
@@ -769,10 +768,14 @@
 				     (or d old-d))
 			(time-within-day t))))))
 
-(define (update-UTC-date t y m d)
-   (time-clip (update-date t y m d)))
-(define (update-local-date t y m d)
-   (time-clip (UTC (update-date (local-time t) y m d))))
+(define (update-UTC-date! jdate::Js-Date y m d)
+   (with-access::Js-Date jdate (t)
+      (set! t (time-clip (update-date t y m d)))
+      t))
+(define (update-local-date! jdate::Js-Date y m d)
+   (with-access::Js-Date jdate (t)
+      (set! t (time-clip (UTC (update-date (Js-local-time jdate) y m d))))
+      t))
 
 ;; Note: there are two 15.9.5.36 subsections...
 
@@ -783,9 +786,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setDate applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-local-date t #f #f (any->number d)))
-		  t)))))
+	       (update-local-date! this #f #f (any->number d))))))
 
 (define (setUTCDate)                                  ;; 15.9.5.37
    (js-fun this #f #f "Date.setUTCDate"
@@ -794,9 +795,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setUTCDate applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-UTC-date t #f #f (any->number d)))
-		  t)))))
+	       (update-UTC-date! this #f #f (any->number d))))))
 
 (define (setMonth)                                     ;; 15.9.5.38
    (js-fun this #f (nb-args get-arg)
@@ -806,12 +805,9 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setMonth applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-local-date t #f
-					     (any->number m)
-					     (and (>= nb-args 2)
-						  (any->number d))))
-		  t)))))
+	       (update-local-date! this #f
+				   (any->number m)
+				   (and (>= nb-args 2) (any->number d)))))))
 
 (define (setUTCMonth)                                     ;; 15.9.5.39
    (js-fun this #f (nb-args get-arg)
@@ -821,12 +817,9 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-setMonth applied to" this))
 	      (else
-	       (with-access::Js-Date this (t)
-		  (set! t (update-UTC-date t #f
-					   (any->number m)
-					   (and (>= nb-args 2)
-						(any->number d))))
-		  t)))))
+	       (update-UTC-date! this #f
+				 (any->number m)
+				 (and (>= nb-args 2) (any->number d)))))))
 
 (define (setFullYear)                                 ;; 15.9.5.40
    (js-fun this #f (nb-args get-arg)
@@ -837,13 +830,11 @@
 	       (type-error "Date-setFullYear applied to" this))
 	      (else
 	       (with-access::Js-Date this (t)
-		  (set! t (update-local-date (if (NaN? t) 0.0 t)
-					     (any->number y)
-					     (and (>= nb-args 2)
-						  (any->number m))
-					     (and (>= nb-args 3)
-						  (any->number d))))
-		  t)))))
+		  (if (NaN? t) (set! t 0.0)))
+	       (update-local-date! this
+				   (any->number y)
+				   (and (>= nb-args 2) (any->number m))
+				   (and (>= nb-args 3) (any->number d)))))))
 
 (define (setUTCFullYear)                               ;; 15.9.5.41
    (js-fun this #f (nb-args get-arg)
@@ -854,13 +845,11 @@
 	       (type-error "Date-setUTCFullYear applied to" this))
 	      (else
 	       (with-access::Js-Date this (t)
-		  (set! t (update-UTC-date (if (NaN? t) 0.0 t)
-					   (any->number y)
-					   (and (>= nb-args 2)
-						(any->number m))
-					   (and (>= nb-args 3)
-						(any->number d))))
-		  t)))))
+		  (if (NaN? t) (set! t 0.0)))
+	       (update-UTC-date! this
+				 (any->number y)
+				 (and (>= nb-args 2) (any->number m))
+				 (and (>= nb-args 3) (any->number d)))))))
 
 (define (toUTCString)                                 ;; 15.9.5.42
    (js-fun this #f #f "Date.toUTCString"
@@ -871,4 +860,5 @@
 	      ((NaN? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
-	       (time->string (Js-Date-t this) #t)))))
+	       (with-access::Js-Date this (t)
+		  (time->utc-string t))))))

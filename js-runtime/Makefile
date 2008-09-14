@@ -10,7 +10,7 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			RegExp-dot RegExp-match RegExp-state RegExp-char-set \
 			mset multi-top-level
 
-RUNTIME_BGL_INCLUDES = macros.sch RegExp-KMP.scm RegExp-constant-classes.scm date-impl.scm
+RUNTIME_BGL_INCLUDES = macros.sch
 
 REPL_BGL_MODULES = repl
 
@@ -83,3 +83,11 @@ REGEXP_JVM_OBJECTS = $(REGEXP_MODULES:%=%.class)
 regexp.jvm: .afile $(REGEXP_JVM_OBJECTS) RegExp-KMP.scm RegExp-constant-classes.scm
 	$(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS)
 
+#-- explicit deps
+o/RegExp-match.o: RegExp-KMP.scm RegExp-constant-classes.scm
+o/RegExp-main.o: RegExp-KMP.scm RegExp-constant-classes.scm
+o/RegExp-fsm.o: RegExp-KMP.scm RegExp-constant-classes.scm
+o/RegExp-parse.o: RegExp-KMP.scm RegExp-constant-classes.scm
+o/RegExp-classes.o: RegExp-KMP.scm RegExp-constant-classes.scm
+o/RegExp-dot.o: RegExp-KMP.scm RegExp-constant-classes.scm
+o/Date.o: date-impl.scm

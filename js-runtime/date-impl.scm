@@ -52,7 +52,7 @@
 		      1970.0))) ;; get estimate. we will improve on that
       (let* ((t-y (time-from-year y))
 	     (diff (-fl t-y t))
-	     (diff-y (truncatefl (/fl diff (*fl 365.0 *ms-per-day*)))))
+	     (diff-y (truncatefl (/fl diff (*fl 366.0 *ms-per-day*)))))
 	 (cond
 	    ((and (zerofl? diff-y)
 		  (<=fl t-y t)
@@ -129,13 +129,61 @@
 
 ;; 15.9.1.8
 ;; TODO: caching of TZA is not ok.
+;; Bigloo does this during configure. so we can't be better anyways.
 (define *localTZA* (*fl -1000.0
 			(fixnum->flonum (date-timezone (current-date)))))
 
 ;; 15.9.1.9
 (define (daylight-saving-TA::double t::double)
-   ;; TODO: daylight-saving
-   *ms-per-hour*)
+   (define (equivalent-year::double y::double)
+      (let* ((leap-year? (in-leap-year? y))
+	     (wd (week-day (day-from-year y))))
+	 (if leap-year?
+	     (case (flonum->fixnum wd)
+		;; 0 = sunday.
+		;; the 'else' clause is just to make bigloo typing happy
+		((0) 1984.0) ((1) 1996.0) ((2) 1980.0) ((3) 1992.0)
+		((4) 1976.0) ((5) 1988.0) ((6) 1972.0) (else (NaN)))
+	     (case (flonum->fixnum wd)
+		((0) 1978.0) ((1) 1973.0) ((2) 1974.0) ((3) 1975.0)
+		((4) 1981.0) ((5) 1971.0) ((6) 1977.0) (else (NaN))))))
+
+   ;; same as t, but in interval 1970-2038
+   (define (get-equivalent-ms t)
+      (cond
+	 ((and (>=fl t 0.0) ;; year-1970
+	       (<fl t 2147385660000.0)) ;; ~ jan 17 2038
+	  t)
+	 (else
+	  (receive (y m d)
+	     (date-decomposition t)
+	     (let* ((eq-year (equivalent-year y))
+		    (js-date (make-date (make-js-day eq-year m d)
+					(time-within-day t))))
+		js-date)))))
+
+   (if (not (finite? t))
+       (NaN)
+       (let* ((equiv-ms (get-equivalent-ms t))
+	      (secs (flonum->elong (/fl equiv-ms 1000.0)))
+	      (bdate (seconds->date secs))
+	      (tz-offset (fixnum->flonum (*fx (date-timezone bdate)
+					      1000)))) ;; in ms
+	  (if (<=fx (date-is-dst bdate) 0) ;; either none or unknown
+	      0.0
+	      ;; ok. so we know there is a dst. but we don't know how much.
+	      (-fl (+fl (make-js-date ;; same date but without daysaving
+			 (make-js-day
+			  (fixnum->flonum (date-year bdate))
+			  (fixnum->flonum (-fx (date-month bdate) 1))
+			  (fixnum->flonum (date-day bdate)))
+			 (make-js-time
+			  (fixnum->flonum (date-hour bdate))
+			  (fixnum->flonum (date-minute bdate))
+			  (fixnum->flonum (date-second bdate))
+			  0.0))
+			tz-offset)
+		   (*fl (elong->flonum secs) 1000.0))))))
 
 
 ;; 15.9.1.9
@@ -148,6 +196,7 @@
    (let ((t-local (-fl t *localTZA*)))
       (-fl t-local (daylight-saving-TA t-local))))
 
+   
 ;; 15.9.1.10
 (define *hours-per-day* 24.0)
 (define *minutes-per-hour* 60.0)
@@ -184,8 +233,6 @@
 			 ms-i))))))
 
 ;; 15.9.1.12
-;; we do not follow completely here. That is we allow a slightly larger
-;; interval to still succeed. the result must hence be time-clipped.
 (define (make-js-day::double year::double month::double date::double)
    ;; min-date: 20/04/-271821 (-100.000.000 days)
    ;; max-date: 13/09/275760  (+100.000.000 days)
@@ -198,7 +245,7 @@
    (define (time-from-month::double m::double leap-year?::bool)
       (let* ((leap-year (if leap-year? 1.0 0.0))
 	     (nb-days (case m
-			((0.0) 0)
+			((0.0) 0.0)
 			((1.0) 31.0)
 			((2.0) (+fl 59.0 leap-year))
 			((3.0) (+fl 90.0 leap-year))
@@ -245,47 +292,132 @@
       ((>fl (absfl t) 8.64e15) (NaN))
       (else (finite->integer t))))
 
-(define (time->string::bstring t::double UTC?::bool)
+;; RFC2822 string.
+(define (time->utc-string::bstring t::double)
    (cond
       ((NaN? t)
        "Invalid Date")
       (else
-       (let ((utc/local-t (if UTC? t (local-time t))))
-	  (format "~a ~a---~a"
-		  (time->date-string utc/local-t)
-		  (time->time-string utc/local-t)
-;		  (seconds->date (flonum->elong
-;				  (/fl utc/local-t *ms-per-second*)))
-		  (flonum->llong t))))))
+       (format "~a ~a -0000"
+	       (time->utc-date-string t)
+	       (time->time-string t)))))
+
+(define (zone-name offset::double daylight-saving?)
+   (let ((mins (flonum->fixnum (/fl offset *ms-per-minute*))))
+      (if (not daylight-saving?)
+	  (case mins
+	     ((-600) "HAST")
+	     ((-540) "AKST")
+	     ((-480) "PST")
+	     ((-420) "MST")
+	     ((-360) "CST")
+	     ((-300) "EST")
+	     ((-240) "AST")
+	     ((-210) "NST")
+	     ((0) "WET")
+	     ((60) "CET")
+	     ((120) "EET")
+	     ((180) "MST")
+	     ((420) "CXT")
+	     ((480) "AWST")
+	     ((570) "ACST")
+	     ((600) "AEST")
+	     ((690) "NFT")
+	     (else #f))
+	  (case mins
+	     ((-600) "HADT")
+	     ((-540) "AKDT")
+	     ((-480) "PDT")
+	     ((-420) "MDT")
+	     ((-360) "CDT")
+	     ((-300) "EDT")
+	     ((-240) "ADT")
+	     ((-210) "NDT")
+	     ((0) "WEST")
+	     ((60) "CEST")
+	     ((120) "EEST")
+	     ((180) "MSD")
+	     ((480) "AWDT")
+	     ((570) "ACDT")
+	     ((600) "AEDT")
+	     (else #f)))))
+       
+(define (2-digit n)
+   (let* ((i (flonum->fixnum n))
+	  (s (number->string i)))
+      (if (< i 10)
+	  (string-append "0" s)
+	  s)))
+
+(define (time->local-string::bstring t::double dst::double)
+   (cond
+      ((NaN? t)
+       "Invalid Date")
+      (else
+       (let* ((offset (+fl dst *localTZA*))
+	      (abs-offset (absfl offset))
+	      (hour-offset (floorfl (/fl abs-offset *ms-per-hour*)))
+	      (min-offset (floorfl (/fl (modulofl abs-offset *ms-per-hour*)
+					*ms-per-minute*)))
+	      (l-time (+fl t offset)))
+	  (format "~a ~a GMT~a~a~a~a"
+		  (time->date-string l-time)
+		  (time->time-string l-time)
+		  (cond
+		     ((and (=fl offset 0.0)
+			   (=fl *localTZA* 0.0))
+		      "+")
+		     ((<=fl offset 0.0)
+		      "-")
+		     (else "+"))
+		  (2-digit hour-offset)
+		  (2-digit min-offset)
+		  (let ((name (zone-name *localTZA* (not (=fl 0.0 dst)))))
+		     (if name
+			 (string-append " (" name ")")
+			 "")))))))
+
 (define (time->date-string::bstring t::double)
    (cond
       ((NaN? t)
        "Invalid Date")
       (else
        (let* ((w (flonum->fixnum (week-day t)))
-	      (d (flonum->fixnum (date-from-time t)))
+	      (d (date-from-time t))
 	      (m (flonum->fixnum (month-from-time t)))
 	      (y (flonum->fixnum (year-from-time t))))
 	  (format "~a ~a ~a ~a"
 		  (vector-ref '#("Sun" "Mon" "Tue" "Wed" "Thu" "Fri" "Sat") w)
-		  (vector-ref '#("Jan" "Feb" "Mar" "Mai" "Jun" "Jul" "Aug"
-				       "Sep" "Oct" "Nov" "Dec")
+		  (vector-ref '#("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul"
+				       "Aug" "Sep" "Oct" "Nov" "Dec")
 			      m)
-		  d
+		  (2-digit d)
+		  y)))))
+(define (time->utc-date-string::bstring t::double)
+   (cond
+      ((NaN? t)
+       "Invalid Date")
+      (else
+       (let* ((w (flonum->fixnum (week-day t)))
+	      (d (date-from-time t))
+	      (m (flonum->fixnum (month-from-time t)))
+	      (y (flonum->fixnum (year-from-time t))))
+	  (format "~a, ~a ~a ~a"
+		  (vector-ref '#("Sun" "Mon" "Tue" "Wed" "Thu" "Fri" "Sat") w)
+		  (2-digit d)
+		  (vector-ref '#("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul"
+				       "Aug" "Sep" "Oct" "Nov" "Dec")
+			      m)
 		  y)))))
 (define (time->time-string::bstring t::double)
    (cond
       ((NaN? t)
        "Invalid Date")
       (else
-       (let* ((h (integer->string/padding
-		  (flonum->fixnum (hours-from-time t)) 2))
-	      (m (integer->string/padding
-		  (flonum->fixnum (min-from-time t)) 2))
-	      (s (integer->string/padding
-		  (flonum->fixnum (sec-from-time t)) 2)))
-	  ;; TODO: include offset to UTC
-	  (format "~a:~a:~a" h m s)))))
+       (format "~a:~a:~a"
+	       (2-digit (hours-from-time t))
+	       (2-digit (min-from-time t))
+	       (2-digit (sec-from-time t))))))
 
 		  
 (define (string->time::double s::bstring)
