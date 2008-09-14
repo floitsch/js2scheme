@@ -278,12 +278,8 @@
 	 ((=fl (floorfl v) v)
 	  (let* ((str (real->string v))
 		 (pos (string-contains str ".0")))
-	     (if (not pos)
-		 (begin
-		    (warning "double->string"
-			     "could not find .0"
-			     str)
-		    str)
+	     (if (not pos) ;; most probably something like: 8.34e11
+		 (add-e+ str)
 		 (add-e+ (string-append (substring str 0 pos)
 					(substring str
 						   (+fx pos 2)
