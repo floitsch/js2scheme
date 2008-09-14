@@ -9,6 +9,9 @@
 	   jsre-Bool
 	   jsre-natives
 	   jsre-Error
+	   jsre-RegExp
+	   jsre-RegExp-match
+	   jsre-RegExp-fsm
 	   jsre-primitives
 	   jsre-conversion
 	   jsre-global-object
@@ -89,7 +92,12 @@
       (js-property-generic-set! prototype
 				"substring"
 				(str-substring)
-				(built-in-attributes))))
+				(built-in-attributes))
+      (js-property-generic-set! prototype
+				"match"
+				(match)
+				(built-in-attributes))
+      ))
 
 (define (String-lambda)
    (js-fun-lambda #f #f (nb-args get-arg) (first-arg)
@@ -150,10 +158,9 @@
 
 (define (replace)
    (js-fun this #f #f "String.replace"
-	   (seachValue replaceValue) (any->string this)))
+	   (searchValue replaceValue) (any->string this)))
 
-(define (js-string-ref o pos-any)
-   ;; 15.5.4.4 && 15.5.4.5
+(define (js-string-ref o pos-any)         ;; 15.5.4.4 && 15.5.4.5
    (let* ((str (any->string o))
 	  (str-len (string-length str))
 	  (pos (any->integer pos-any)))
@@ -165,8 +172,7 @@
 	 (else
 	  (string-ref str (flonum->fixnum pos))))))
    
-(define (charAt)
-   ;; 15.5.4.4
+(define (charAt)                         ;; 15.5.4.4
    (js-fun this #f #f "String.charAt"
 	   (pos-any)
 	   (let ((c (js-string-ref this pos-any)))
@@ -174,8 +180,7 @@
 		  (string c)
 		  ""))))
 
-(define (charCodeAt)
-   ;; 15.5.4.5
+(define (charCodeAt)                    ;; 15.5.4.5
    (js-fun this #f #f "String.charCodeAt"
 	   (pos-any)
 	   (let ((c (js-string-ref this pos-any)))
@@ -184,8 +189,7 @@
 		   (char->integer c))
 		  (NaN)))))
 
-(define (str-substring)
-   ;; 15.5.4.15
+(define (str-substring)                ;; 15.5.4.15
    (js-fun this #f #f "String.substring"
 	   (start-any end-any)
 	   (let* ((str (any->string this))
@@ -199,3 +203,45 @@
 	      (if (<fx start-bounded end-bounded)
 		  (substring str start-bounded end-bounded)
 		  (substring str end-bounded start-bounded)))))
+
+(define (match)                      ;; 15.5.4.10
+   (js-fun
+    this #f #f "String.match"
+    (regexp)
+    (let* ((re (if (Js-RegExp? regexp) ;; re does not need to be an object
+		   regexp
+		   (js-new *js-RegExp* regexp)))
+	   (s (any->string this)))
+       (when (not (Js-RegExp? re))
+	  (type-error "RegExp required" re))
+       (let ((global? (js-property-safe-get re "global")))
+	  (if (not global?)
+	      (js-call *js-RegExp-exec* re s)
+	      ;; mostly copied from RegExp.
+	      (let ((native-re (Js-RegExp-re re))
+		    (len (string-length s))
+		    (res-a (empty-js-Array)))
+		 (let loop ((s-pos 0)
+			    (a-index 0))
+		    (cond
+		       ((>fx s-pos len) ;; done
+			(js-property-safe-set! re "lastIndex" 0.0)
+			res-a)
+		       ((regexp-match native-re s s-pos)
+			=>
+			(lambda (match)
+			   (let ((start-index (car match))
+				 (final-index (cadr match)))
+			      (js-property-safe-set! res-a
+						     (integer->string a-index)
+						     (substring s
+								start-index
+								final-index))
+			      (loop (if (=fx final-index s-pos)
+					(+fx s-pos 1)
+					final-index)
+				    (+fx a-index 1)))))
+		       (else ;; no match
+			;; finished -> loop one last time and let the first
+			;; condition handle the rest.
+			(loop (+fx len 1) a-index))))))))))
