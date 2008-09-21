@@ -419,11 +419,94 @@
 	       (2-digit (min-from-time t))
 	       (2-digit (sec-from-time t))))))
 
-		  
+(define-macro (the-digit i)
+   `(-fx (byte->fixnum (the-byte-ref ,i)) (char->integer #\0)))
+
 (define (string->time::double s::bstring)
-   (let ((llong-pos (string-contains s "---")))
-      (if (not llong-pos)
-	  (NaN)
-	  (let ((llong-str (substring s (+fx llong-pos 3)
-				      (string-length s))))
-	     (llong->flonum (string->llong llong-str))))))
+   (define (offset-number->ms-offset::double n::double)
+      (let* ((i (flonum->fixnum n))
+	     (h (/fx i 100))
+	     (m (modulofx i 100)))
+	 (*fl (fixnum->flonum (+fx (*fx h 60) m))
+	      *ms-per-minute*)))
+
+   (define *date-lalr*
+      (lalr-grammar
+	 (number month weekday comma colon GMT plus minus info)
+	 (date-time
+	  ((maybe-weekday maybe-comma date maybe-time zone-info maybe-info)
+	   (time-clip (-fl (make-js-date date maybe-time) zone-info)))
+	  ((maybe-weekday maybe-comma date maybe-time maybe-info)
+	   (time-clip (UTC (make-js-date date maybe-time)))))
+	 (maybe-weekday
+	  (()        'done)
+	  ((weekday) 'done))
+	 (maybe-comma
+	  (()      'done)
+	  ((comma) 'done))
+	 (maybe-info
+	  (()     'done)
+	  ((info) 'done))
+	 (date
+	  ((number@day month number@year)
+	   (make-js-day year month day))
+	  ((month number@day number@year)
+	   (make-js-day year month day)))
+	 (maybe-time
+	  (() 0.0)
+	  ((time) time))
+	 (time
+	  ((number@h colon number@m colon number@s colon number@ms)
+	   (make-js-time h m s ms))
+	  ((number@h colon number@m colon number@s)
+	   (make-js-time h m s 0.0))
+	  ((number@h colon number@m)
+	   (make-js-time h m 0.0 0.0)))
+	 (zone-info
+	  ((GMT plus number)
+	   (offset-number->ms-offset number))
+	  ((GMT minus number)
+	   (-fl 0.0 (offset-number->ms-offset number)))
+	  ((plus number)
+	   (offset-number->ms-offset number))
+	  ((minus number)
+	   (-fl 0.0 (offset-number->ms-offset number))))))
+
+   (define *date-grammar*
+      (regular-grammar ((white (in " \r\n\t")))
+	 ((+ white) (ignore))
+	 ((+ digit) (cons 'number (the-flonum)))
+	 ((or "Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun")
+	  'weekday)
+	 ((: (in "JFMASOND") (in "aepuco") (in "nbrylgptvc"))
+	  (cons 'month (case (the-symbol)
+			  ((Jan) 0.0)
+			  ((Feb) 1.0)
+			  ((Mar) 2.0)
+			  ((Apr) 3.0)
+			  ((May) 4.0)
+			  ((Jun) 5.0)
+			  ((Jul) 6.0)
+			  ((Aug) 7.0)
+			  ((Sep) 8.0)
+			  ((Oct) 9.0)
+			  ((Nov) 10.0)
+			  ((Dec) 11.0))))
+	 (#\: 'colon)
+	 (#\, 'comma)
+	 ("GMT" 'GMT)
+	 (#\+ 'plus)
+	 (#\- 'minus)
+	 ((: #\( (* (out #\))) #\))
+	  'info)))
+	  
+
+   (tprint s)
+   (with-handler
+      (lambda (e)
+	 (tprint e)
+	 (NaN))
+      (let ((p (open-input-string s)))
+	 (unwind-protect
+	    (read/lalrp *date-lalr* *date-grammar* p)
+	    (close-input-port p)))))
