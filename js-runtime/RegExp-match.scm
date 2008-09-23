@@ -575,9 +575,9 @@
 		#f))))))
 
 (define (state-with-modifiable-clusters::FSM-state s::FSM-state)
-   (with-access::FSM-state s (clusters sharing-clusters?)
+   (with-access::FSM-state s (clusters sharing-clusters? still-needed?)
       (cond
-	 ((not sharing-clusters?)
+	 ((and (not sharing-clusters?) (not still-needed?))
 	  s)
 	 ((not (modifiable? s))
 	  (state-with-modifiable-clusters (modifiable-state s)))
@@ -585,9 +585,10 @@
 	  (set! clusters (copy-vector clusters (vector-length clusters)))
 	  s))))
 (define (state-with-modifiable-br-clusters::FSM-state s::FSM-state)
-   (with-access::FSM-state s (backref-clusters sharing-br-clusters?)
+   (with-access::FSM-state s (backref-clusters sharing-br-clusters?
+					       still-needed?)
       (cond
-	 ((not sharing-br-clusters?)
+	 ((and (not sharing-br-clusters?) (not still-needed?))
 	  s)
 	 ((not (modifiable? s))
 	  (state-with-modifiable-clusters (modifiable-state s)))
