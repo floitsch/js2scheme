@@ -7,6 +7,7 @@
     (inline local-symbol-var symbol-table symbol)
     (inline symbol-var-set! symbol-table symbol var)
     (inline scope-symbol-var-set! scope symbol var)
+    (inline scope-symbol-var-rm! scope symbol)
     (inline scope-symbol-var scope symbol)))
 
 
@@ -30,6 +31,9 @@
 
 (define-inline (scope-symbol-var-set! scope symbol var)
    (hashtable-put! scope symbol var))
+
+(define-inline (scope-symbol-var-rm! scope symbol)
+   (hashtable-remove! scope symbol))
 
 (define-inline (scope-symbol-var scope symbol)
    (hashtable-get scope symbol))
