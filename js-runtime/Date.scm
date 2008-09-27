@@ -27,6 +27,9 @@
 
 ;; TODO: js-object->string
 
+(define-method (js-object->string::bstring o::Js-Date)
+   "Date")
+
 (define (Date-init)
    (set! *js-Date* (Date-lambda))
    (globals-tmp-add! (lambda () (global-runtime-add! 'Date *js-Date*)))
@@ -224,10 +227,15 @@
 				"setUTCFullYear"
 				(setUTCFullYear)
 				(built-in-attributes))
-      (js-property-generic-set! prototype         ;; 15.9.5.42
-				"toUTCString"
-				(toUTCString)
-				(built-in-attributes))
+      (let ((utc-string (toUTCString)))
+	 (js-property-generic-set! prototype         ;; 15.9.5.42
+				   "toUTCString"
+				   utc-string
+				   (built-in-attributes))
+	 (js-property-generic-set! prototype         ;; B.2.6
+				   "toGTMString"
+				   utc-string
+				   (built-in-attributes)))
       ))
 
 (define (Date-lambda) ;; 15.9.2.1
@@ -360,7 +368,7 @@
 	      ((NaN? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
-	       (time->date-string (Js-Date-t this))))))
+	       (time->date-string (Js-local-time this))))))
 
 (define (toTimeString)                   ;; 15.9.5.4
    (js-fun this #f #f "Date.toTimeString"
@@ -371,7 +379,7 @@
 	      ((NaN? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
-	       (time->time-string (Js-Date-t this))))))
+	       (time->time-string (Js-local-time this))))))
 
 (define (toLocaleString)                       ;; 15.9.5.5
    ;; TODO: adapt for locale strings.
@@ -397,7 +405,7 @@
 	      ((NaN? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
-	       (time->date-string (Js-Date-t this))))))
+	       (time->date-string (Js-local-time this))))))
 
 (define (toLocaleTimeString)                   ;; 15.9.5.7
    ;; TODO: adapt for locale strings.
@@ -409,7 +417,7 @@
 	      ((NaN? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
-	       (time->time-string (Js-Date-t this))))))
+	       (time->time-string (Js-local-time this))))))
 
 (define (valueOf)                              ;; 15.9.5.8
    (js-fun this #f #f "Date.valueOf"
@@ -621,13 +629,13 @@
 
 (define (setTime)                                  ;; 15.9.5.27
    (js-fun this #f #f "Date.setTime"
-	   (t)
+	   (new-t)
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-setTime applied to" this))
 	      (else
 	       (with-access::Js-Date this (t)
-		  (set! t (time-clip (any->number t)))
+		  (set! t (time-clip (any->number new-t)))
 		  t)))))
 
 (define (update-time t maybe-h maybe-m maybe-s maybe-ms)

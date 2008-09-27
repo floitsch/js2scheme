@@ -158,8 +158,8 @@
 	  (receive (y m d)
 	     (date-decomposition t)
 	     (let* ((eq-year (equivalent-year y))
-		    (js-date (make-date (make-js-day eq-year m d)
-					(time-within-day t))))
+		    (js-date (make-js-date (make-js-day eq-year m d)
+					   (time-within-day t))))
 		js-date)))))
 
    (if (not (finite? t))
