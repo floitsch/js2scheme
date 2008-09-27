@@ -1,4 +1,12 @@
 #!/bin/bash
+
+RM_SCM=true
+
+if [ "x$1" = "x-d" ]; then
+    unset RM_SCM;
+    shift;
+fi;
+
 TMPFILE=`mktemp /tmp/js2scheme.XXXXX`  || exit 1
 
 JS2SCHEME_PATH=/home/flo/programming/js/js-tools
@@ -23,7 +31,7 @@ cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && \
 EXIT_STATUS=$?
 
 rm -f $TMPFILE
-rm -f $SCMTMPFILE.scm
+if [ $RM_SCM ]; then rm -f $SCMTMPFILE.scm; fi;
 rm -f $SCMTMPFILE.exe
 rm -f $JS2SCHEME_RUNTIME_PATH/o/`basename $SCMTMPFILE`.o
 rm -f $SCMTMPFILE
