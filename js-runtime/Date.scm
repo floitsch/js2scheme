@@ -233,7 +233,7 @@
 				   utc-string
 				   (built-in-attributes))
 	 (js-property-generic-set! prototype         ;; B.2.6
-				   "toGTMString"
+				   "toGMTString"
 				   utc-string
 				   (built-in-attributes)))
       ))
