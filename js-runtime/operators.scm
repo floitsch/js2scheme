@@ -118,8 +118,8 @@
 	 ((=fl n1 0.0) ;; TODO: or (-0)
 	  n1)
 	 (else
-	  (let ((tmp (inexact->exact (/fl n1 n2))))
-	     (- n1 (* tmp n2)))))))
+	  (let ((tmp (truncatefl (/fl n1 n2))))
+	     (-fl n1 (*fl tmp n2)))))))
 
 (define-inline (jsop-+ v1 v2)
    (let* ((lhs (any->primitive v1 #f))
