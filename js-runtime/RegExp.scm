@@ -23,7 +23,24 @@
     *js-RegExp-exec*
     (class Js-RegExp::Js-Object
        re)
-    (RegExp-init)))
+    (RegExp-init)
+    (RegExp-first-match-pos re::Js-RegExp str::bstring)
+
+    (RegExp-test re::Js-RegExp str::bstring start-pos::bint)
+    (RegExp-exec re::Js-RegExp str::bstring start-pos::bint)
+    ;; maybe put the following into a RegExp-facade module?
+    (RegExp-res-matched::bstring re-res str::bstring)
+    (RegExp-res-start-pos::bint re-res)
+    (RegExp-res-stop-pos::bint re-res)
+    (RegExp-res-clusters re-res)
+    (RegExp-res-capture re-res i::bint str::bstring)
+    (RegExp-res-captures re-res str::bstring)
+    (RegExp-cluster-length::bint re-cluster)
+    (RegExp-cluster-start-pos re-cluster i::bint)
+    (RegExp-cluster-stop-pos re-cluster i::bint)
+    (RegExp-cluster-capture re-cluster i::bint str::bstring)
+    (RegExp-cluster-captures re-cluster str::bstring)
+    ))
 
 (define *js-RegExp* #unspecified)
 (define *js-RegExp-orig* #unspecified)
@@ -160,7 +177,7 @@
 (define (exec)                               ;; 15.10.6.2
    (js-fun
     this #f #f
-    "RegExp.exec"
+    "RegExp.prototype.exec"
     (string)
     (when (not (Js-RegExp? this))
        (type-error "RegExp-exec applied to " this))
@@ -194,7 +211,7 @@
 			a)
 		       ((=fx i 0)
 			(js-property-safe-set!
-			 a (integer->string i)
+			 a "0"
 			 (substring s start-index final-index))
 			(loop (+fx i 1)))
 		       ((not (vector-ref clusters (*fx (-fx i 1) 2)))
@@ -214,10 +231,11 @@
 	   (js-property-safe-set! this "lastIndex" 0.0)
 	   (js-null))))))
 
-(define (test)
+(define (test)                               ;; 15.10.6.3
+   ;; TODO: too much duplication here.
    (js-fun
     this #f #f
-    "RegExp.test"
+    "RegExp.prototype.test"
     (string)
     (when (not (Js-RegExp? this))
        (type-error "RegExp-test applied to " this))
@@ -244,13 +262,13 @@
 		  (begin
 		     (js-property-safe-set! this "lastIndex" 0.0)
 		     #f))))
-	  ((regexp-test (Js-RegExp-re this) s i)
+	  ((RegExp-test this s i)
 	   #t)
 	  (else
 	   (js-property-safe-set! this "lastIndex" 0.0)
 	   #f)))))
 
-(define (toString)
+(define (toString)                           ;; 15.10.6.4
    (js-fun
     this #f #f
     "RegExp.toString"
@@ -267,3 +285,54 @@
 		      (if global? "g" "")
 		      (if ignore-case? "i" "")
 		      (if multiline? "m" "")))))
+
+;; basic test. either #t or #f
+(define (RegExp-test re::Js-RegExp str::bstring start-pos::bint)
+   (regexp-test (Js-RegExp-re re) str start-pos))
+
+(define (RegExp-exec re::Js-RegExp str::bstring start-pos::bint)
+   (regexp-match (Js-RegExp-re re) str start-pos))
+
+(define (RegExp-res-start-pos::bint re-res)
+   (car re-res))
+(define (RegExp-res-stop-pos::bint re-res)
+   (cadr re-res))
+(define (RegExp-res-matched::bstring re-res str::bstring)
+   (substring str
+	      (RegExp-res-start-pos re-res)
+	      (RegExp-res-stop-pos re-res)))
+(define (RegExp-res-clusters re-res)
+   (caddr re-res))
+(define (RegExp-res-capture re-res i::bint str::bstring)
+   (RegExp-cluster-capture (RegExp-res-clusters re-res) i str))
+(define (RegExp-res-captures re-res str::bstring)
+   (RegExp-cluster-captures (RegExp-res-clusters re-res) str))
+(define (RegExp-cluster-length::bint re-cluster)
+   (/fx (vector-length re-cluster) 2))
+(define (RegExp-cluster-start-pos re-cluster i::bint)
+   (vector-ref re-cluster (*fx i 2)))
+(define (RegExp-cluster-stop-pos re-cluster i::bint)
+   (vector-ref re-cluster (+fx (*fx i 2) 1)))
+(define (RegExp-cluster-capture re-cluster i::bint str::bstring)
+   (let ((start-pos (RegExp-cluster-start-pos re-cluster i)))
+      (if start-pos
+	  (substring str
+		     start-pos
+		     (RegExp-cluster-stop-pos re-cluster i))
+	  (js-undefined))))
+(define (RegExp-cluster-captures re-cluster str::bstring)
+   (let ((nb-clusters (RegExp-cluster-length re-cluster)))
+      (let loop ((i (-fx nb-clusters 1))
+		 (res '()))
+	 (if (<fx i 0)
+	     res
+	     (loop (-fx i 1)
+		   (cons (RegExp-cluster-capture re-cluster i str)
+			 res))))))
+
+;; used by String.prototype.search 15.5.4.12
+(define (RegExp-first-match-pos re str)
+   (let ((m (regexp-match (Js-RegExp-re re) str 0)))
+      (if m
+	  (car m)
+	  #f)))
