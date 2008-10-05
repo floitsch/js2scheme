@@ -22,6 +22,7 @@
     (Array-init)
     (js-array-literal length::bint els::pair-nil)
     (scm-list->js-array::Js-Array els::pair-nil)
+    (orig-Js-Array?::bool a)
     (empty-js-Array::Js-Array)))
 
 ;; TODO: Array is really not optimal: number operations are bad, and
@@ -265,6 +266,9 @@
 					     val)))
 		els)
       a))
+
+(define (orig-Js-Array? a)
+   (eq? a *js-Array-orig*))
 
 (define (empty-js-Array)
    (Array-construct #unspecified))
