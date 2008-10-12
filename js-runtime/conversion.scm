@@ -36,8 +36,9 @@
 	   (any->uint32::double any)
 	   (any->uint16::double any)
 	   (any->string::bstring any)
-	   (any->object::Js-Object any)
+	   (any->object any)
 	   (js-object any) ;; TODO we really need a better name...
+	   (safe-js-object::Js-Object any) ;; TODO we really need a better name...
 	   (js-object->primitive o::Js-Object hint::symbol)))
 
 ;; return #f if any is not a javascript object.
@@ -51,14 +52,19 @@
       ((procedure? any) (procedure-object any))
       (else
        #f)))
-   
+
+(define (safe-js-object any)
+   (if (Js-Object? any)
+       any
+       (procedure-object any)))
+
 (define (js-boolify::bool any)
    (cond
       ((boolean? any) any)
       ((js-undefined? any) #f)
       ((js-null? any) #f)
       ((string? any) (not (string=? any "")))
-      ((real? any) ;; TODO
+      ((flonum? any) ;; TODO
        (and (not (=fl any 0.0))
 	    (not (NaN? any))))
       (else #t)))
@@ -132,7 +138,7 @@
 
 (define (any->number any)
    (cond
-      ((real? any) any)
+      ((flonum? any) any)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
       ((js-undefined? any) (NaN))
       ((js-null? any) 0.0)
@@ -298,15 +304,16 @@
       (else
        (any->string2 (any->primitive any 'string)))))
 
-(define (any->object::Js-Object any)
+;; converts 'any' to a JS-object. -> might return a procedure too!
+(define (any->object any)
    (cond
       ((or (eq? any *js-Null*)
 	   (eq? any *js-Undefined*))
        (type-error "can't convert to object" any))
       ((Js-Object? any) any)
       ((string? any) (js-new *js-String-orig* any))
-      ((real? any) (js-new *js-Number-orig* any))
-      ((procedure? any) (procedure-object any))
+      ((flonum? any) (js-new *js-Number-orig* any))
+      ((procedure? any) any)
       ((boolean? any) (js-new *js-Bool-orig* any))
       ((number? any)
        (warning "exact number in any->object. should not happen" any)
