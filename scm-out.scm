@@ -411,12 +411,12 @@
       `(for-each (lambda (,prop)
 		    ,(this.lhs.var.set! prop)
 		    ,(this.body.traverse))
-		 (js-for-in-properties-list (any->object
+		 (js-for-in-properties-list (jsop-any->object
 					     ,(this.obj.traverse))))))
 
 (define-pmethod (With-out)
    ;; the obj is not yet transformed to an object.
-   `(let ((,this.obj-id (any->object ,(this.obj.traverse))))
+   `(let ((,this.obj-id (jsop-any->object ,(this.obj.traverse))))
        ,(this.body.traverse)))
 
 (define (make-clause default-clause? body-id expr body)
@@ -618,7 +618,7 @@
 	 (traversed-val (this.val.traverse)))
       (if (and (symbol? traversed-obj)
 	       (string? traversed-field))
-	  `(let* ((,tmp-object-o (any->object ,traversed-obj)))
+	  `(let* ((,tmp-object-o (jsop-any->object ,traversed-obj)))
 	      (js-property-safe-set! ,tmp-object-o
 				     ,traversed-field
 				     ,traversed-val))
@@ -626,7 +626,7 @@
 	  ;; evaluation.
 	  `(let* ((,tmp-o ,traversed-obj)
 		  (,tmp-field ,traversed-field)
-		  (,tmp-object-o (any->object ,tmp-o))
+		  (,tmp-object-o (jsop-any->object ,tmp-o))
 		  (,tmp-string-field (any->string ,tmp-field)))
 	      (js-property-safe-set! ,tmp-object-o
 				     ,tmp-string-field
@@ -727,7 +727,7 @@
       ;; evaluation.
       `(let* ((,tmp-o ,(this.obj.traverse))
 	      (,tmp-field ,(this.field.traverse))
-	      (,tmp-object-o (any->object ,tmp-o))
+	      (,tmp-object-o (jsop-any->object ,tmp-o))
 	      (,tmp-string-field (any->string ,tmp-field)))
 	  (js-property-safe-get ,tmp-object-o ,tmp-string-field))))
 
@@ -756,7 +756,7 @@
 		    (substring str 2 (string-length str)) 16))
 		  (string->real str))))
       (cond
-	 ((real? nb)
+	 ((flonum? nb)
 	  nb)
 	 (else
 	  (error "Number-out"
