@@ -63,6 +63,10 @@
 				(fromCharCode)
 				(built-in-attributes))
 
+      (js-property-generic-set! prototype      ;; 15.5.5.1
+				"length"
+				0.0
+				(length-attributes))
       (js-property-generic-set! prototype      ;; 15.5.4.1
 				"constructor"
 				*js-String*
@@ -120,7 +124,7 @@
 				(split)
 				(built-in-attributes))
       (js-property-generic-set! prototype      ;; 15.5.4.15
-				"js-substring"
+				"substring"
 				(js-substring)
 				(built-in-attributes))
       (js-property-generic-set! prototype      ;; 15.5.4.16
@@ -164,6 +168,7 @@
 		 (props (make-props-hashtable))
 		 (proto *js-String-prototype*)
 		 (str str))))
+       ;; 15.5.5.1
        (js-property-generic-set! o "length"
 				 (fixnum->flonum str-len)
 				 (length-attributes))
@@ -178,8 +183,10 @@
     (nb-args get-arg) "String.fromCharCode"
     (c0) ;; length 1
     (list->string (map (lambda (i)
-			  (integer->char
-			   (flonum->fixnum (any->uint16 (get-arg i)))))
+			  (let ((n (flonum->fixnum (any->uint16 (get-arg i)))))
+			     (if (>= n 256)
+				 #\- ;; TODO currently we only support ASCII
+				 (integer->char n))))
 		       (iota nb-args)))))
 
 (define (toString)                       ;; 15.5.4.2
@@ -266,7 +273,7 @@
       (let loop ((i (minfx pos (-fx len1 len2))))
 	 (cond
 	    ((<fx i 0) #f)
-	    ((substring-at? str search-str i) #t)
+	    ((substring-at? str search-str i) i)
 	    (else (loop (-fx i 1)))))))
       
 ;; 15.5.4.7 15.5.4.8
@@ -276,11 +283,12 @@
 			(any->string this)))
 	  (len (string-length this-str))
 	  (search-str (any->string search-str-any))
-	  (pos (if (js-undefined? pos-any)
-		   (if find-first? 0 len) ;; start at the beginning
+	  (pos-num (any->number pos-any))
+	  (pos (if (NaN? pos-num)
+		   (if find-first? 0 len)
 		   ;; CARE: we use bints here. as strings can't be longer
 		   ;; anyways this should not matter.
-		   (flonum->fixnum (minfl (maxfl (any->integer pos-any)
+		   (flonum->fixnum (minfl (maxfl (any->integer pos-num)
 						 0.0)
 					  (fixnum->flonum len)))))
 	  (search-fun (if find-first? string-contains string-contains-right)))
@@ -291,16 +299,21 @@
 	     -1.0))))
 
 (define (indexOf)                       ;; 15.5.4.7
-   (js-fun
-    this #f #f "String.prototype.indexOf"
-    (search-str pos)
-    (first/last-index-of this search-str pos #t)))
+   (let ((f (js-fun-lambda
+	     this #f #f
+	     (search-str pos)
+	     (first/last-index-of this search-str pos #t))))
+      (create-function f 1 "String.prototype.indexOf")
+      f))
+
 
 (define (lastIndexOf)                   ;; 15.5.4.8
-   (js-fun
-    this #f #f "String.prototype.lastIndexOf"
-    (search-str pos)
-    (first/last-index-of this search-str pos #f)))
+   (let ((f (js-fun-lambda
+	     this #f #f
+	     (search-str pos)
+	     (first/last-index-of this search-str pos #f))))
+      (create-function f 1 "String.prototype.lastIndexOf")
+      f))
 
 (define (localeCompare)                 ;; 15.5.4.9
    (js-fun
@@ -593,7 +606,8 @@
    (let ((v (make-vector 256)))
       (let loop ((i 0))
 	 (when (< i 256)
-	    (vector-set! v i (string (integer->char i)))))
+	    (vector-set! v i (string (integer->char i)))
+	    (loop (+fx i 1))))
       v))
 
 (define (cached-char-string c)
@@ -661,7 +675,7 @@
 					       (integer->string array-pos)
 					       (substring s last-pos pos))
 			(loop (+fx array-pos 1)
-			      (+fx last-pos pos)))))
+			      (+fx pos sep-len)))))
 		 (else
 		  (js-property-safe-set! a
 					 (integer->string array-pos)
@@ -682,7 +696,7 @@
 	   (let ((dummy 'dummy)) ;; need a let here for the defines
 	      (define limit-fl (fixnum->flonum limit))
 	      (define (reached-limit? len)
-		 (and (real? len)
+		 (and (flonum? len)
 		      (=fl len limit-fl)))
 	      (define (property-push! o v)
 		 (let* ((o-length (js-property-safe-get o "length"))
