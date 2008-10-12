@@ -59,7 +59,7 @@
 ;; undeclared variables anyways.
 (define-inline (jsop-property-delete! base prop)
    ;; mostly similar to js-property-get
-   (let ((o-typed (any->object base))
+   (let ((o-typed (safe-js-object (any->object base)))
 	 (prop-typed (any->string prop)))
       (js-property-safe-delete! o-typed prop-typed)))
 
@@ -238,7 +238,7 @@
        #t)
 
       ;; same types:
-      ((and (real? v1)         (real? v2))         (=fl v1 v2))
+      ((and (flonum? v1)         (flonum? v2))         (=fl v1 v2))
       ((and (string? v1)       (string? v2))       (string=? v1 v2))
       ((and (boolean? v1)      (boolean? v2))      #f) ;; eq? covered other case
       ((and (procedure? v1)    (procedure? v2))    #f) ;; eq? covered other case
@@ -246,22 +246,22 @@
       ;; different types:
       ((and (js-null? v1)      (js-undefined? v2)) #t)
       ((and (js-undefined? v1) (js-null? v2))      #t)
-      ((and (string? v1)       (real? v2))     (=fl (js-string->number v1) v2))
-      ((and (real? v1)         (string? v2))   (=fl v1 (js-string->number v2)))
+      ((and (string? v1)       (flonum? v2))     (=fl (js-string->number v1) v2))
+      ((and (flonum? v1)         (string? v2))   (=fl v1 (js-string->number v2)))
 
       ((boolean? v1)
        (if v1 (jsop-== 1.0 v2) (jsop-== 0.0 v2)))
       ((boolean? v2)
        (if v2 (jsop-== v1 1.0) (jsop-== v1 0.0)))
 
-      ((and (or (string? v1) (real? v1))
+      ((and (or (string? v1) (flonum? v1))
 	    (js-object v2))
        => (lambda (obj)
 	     (jsop-== v1
 		      (js-object->primitive v2 (if (Js-Date? obj)
 						   'string
 						   'number)))))
-      ((and (or (string? v2) (real? v2))
+      ((and (or (string? v2) (flonum? v2))
 	    (js-object v1))
        => (lambda (obj)
 	     (jsop-== (js-object->primitive v1 (if (Js-Date? obj)
@@ -279,8 +279,8 @@
       ((string? v1)
        (and (string? v2)
 	    (string=? v1 v2)))
-      ((real? v1)
-       (and (real? v2)
+      ((flonum? v1)
+       (and (flonum? v2)
 	    (equal? v1 v2))) ;; TODO: verify. shouldn't eqv? be sufficient
       ;; TODO: handle +-0
       (else
@@ -321,7 +321,7 @@
 	  #f))
 
 (define-inline (jsop-any->object expr)
-   (any->object expr))
+   (safe-js-object (any->object expr)))
 
 (define-inline (jsop-any->number expr)
    (any->number expr))

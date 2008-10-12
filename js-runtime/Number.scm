@@ -52,11 +52,13 @@
 				(prototype-attributes))
       (js-property-generic-set! number-object ;; 15.7.3.2
 				"MAX_VALUE"
+				;; TODO: MAX_VALUE
 				;; for now close enough
 				1.7976931348623157E308
 				(prototype-attributes))
       (js-property-generic-set! number-object ;; 15.7.3.3
 				"MIN_VALUE"
+				;; TODO: MIN_VALUE
 				;; for now close enough
 				4.9E-324
 				(prototype-attributes))
@@ -124,10 +126,10 @@
 		 ((not (Js-Number? this))
 		  (type-error "Number.toString applied to" this))
 		 ((or (js-undefined? radix)
-		      (and (real? radix)
+		      (and (flonum? radix)
 			   (=fl radix 10.0)))
 		  (any->string (Js-Number-value this)))
-		 ((and (real? radix)
+		 ((and (flonum? radix)
 		       (>= radix 2.0)
 		       (<= radix 36.0)
 		       (=fl radix (any->integer radix)))
@@ -135,8 +137,8 @@
 				 (flonum->fixnum radix)))
 		 
 		 ;; unspecified in spec.
-		 ;; v v v v v v v v v v 
-		 ((real? radix) ;; outside boundary
+		 ;; v v `v v v v v v v v 
+		 ((flonum? radix) ;; outside boundary
 		  (any->string (Js-Number-value this)))
 		 (else
 		  (convert (any->number radix)))))

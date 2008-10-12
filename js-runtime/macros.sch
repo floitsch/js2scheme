@@ -31,24 +31,28 @@
 (define-macro (js-method-call o m . Largs)
    (if (and (symbol? o)
 	    (string? m))
-       (let ((tmp-o (gensym 'o)))
-	  `(let ((,tmp-o (any->object ,o)))
+       (let ((tmp-o (gensym 'o))
+	     (tmp-this (gensym 'this)))
+	  `(let* ((,tmp-this (any->object ,o))
+		  (,tmp-o (safe-js-object ,tmp-this)))
 	      (js-call (js-property-safe-get ,tmp-o ,m)
-		       ,tmp-o
+		       ,tmp-this
 		       ,@Largs)))
        (let ((tmp-o (gensym 'o))
 	     (tmp-field (gensym 'field))
 	     (tmp-object-o (gensym 'object-o))
+	     (tmp-object-this (gensym 'this))
 	     (tmp-string-field (gensym 'string-field)))
 	  ;; we need all these tmp-variables, to ensure the correct order of
 	  ;; evaluation.
 	  `(let* ((,tmp-o ,o)
 		  (,tmp-field ,m)
-		  (,tmp-object-o (any->object ,tmp-o))
+		  (,tmp-object-this (any->object ,tmp-o))
+		  (,tmp-object-o (safe-js-object ,tmp-object-this))
 		  (,tmp-string-field (any->string ,tmp-field)))
 	      (js-call (js-property-safe-get ,tmp-object-o
 					     ,tmp-string-field)
-		       ,tmp-object-o
+		       ,tmp-object-this
 		       ,@Largs)))))
 
 (define-macro (js-fun-lambda maybe-this

@@ -39,7 +39,7 @@
 (define *NaN* (/fl 0.0 0.0))
 (define-inline (NaN) *NaN*)
 ;; HACK: NaN?
-(define-inline (NaN? v) (and (real? v)
+(define-inline (NaN? v) (and (flonum? v)
 			     (not (equal? v (*fl v 1.0)))))
 ;;(define-inline (NaN? v) (eqv? *NaN* v))
 

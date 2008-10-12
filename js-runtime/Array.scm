@@ -215,7 +215,7 @@
    ;; HACK: we do not allow to pass more than bint elements to fill-array
    ;;       this is due to nb-args being a bint.
    (if (and (= nb-args 1)
-	    (real? (get-arg 0)))
+	    (flonum? (get-arg 0)))
        (let ((len (get-arg 0)))
 	  (let ((int-len (any->uint32 len)))
 	     (if (=fl len int-len)
@@ -601,7 +601,7 @@
 			       #t)
 			      (else
 			       (let ((tmp (js-call compare-fn #f x y)))
-				  (if (and (real? tmp) (<fl tmp 0.0))
+				  (if (and (flonum? tmp) (<fl tmp 0.0))
 				      #t ;; less
 				      #f)))))))
 	      (sorted (sort comp els-strs)))
