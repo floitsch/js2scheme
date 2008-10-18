@@ -68,32 +68,224 @@
 			     "abs"
 			     (abs)
 			     (built-in-attributes))
-   (js-property-safe-set! *js-Math*
-			  "floor"
-			  (js-fun #f #f #f "Math.floor"
-				  (val)
-				  (floor val)))
-   (js-property-safe-set! *js-Math*
-			  "pow"
-			  (js-fun #f #f #f "Math.pow"
-				  (x power)
-				  (expt x power)))
-   (js-property-safe-set! *js-Math*
-			  "min"
-			  (js-fun #f #f #f "Math.min"
-				  (x y)
-				  (if (<fl x y)
-				      x
-				      y)))
-   (js-property-safe-set! *js-Math*
-			  "max"
-			  (js-fun #f #f #f "Math.min"
-				  (x y)
-				  (if (>fl x y)
-				      x
-				      y))))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.2
+			     "acos"
+			     (acos)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.3
+			     "asin"
+			     (asin)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.4
+			     "atan"
+			     (atan)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.5
+			     "atan2"
+			     (atan2)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.6
+			     "ceil"
+			     (ceil)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.7
+			     "cos"
+			     (cos)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.8
+			     "exp"
+			     (exp)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.9
+			     "floor"
+			     (floor)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.10
+			     "log"
+			     (log)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.11
+			     "max"
+			     (max)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.12
+			     "min"
+			     (min)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.13
+			     "pow"
+			     (pow)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.14
+			     "random"
+			     (random-js)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.15
+			     "round"
+			     (round)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.16
+			     "sin"
+			     (sin)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.17
+			     "sqrt"
+			     (sqrt)
+			     (built-in-attributes))
+   (js-property-generic-set! *js-Math*    ;; 15.8.2.18
+			     "tan"
+			     (tan)
+			     (built-in-attributes)))
 
-(define (abs)
+(define (abs)                           ;; 15.8.2.1
    (js-fun #f #f #f "Math.abs"
 	   (val)
 	   (absfl (any->number val))))
+
+(define (acos)                          ;; 15.8.2.2
+   (js-fun #f #f #f "Math.acos"
+	   (val)
+	   (acosfl (any->number val))))
+
+(define (asin)                          ;; 15.8.2.3
+   (js-fun #f #f #f "Math.asin"
+	   (val)
+	   (asinfl (any->number val))))
+
+(define (atan)                          ;; 15.8.2.4
+   (js-fun #f #f #f "Math.atan"
+	   (val)
+	   (atanfl (any->number val))))
+
+(define (atan2)                         ;; 15.8.2.5
+   (js-fun #f #f #f "Math.atan2"
+	   (y x)
+	   ;; ensure left-to-right order of eval.
+	   (let* ((yfl (any->number y))
+		  (xfl (any->number x)))
+	      (atan-2fl-ur yfl xfl))))
+
+(define (ceil)                          ;; 15.8.2.6
+   (js-fun #f #f #f "Math.ceil"
+	   (v)
+	   (ceilingfl (any->number v))))
+
+(define (cos)                           ;; 15.8.2.7
+   (js-fun #f #f #f "Math.cos"
+	   (v)
+	   (cosfl (any->number v))))
+
+(define (exp)                           ;; 15.8.2.8
+   (js-fun #f #f #f "Math.exp"
+	   (v)
+	   (expfl (any->number v))))
+
+(define (floor)                         ;; 15.8.2.9
+   (js-fun #f #f #f "Math.floor"
+	   (v)
+	   (floorfl (any->number v))))
+
+(define (log)                           ;; 15.8.2.11
+   (js-fun #f #f #f "Math.log"
+	   (v)
+	   (logfl (any->number v))))
+
+(define (max)                           ;; 15.8.2.11
+   (js-fun
+    #f #f
+    (nb-args get-arg) "Math.max"
+    (x y) ;; length 2
+    (cond
+       ((=fx nb-args 2)
+	;; ensure left-to-right order
+	(let* ((xfl (any->number x))
+	       (yfl (any->number y)))
+	   (maxfl xfl yfl)))
+       ((=fx nb-args 0)
+	(-infinity))
+       ((=fx nb-args 1)
+	(any->number x))
+       (else
+	(let loop ((m (any->number x))
+		   (i 1))
+	   (if (<fx i nb-args)
+	       (loop (maxfl m (any->number (get-arg i)))
+		     (+fx i 1))
+	       m))))))
+
+(define (min)                           ;; 15.8.2.12
+   (js-fun
+    #f #f
+    (nb-args get-arg) "Math.min"
+    (x y) ;; length 2
+    (cond
+       ((=fx nb-args 2)
+	;; ensure left-to-right order
+	(let* ((xfl (any->number x))
+	       (yfl (any->number y)))
+	   (minfl xfl yfl)))
+       ((=fx nb-args 0)
+	(+infinity))
+       ((=fx nb-args 1)
+	(any->number x))
+       (else
+	(let loop ((m (any->number x))
+		   (i 1))
+	   (if (<fx i nb-args)
+	       (loop (minfl m (any->number (get-arg i)))
+		     (+fx i 1))
+	       m))))))
+
+(define (pow)                           ;; 15.8.2.13
+   (js-fun #f #f #f "Math.pow"
+	   (x-any y-any)
+	   (let* ((x (any->number x-any))
+		  (y (any->number y-any)))
+	      (cond
+		 ((and (or (=fl x 1.0)
+			   (=fl x -1.0))
+		       (or (+infinity? y)
+			   (-infinity? y)))
+		  (NaN))
+		 (else
+		  (exptfl x y))))))
+
+(define (random-js)                     ;; 15.8.2.14
+   (js-fun #f #f #f "Math.random"
+	   ()
+	   ;; use same formula as Java.
+	   (let* ((r1 (random (bit-lsh 1 26)))
+		  (r2 (random (bit-lsh 1 27)))
+		  (r1l (fixnum->llong r1))
+		  (r2l (fixnum->llong r2))
+		  (l (+llong (bit-lshllong r1l 27)
+			     r2l)))
+	      (/fl (llong->flonum l)
+		   (llong->flonum (bit-lshllong #l1 53))))))
+
+(define (round)                         ;; 15.8.2.15
+   (js-fun #f #f #f "Math.round"
+	   (v-any)
+	   (let ((v (any->number v-any)))
+	      (cond
+		 ((or (>fl v 0.0)
+		      (<fl v -0.5))
+		  (floorfl (+fl v 0.5)))
+		 ((=fl v 0.0) ;; could be -0.0 too
+		  v)
+		 (else -0.0)))))
+
+(define (sin)                           ;; 15.8.2.16
+   (js-fun #f #f #f "Math.sin"
+	   (v)
+	   (sinfl (any->number v))))
+
+(define (sqrt)                          ;; 15.8.2.17
+   (js-fun #f #f #f "Math.sqrt"
+	   (v)
+	   (sqrtfl-ur (any->number v))))
+
+(define (tan)                           ;; 15.8.2.18
+   (js-fun #f #f #f "Math.tan"
+	   (v)
+	   (tanfl (any->number v))))
