@@ -81,7 +81,7 @@
        (error "jsop-typeof" "missed type " v))))
 
 (define-inline (jsop-unary-- v)
-   (-fl 0.0 (any->number v)))
+   (negfl (any->number v)))
 
 (define-inline (jsop-unary-+ v)
    (any->number v))

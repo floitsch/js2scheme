@@ -200,8 +200,7 @@
 	 ((NaN? nb) +0.0)
 	 ((or (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl -0.0 nb)
-	      (=fl +0.0 nb))
+	      (=fl 0.0 nb)) ;; could be -0.0, too.
 	  nb)
 	 (else
 	  (finite->integer nb)))))
@@ -212,8 +211,7 @@
 	 ((or (NaN? nb)
 	      (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl -0.0 nb)
-	      (=fl +0.0 nb))
+	      (=fl 0.0 nb)) ;; could be -0.0, too.
 	  +0.0)
 	 (else
 	  (let* ((tmp (flonum->llong nb))
@@ -228,8 +226,7 @@
 	 ((or (NaN? nb)
 	      (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl -0.0 nb)
-	      (=fl +0.0 nb))
+	      (=fl 0.0 nb)) ;; could be -0.0, too
 	  +0.0)
 	 (else
 	  (let ((tmp (flonum->llong nb)))
@@ -242,8 +239,7 @@
 	 ((or (NaN? nb)
 	      (+infinity? nb)
 	      (-infinity? nb)
-	      (=fl -0.0 nb)
-	      (=fl +0.0 nb))
+	      (=fl 0.0 nb)) ;; could be -0.0, too
 	  +0.0)
 	 (else
 	  (let ((tmp (flonum->llong nb)))
