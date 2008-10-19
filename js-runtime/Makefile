@@ -67,7 +67,9 @@ o/RegExp-match.o: RegExp-match.scm $(RUNTIME_BGL_INCLUDES)
 	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
 
 clean:
-	rm -f $(OBJECTS) $(REGEXP_OBJECTS) $(REPL_OBJECTS) $(TARGETNAMES) .afile;
+	rm -f $(OBJECTS) $(REGEXP_OBJECTS) \
+              $(REPL_OBJECTS) $(TARGETNAMES) \
+              extract-globals extract-globals.o .afile;
 
 REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot \
                   RegExp-match RegExp-state RegExp-char-set mset multi-top-level
