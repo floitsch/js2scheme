@@ -646,6 +646,12 @@
        ;; do not add the 'let'.
        `(,(this.op.var.compiled-id) ;; operator call.
 	 ,@(map-node-compile this.args)))
+      ((and (eq? this.op.var.id 'unary--)
+	    (inherits-from? (car this.args) (node 'Number)))
+       `(negfl ,((car this.args).traverse)))
+      ((and (eq? this.op.var.id 'unary-+)
+	    (inherits-from? (car this.args) (node 'Number)))
+       ((car this.args).traverse))
       (else
        (let* ((compiled-args (map-node-compile this.args))
 	      (tmp-ids (map (lambda (arg) (gensym 'tmp))
