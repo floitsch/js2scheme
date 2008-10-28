@@ -520,10 +520,11 @@
 	  (lambda ()
 	     (let* ((,exc-scm-id (error->js-exception ,exc-scm-id))
 		    (,obj-id (js-create-scope-object (js-object-literal '()))))
+		;; 12.14
 		(scope-var-add ,obj-id
 			       ,(symbol->string exc-js-id)
 			       ,exc-scm-id
-			       (dont-delete-attributes))
+			       (get-Attributes dont-delete))
 		,compiled-body)))))
 
 (define-pmethod (Named-fun-out)
@@ -533,10 +534,11 @@
 	 (compiled-body (this.body.traverse)))
       `(let ((,obj-id (js-create-scope-object (js-object-literal '()))))
 	  (letrec ((,fun-scm-id ,compiled-body))
+	     ;; 13
 	     (scope-var-add ,obj-id
 			    ,(symbol->string fun-js-id)
 			    ,fun-scm-id
-			    (dont-delete-attributes))
+			    (get-Attributes dont-delete read-only))
 	     ,fun-scm-id))))
 
 (define-pmethod (Bind-exit-out)
@@ -564,7 +566,7 @@
 		       `(scope-var-add ,eval-obj-id
 				       ,(symbol->string var.id)
 				       ,(var.compiled-id)
-				       (dont-delete-attributes)))
+				       (declared-attributes)))
 		    fun-vars)
 	     ,body)))
 	    
