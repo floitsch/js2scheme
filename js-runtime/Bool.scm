@@ -51,7 +51,8 @@
       (js-property-generic-set! bool-object ;; 15.6.3.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum
+						dont-delete read-only))
 
       (js-property-generic-set! prototype    ;; 15.6.4.1
 				"constructor"

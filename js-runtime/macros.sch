@@ -187,21 +187,18 @@
 	  (js-property-generic-set! ,arguments
 				    "callee"
 				    ,callee
-				    ; 'don-enum
-				    (built-in-attributes))
+				    (get-Attributes dont-enum))
 	  (js-property-generic-set! ,arguments
 				    "length"
 				    (fixnum->flonum ,nb-args)
-				    ; 'don-enum
-				    (built-in-attributes))
+				    (get-Attributes dont-enum))
 	  ;; named vars are added as scope-vars
 	  ,@(map (lambda (id c)
 		    `(when (< ,c ,nb-args)
 			(scope-var-add ,arguments
 				       ,(number->string c)
 				       ,id
-				       ; 'dont-enum
-				       (built-in-attributes))))
+				       (get-Attributes dont-enum))))
 		 param-vars
 		 (iota nb-named))
 	  ;; remaining ones are added as vector-refs
@@ -219,8 +216,7 @@
 						   (- ,counter
 						      ,nb-named-params)
 						   ,new-val))))
-			; 'don't-enum
-			(built-in-attributes)))
+			(get-Attributes dont-enum)))
 		    (iota (- ,nb-args ,nb-named) ,nb-named))
 	  ,arguments)))
 

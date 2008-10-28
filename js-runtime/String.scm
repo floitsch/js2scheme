@@ -57,16 +57,19 @@
       (js-property-generic-set! string-object  ;; 15.5.3.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum
+						dont-delete read-only))
       (js-property-generic-set! string-object  ;; 15.5.3.2
 			        "fromCharCode"
 				(fromCharCode)
 				(built-in-attributes))
 
+      ;; prototype is a String-object. -> set the length value
       (js-property-generic-set! prototype      ;; 15.5.5.1
 				"length"
 				0.0
-				(length-attributes))
+				(get-Attributes dont-enum
+						dont-delete read-only))
       (js-property-generic-set! prototype      ;; 15.5.4.1
 				"constructor"
 				*js-String*
@@ -171,7 +174,8 @@
        ;; 15.5.5.1
        (js-property-generic-set! o "length"
 				 (fixnum->flonum str-len)
-				 (length-attributes))
+				 (get-Attributes dont-enum dont-delete
+						 read-only))
        o)))
 
 (define (String-construct f-o::Js-Function)

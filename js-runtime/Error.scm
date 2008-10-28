@@ -78,25 +78,26 @@
 	 
 	 (unless native-error? (set! *error-prototype* prototype))
 
-	 (js-property-generic-set! error-object ;; 15.11.3 / 15.11.7 assumed
+	 (js-property-generic-set! error-object  ;; 15.11.3 / 15.11.7 assumed
 				   "length"
 				   1.0
 				   (length-attributes))
-	 (js-property-generic-set! error-object ;; 15.11.3.1 / 15.11.7.6
+	 (js-property-generic-set! error-object  ;; 15.11.3.1 / 15.11.7.6
 				   "prototype"
 				   prototype
-				   (prototype-attributes))
+				   (get-Attributes dont-enum dont-delete
+						   read-only))
 
-	 (js-property-generic-set! prototype    ;; 15.11.4.1 / 15.11.7.8
+	 (js-property-generic-set! prototype     ;; 15.11.4.1 / 15.11.7.8
 				   "constructor"
 				   proc
 				   (constructor-attributes))
 
-	 (js-property-generic-set! prototype  ;; 15.11.4.2 / 15.11.7.9
+	 (js-property-generic-set! prototype     ;; 15.11.4.2 / 15.11.7.9
 				   "name"
 				   name
 				   (built-in-attributes))
-	 (js-property-generic-set! prototype  ;; 15.11.4.3 / 15.11.7.10
+	 (js-property-generic-set! prototype     ;; 15.11.4.3 / 15.11.7.10
 				   "message"
 				   ""
 				   (built-in-attributes))

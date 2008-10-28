@@ -89,7 +89,8 @@
       (js-property-generic-set! fun-obj       ;; 15.3.3.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum
+						dont-delete read-only))
 
       ;; prototype is itself a function -> it should have constructor, length
       ;; and prototype properties. These are not mentioned in the spec, but we
@@ -105,12 +106,13 @@
       (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
 				"prototype"
 				(js-new *js-Object*)
-				(dont-delete-attributes))
+				(get-Attributes dont-enum
+						dont-delete read-only))
 				
       (js-property-generic-set! prototype-obj ;; 15.3.4.1
 				"constructor"
 				*js-Function*
-				(built-in-attributes))
+				(constructor-attributes))
       (js-property-generic-set! prototype-obj ;; 15.3.4.2
 				"toString"
 				(toString)
@@ -148,23 +150,23 @@
 					   create-empty-object-lambda
 					   text-repr)))
 
-      (js-property-generic-set! fun-prototype
+      (js-property-generic-set! fun-prototype                 ;; 13.2 - 10
 			       "constructor"
 			       js-lambda
-			       (constructor-attributes))
+			       (get-Attributes dont-enum))
       
-      (js-property-generic-set! fun-obj
+      (js-property-generic-set! fun-obj                       ;; 15.3.5.1
 			       "length"
 			       (if (exact? length)
 				   (exact->inexact length)
 				   length)
-			       (length-attributes))
+			       (get-Attributes dont-delete
+					       read-only dont-enum))
       
-      (js-property-generic-set! fun-obj
+      (js-property-generic-set! fun-obj                       ;; 15.3.5.2
 			       "prototype"
 			       fun-prototype
-			       ;; ECMA 15.3.5.2
-			       (dont-delete-attributes))
+			       (get-Attributes dont-delete))
       js-lambda))
 
 ;; creates a Function-object and registers it in hashtable.

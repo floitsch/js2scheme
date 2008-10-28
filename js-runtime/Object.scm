@@ -56,7 +56,8 @@
       (js-property-generic-set! proc-object ;; 15.2.3.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum
+						dont-delete read-only))
       
       (js-property-generic-set! prototype  ;; 15.2.4.1
 				"constructor"

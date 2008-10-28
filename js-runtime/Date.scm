@@ -44,14 +44,15 @@
 
       (set! *js-Date-prototype* prototype)
 
-      (js-property-generic-set! date-object    ;; 15.9.4
+      (js-property-generic-set! date-object       ;; 15.9.4
 				"length"
 				7.0
 				(length-attributes))
-      (js-property-generic-set! date-object    ;; 15.9.4.1
+      (js-property-generic-set! date-object       ;; 15.9.4.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum dont-delete
+						read-only))
 
       (js-property-generic-set! date-object       ;; 15.9.4.2
 				"parse"

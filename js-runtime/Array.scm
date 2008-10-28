@@ -75,10 +75,12 @@
 					go-into-prototypes?)))))
    
 (define-method (js-property-one-level-contains? o::Js-Array prop::bstring)
+   ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (if (string=? prop "length")
        #t
        (call-next-method)))
 (define-method (js-property-is-enumerable? o::Js-Array prop::bstring)
+   ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (if (string=? prop "length")
        #f
        (call-next-method)))
@@ -88,6 +90,7 @@
        (call-next-method)))
 
 (define-method (add-enumerables o::Js-Array enumerables-ht shadowed-ht)
+   ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (hashtable-put! shadowed-ht "length" #t)
    (call-next-method))
 
@@ -124,6 +127,7 @@
 	     (call-next-method)))))
 
 (define-method (js-property-safe-delete! o::Js-Array prop::bstring)
+   ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (if (string=? prop "length")
        #f
        (call-next-method)))
@@ -147,14 +151,15 @@
 
       (set! *js-Array-prototype* prototype)
       
-      (js-property-generic-set! array-object ;; 15.4.3
+      (js-property-generic-set! array-object            ;; 15.4.3
 				"length"
 				1.0
 				(length-attributes))
-      (js-property-generic-set! array-object ;; 15.4.3.1
+      (js-property-generic-set! array-object            ;; 15.4.3.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum
+						dont-delete read-only))
       
       (js-property-generic-set! prototype               ;; 15.4.4.1
 				"constructor"

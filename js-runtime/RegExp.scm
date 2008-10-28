@@ -59,20 +59,21 @@
 						 (RegExp-new)
 						 RegExp-construct
 						 text-repr))
-	  (prototype (instantiate::Js-Object           ;; 15.10.6
+	  (prototype (instantiate::Js-Object             ;; 15.10.6
 			(props (make-props-hashtable))
 			(proto (js-object-prototype)))))
       
       (set! *js-RegExp-prototype* prototype)
 
-      (js-property-generic-set! regexp-object ;; 15.10.5
+      (js-property-generic-set! regexp-object            ;; 15.10.5
 				"length"
 				2.0
 				(length-attributes))
-      (js-property-generic-set! regexp-object ;; 15.10.5.1
+      (js-property-generic-set! regexp-object            ;; 15.10.5.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum dont-delete
+						read-only))
 
       (js-property-generic-set! prototype                ;; 15.10.6.1
 				"constructor"
@@ -128,26 +129,30 @@
 		      (multiline? #f))
 	      (cond
 		 ((>=fx i len) ;; done
-		  (js-property-generic-set! this "source" ;; 15.10.7.1
+		  (js-property-generic-set! this "source"          ;; 15.10.7.1
 					    norm-pattern
-					    ;; TODO: do not name 'length-attr'
-					    (length-attributes))
-		  (js-property-generic-set! this "global" ;; 15.10.7.2
+					    (get-Attributes dont-delete
+							    dont-enum
+							    read-only))
+		  (js-property-generic-set! this "global"          ;; 15.10.7.2
 					    (mangle-false global?)
-					    ;; TODO: do not name 'length-attr'
-					    (length-attributes))
-		  (js-property-generic-set! this "ignoreCase" ;; 15.10.7.3
+					    (get-Attributes dont-delete
+							    dont-enum
+							    read-only))
+		  (js-property-generic-set! this "ignoreCase"      ;; 15.10.7.3
 					    (mangle-false ignore-case?)
-					    ;; TODO: do not name 'length-attr'
-					    (length-attributes))
-		  (js-property-generic-set! this "multiline"  ;; 15.10.7.4
+					    (get-Attributes dont-delete
+							    dont-enum
+							    read-only))
+		  (js-property-generic-set! this "multiline"       ;; 15.10.7.4
 					    (mangle-false multiline?)
-					    ;; TODO: do not name 'length-attr'
-					    (length-attributes))
-		  (js-property-generic-set! this "lastIndex"  ;; 15.10.7.5
+					    (get-Attributes dont-delete
+							    dont-enum
+							    read-only))
+		  (js-property-generic-set! this "lastIndex"       ;; 15.10.7.5
 					    0.0
-					    ;; TODO: do not name 'length-attr'
-					    (dont-enum-dont-delete-attributes))
+					    (get-Attributes dont-delete
+							    dont-enum))
 		  (with-access::Js-RegExp this (re)
 		     (let ((scm-re (js-regexp->scm-regexp pattern)))
 			(when (not scm-re)

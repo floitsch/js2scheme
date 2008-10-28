@@ -27,22 +27,24 @@
 	   ))
 
 (define jsg-NaN (NaN))
-(globals-tmp-add! (lambda ()
-		     (global-special-add! 'NaN ;; 15.1.1.1
-					  jsg-NaN
-					  (dont-enum-dont-delete-attributes))))
+(globals-tmp-add!
+ (lambda ()
+    (global-special-add! 'NaN              ;; 15.1.1.1
+			 jsg-NaN
+			 (get-Attributes dont-enum dont-delete))))
+
 (define jsg-Infinity (+infinity))
 (globals-tmp-add!
  (lambda ()
-    (global-special-add! 'Infinity ;; 15.1.1.2
+    (global-special-add! 'Infinity         ;; 15.1.1.2
 			 jsg-Infinity
-			 (dont-enum-dont-delete-attributes))))
+			 (get-Attributes dont-enum dont-delete))))
 (define jsg-undefined (js-undefined))
 (globals-tmp-add!
  (lambda ()
-    (global-special-add! 'undefined ;; 15.1.1.3
+    (global-special-add! 'undefined        ;; 15.1.1.3
 			 jsg-undefined
-			 (dont-enum-dont-delete-attributes))))
+			 (get-Attributes dont-enum dont-delete))))
 
 (define-runtime-globals
    (define (print to-print)
@@ -50,16 +52,16 @@
    (define (scmprint to-print)
       (write-circle to-print)
       (print))
-   (define (eval prog) ;; 15.1.2.1
+   (define (eval prog)              ;; 15.1.2.1
       (eval-error prog))
-   (define (isNaN number) ;; 15.1.2.4
+   (define (isNaN number)           ;; 15.1.2.4
       (NaN? (any->number number)))
-   (define (isFinite number) ;; 15.1.2.5
+   (define (isFinite number)        ;; 15.1.2.5
       (let ((n (any->number number)))
 	 (not (or (NaN? n)
 		  (+infinity? n)
 		  (-infinity? n)))))
-   (define (parseInt string radix) ;; 15.1.2.2
+   (define (parseInt string radix)  ;; 15.1.2.2
       (define (white-space? c)
 	 ;; TODO: not spec-conform
 	 (char-whitespace? c))

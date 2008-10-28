@@ -24,18 +24,25 @@
 
     (js-for-in-properties-list::pair-nil o::Js-Object)
     (inline make-props-hashtable)
-    
-    (default-attributes)    ;; default attributes for common properties.
-    (length-attributes)     ;; default attributes for "length" properties.
-    (built-in-attributes)    ;; default attributes for "built-in" properties.
-    (prototype-attributes)   ;; same as length-attribute
-    (constructor-attributes)
-    (declared-attributes)
-    (dont-delete-attributes)
-    (dont-enum-dont-delete-attributes)
-    (runtime-attributes)
-    (implicit-attributes)))
-   
+
+    (macro get-Attributes)
+    (length-attributes::Attributes)
+    (built-in-attributes::Attributes)
+    (constructor-attributes::Attributes)
+    (declared-attributes::Attributes)
+    (implicit-attributes::Attributes)
+    (default-attributes::Attributes)
+    (runtime-attributes::Attributes)
+    (readOnly-dontEnum-dontDelete-attributes::Attributes)
+    (dontEnum-dontDelete-attributes::Attributes)
+    (readOnly-dontDelete-attributes::Attributes)
+    (readOnly-dontEnum-attributes::Attributes)
+    (readOnly-attributes::Attributes)
+    (dontEnum-attributes::Attributes)
+    (dontDelete-attributes::Attributes)
+    (no-attributes::Attributes))
+    )
+
 (define-inline (mangle-false val)
    (or val 'false))
 (define-inline (unmangle-false val)
@@ -48,64 +55,90 @@
 (define-inline (make-props-hashtable)
    (make-hashtable))
 
-(define *default-attributes*
-   (instantiate::Attributes
-      (read-only #f)
-      (deletable #t)
-      (enumerable #t)))
-(define (default-attributes)
-   *default-attributes*)
-(define (runtime-attributes)
-   *default-attributes*)
-(define (implicit-attributes)
-   *default-attributes*)
+(define-macro (get-Attributes . Lattrs)
+   (cond
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-enum Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(readOnly-dontEnum-dontDelete-attributes))
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-enum Lattrs))
+       '(readOnly-dontEnum-attributes))
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(readOnly-dontDelete-attributes))
+      ((memq 'read-only Lattrs)
+       '(readOnly-attributes))
+      ((and (memq 'dont-enum Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(dontEnum-dontDelete-attributes))
+      ((memq 'dont-enum Lattrs)
+       '(dontEnum-attributes))
+      ((memq 'dont-delete Lattrs)
+       '(dontDelete-attributes))
+      (else
+       '(no-attributes))))
 
-;; ECMA 10.2.1 & 10.2.3
-(define *declared-attributes*
-   (instantiate::Attributes
-      (read-only #f)
-      (deletable #f)
-      (enumerable #t)))
-(define (declared-attributes)
-   *declared-attributes*)
+(define-macro (define-attributes)
+   (define (concat-name n n2)
+      (if (string-null? n)
+	  n2
+	  (string-append n "-" n2)))
 
-;; ECMA 13.2
-(define *constructor-attributes*
-   (instantiate::Attributes
-      (read-only #f)
-      (deletable #t)
-      (enumerable #f)))
-(define (constructor-attributes)
-   *constructor-attributes*)
+   (define (build-name read-only? deletable? enumerable?)
+      (let* ((ro (if read-only? "readOnly" ""))
+	     (enum (if enumerable?
+		       (concat-name ro "dontEnum")
+		       ro))
+	     (del (if deletable?
+		      enum
+		      (concat-name enum "dontDelete"))))
+	 (string->symbol (concat-name del "attributes"))))
+   (define (global-const n)
+      (string->symbol (string-append "*" (symbol->string n) "*")))
+
+   (let loop ((res '((define *no-attributes* (instantiate::Attributes
+						(read-only #f)
+						(deletable #t)
+						(enumerable #f)))
+		     (define (no-attributes) *no-attributes*)))
+	      (i 1))
+      (if (>=fx i 8)
+	  (cons 'begin res)
+	  (let* ((read-only? (>fx (bit-and i 4) 0))
+		 (deletable? (not (>fx (bit-and i 2) 0)))
+		 (enumerable? (>fx (bit-and i 1) 0))
+		 (name (build-name read-only? deletable? enumerable?)))
+	     (loop (cons* `(define ,(global-const name)
+			      (instantiate::Attributes
+				 (read-only ,read-only?)
+				 (deletable ,deletable?)
+				 (enumerable ,enumerable?)))
+			  `(define (,name)
+			      ,(global-const name))
+			  res)
+		   (+fx i 1))))))
+
+(define-attributes)
 
 ;; ECMA 15
-(define *length-attributes*
-   (instantiate::Attributes
-      (read-only #t)
-      (deletable #f)
-      (enumerable #f)))
-(define (prototype-attributes)
-   *length-attributes*)
-(define (length-attributes)
-   *length-attributes*)
+(define (length-attributes)   (get-Attributes read-only dont-delete dont-enum))
+(define (built-in-attributes) (get-Attributes dont-enum))
 
-(define *built-in-attributes*
-   (instantiate::Attributes
-      (read-only #f)
-      (deletable #t)
-      (enumerable #f)))
-(define (dont-delete-attributes)
-   *built-in-attributes*)
-(define (built-in-attributes)
-   *built-in-attributes*)
+;; ECMA 13.2
+(define (constructor-attributes) (get-Attributes dont-enum))
+	 
+;; ECMA 10.2.1 & 10.2.3
+(define (declared-attributes) (get-Attributes dont-delete))
 
-(define *dont-enum-dont-delete-attributes*
-   (instantiate::Attributes
-      (read-only #f)
-      (deletable #f)
-      (enumerable #f)))
-(define (dont-enum-dont-delete-attributes)
-   *dont-enum-dont-delete-attributes*)
+;; ECMA 8.6.2.2
+(define (default-attributes)  (get-Attributes empty))
+;; ECMA 11.13.1->8.7.2->8.6.2.2
+(define (implicit-attributes) (default-attributes))
+;; runtime-functions are properties of global-object. -> built-in-attributes
+;; apply.
+(define (runtime-attributes)  (built-in-attributes))
+
 
 (define-generic (js-property-one-level-contains?::bool o::Js-Object
 						       prop::bstring)

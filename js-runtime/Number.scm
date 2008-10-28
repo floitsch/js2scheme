@@ -49,32 +49,42 @@
       (js-property-generic-set! number-object ;; 15.7.3.1
 				"prototype"
 				prototype
-				(prototype-attributes))
+				(get-Attributes dont-enum dont-delete
+						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.2
 				"MAX_VALUE"
 				;; TODO: MAX_VALUE
 				;; for now close enough
 				1.7976931348623157E308
-				(prototype-attributes))
+				(get-Attributes dont-enum dont-delete
+						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.3
 				"MIN_VALUE"
 				;; TODO: MIN_VALUE
 				;; for now close enough
 				4.9E-324
-				(prototype-attributes))
+				(get-Attributes dont-enum dont-delete
+						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.4
 				"NaN"
 				(NaN)
-				(prototype-attributes))
+				(get-Attributes dont-enum dont-delete
+						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.5
 				"NEGATIVE_INFINITY"
 				(-infinity)
-				(prototype-attributes))
+				(get-Attributes dont-enum dont-delete
+						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.6
 				"POSITIVE_INFINITY"
 				(+infinity)
-				(prototype-attributes))
-      
+				(get-Attributes dont-enum dont-delete
+						read-only))
+
+      (js-property-generic-set! prototype     ;; 15.7.4.1
+				"constructor"
+				number-object
+				(constructor-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.2
 				"toString"
 				(toString)
