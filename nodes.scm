@@ -349,6 +349,7 @@
 (set! Vassig.proto (empty-pobject Assig))
 (proto-traverses Vassig lhs val)
 
+;; Vassig-ops are expanded in expand1.
 (define-node (Vassig-op lhs op val)
    (set! this.lhs lhs)
    (set! this.op op)

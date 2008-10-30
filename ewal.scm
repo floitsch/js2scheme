@@ -14,7 +14,7 @@
 ;; with-pass however needs to update .eval-next-var. (not too clean. I know).
 
 ;; functions that (may) call 'eval' are marked as '.local-eval?'.
-;; functions that have (maybe somewhere in a nested funcion) an eval are marked
+;; functions that have (maybe somewhere in a nested function) an eval are marked
 ;; as '.eval?'. They also have a .eval-obj-id which must be used to construct a
 ;; scope-object containing all local variables (including the parameters).
 ;; same is true for local variables.
