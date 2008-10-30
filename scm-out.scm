@@ -188,6 +188,8 @@
 	  ;; some properties inside global objects are, but not properties of
 	  ;; the global this-object.
 	  `(begin (set! ,scm-id ,val) ,scm-id))
+	 (this.named-fun? ;; named funs are read-only
+	  `(begin ,val #f))
 	 (else
 	  `(begin (set! ,scm-id ,val) ,scm-id)))))
 (define-pmethod (Intercepted-var-set! val)
