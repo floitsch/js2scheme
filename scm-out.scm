@@ -124,7 +124,7 @@
 	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
       `(if (js-property-contains ,obj-id ,id-str)
-	   (js-property-safe-get ,obj-id ,id-str)
+	   (js-property-get ,obj-id ,id-str)
 	   ,(intercepted.access))))
 (define-pmethod (This-var-access)
    'this)
@@ -157,7 +157,7 @@
 	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
       `(if (js-property-contains ,obj-id ,id-str)
-	   (js-property-safe-get ,obj-id ,id-str)
+	   (js-property-get ,obj-id ,id-str)
 	   ,(intercepted.typeof))))
 (define-pmethod (This-var-typeof)
    'this)
@@ -278,7 +278,7 @@
       `(if (js-property-contains ,obj-id ,id-str)
 	   (begin
 	      (set! ,base ,obj-id)
-	      (js-property-safe-get ,obj-id ,id-str))
+	      (js-property-get ,obj-id ,id-str))
 	   ,(intercepted.access+base base))))
 (define-pmethod (This-var-access+base base) 'this)
 (define-pmethod (Imported-var-access+base base)
@@ -364,7 +364,7 @@
 							  (default-attributes))
 			       `(unless (js-scope-one-level-property-contains?
 					 ,tlo ,id-str)
-				   (js-property-safe-set! ,tlo
+				   (js-property-set! ,tlo
 							  ,id-str
 							  (js-undefined))))))
 		     declared-globals-w/o-this)
@@ -603,7 +603,7 @@
 	    this.lhs.var.global?)
        ;; assign fun-binding to top-level object and not to current
        ;; environment. (Rhino 1.7 release 1 Pre 2007 11 25 has this bug)
-       `(js-property-safe-set! ,(thread-parameter 'top-level-object)
+       `(js-property-set! ,(thread-parameter 'top-level-object)
 			       ,(symbol->string this.lhs.var.id)
 			       ,(this.val.traverse))
        (pcall this Vassig-out)))
@@ -621,7 +621,7 @@
       (if (and (symbol? traversed-obj)
 	       (string? traversed-field))
 	  `(let* ((,tmp-object-o (jsop-any->object ,traversed-obj)))
-	      (js-property-safe-set! ,tmp-object-o
+	      (js-property-set! ,tmp-object-o
 				     ,traversed-field
 				     ,traversed-val))
 	  ;; we need all these tmp-variables, to ensure the correct order of
@@ -630,7 +630,7 @@
 		  (,tmp-field ,traversed-field)
 		  (,tmp-object-o (jsop-any->object ,tmp-o))
 		  (,tmp-string-field (any->string ,tmp-field)))
-	      (js-property-safe-set! ,tmp-object-o
+	      (js-property-set! ,tmp-object-o
 				     ,tmp-string-field
 				     ,(this.val.traverse))))))
 
@@ -737,7 +737,7 @@
 	      (,tmp-field ,(this.field.traverse))
 	      (,tmp-object-o (jsop-any->object ,tmp-o))
 	      (,tmp-string-field (any->string ,tmp-field)))
-	  (js-property-safe-get ,tmp-object-o ,tmp-string-field))))
+	  (js-property-get ,tmp-object-o ,tmp-string-field))))
 
 (define-pmethod (This-out)
    'this)

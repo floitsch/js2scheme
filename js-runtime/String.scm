@@ -341,7 +341,7 @@
 		  (any->string this))))
        (when (not (Js-RegExp? re))
 	  (type-error "RegExp required" re))
-       (let ((global? (js-property-safe-get re "global")))
+       (let ((global? (js-property-get re "global")))
 	  (if (not global?)
 	      (js-call *js-RegExp-exec* re s)
 	      ;; mostly copied from RegExp.
@@ -352,14 +352,14 @@
 			    (a-index 0))
 		    (cond
 		       ((>fx s-pos len) ;; done
-			(js-property-safe-set! re "lastIndex" 0.0)
+			(js-property-set! re "lastIndex" 0.0)
 			res-a)
 		       ((regexp-match native-re s s-pos)
 			=>
 			(lambda (match)
 			   (let ((start-index (car match))
 				 (final-index (cadr match)))
-			      (js-property-safe-set! res-a
+			      (js-property-set! res-a
 						     (integer->string a-index)
 						     (substring s
 								start-index
@@ -380,15 +380,15 @@
        (js-call replaceValue #f
 		(substring this-str from to) from this-str))
       ((procedure? replaceValue) ;; match must be JS-array
-       (let* ((l-fl (js-property-safe-get match "length"))
+       (let* ((l-fl (js-property-get match "length"))
 	      ;; CARE: using fixnum for array-index.
 	      (l-i (flonum->fixnum l-fl)))
 	  ;; the array is nearly good.
 	  ;; we just need to add the offset and the string itself
-	  (js-property-safe-set! match
+	  (js-property-set! match
 				 (integer->string l-i)
 				 (fixnum->flonum from))
-	  (js-property-safe-set! match
+	  (js-property-set! match
 				 (integer->string (+fx l-i 1))
 				 this-str)
 	  ;; TODO: do not call 'apply' from prototype as it could have been
@@ -450,7 +450,7 @@
 			(loop next-i res-str next-i))
 		       (else
 			(let* ((n-str (integer->string n))
-			       (capture (js-property-safe-get match n-str)))
+			       (capture (js-property-get match n-str)))
 			   (cond
 			      ((js-undefined? capture)
 			       (loop next-i res-str next-i))
@@ -464,7 +464,7 @@
 	 (else (loop (+fx i 1) res-str to-be-copied-pos)))))
 
 (define (all-matches str re)
-   (js-property-safe-set! re "lastIndex" 0.0)
+   (js-property-set! re "lastIndex" 0.0)
    (let loop ((rev-ms '())
 	      (last-index 0.0))
       (let ((m (js-call *js-RegExp-exec* re str)))
@@ -472,10 +472,10 @@
 	    ((js-null? m)
 	     (reverse! rev-ms))
 	    (else
-	     (let ((new-last-index (js-property-safe-get re "lastIndex")))
+	     (let ((new-last-index (js-property-get re "lastIndex")))
 		(if (=fl last-index new-last-index)
 		    (begin
-		       (js-property-safe-set! re "lastIndex"
+		       (js-property-set! re "lastIndex"
 					      (+fl last-index 1.0))
 		       (loop (cons m rev-ms)
 			     (+fl last-index 1.0)))
@@ -494,7 +494,7 @@
 	   (search-len (and search-str (string-length search-str)))
 	   (matches (cond
 		       ((and (Js-RegExp? searchValue)
-			     (not (js-property-safe-get searchValue "global")))
+			     (not (js-property-get searchValue "global")))
 			(js-call *js-RegExp-exec* searchValue this-str))
 		       ((Js-RegExp? searchValue)
 			(all-matches this-str searchValue))
@@ -535,8 +535,8 @@
 				    (substring this-str to this-len))))
 		 ((Js-Array? matches)
 		  (let* ((from (flonum->fixnum
-				(js-property-safe-get matches "index")))
-			 (matched-str (js-property-safe-get matches "0"))
+				(js-property-get matches "index")))
+			 (matched-str (js-property-get matches "0"))
 			 (to (+fx from (string-length matched-str))))
 		     (string-append (substring this-str 0 from)
 				    (replace-matched matches from to)
@@ -555,8 +555,8 @@
 			(else
 			 (let* ((match (car matches))
 				(from (flonum->fixnum
-				       (js-property-safe-get match "index")))
-				(matched-str (js-property-safe-get match "0"))
+				       (js-property-get match "index")))
+				(matched-str (js-property-get match "0"))
 				(to (+fx from (string-length matched-str))))
 			    (loop (cdr matches)
 				  (cons* (replace-matched match from to)
@@ -640,16 +640,16 @@
 	  ((zerofx? limit)
 	   a)
 	  ((js-undefined? separator-any)
-	   (js-property-safe-set! a "0" s)
+	   (js-property-set! a "0" s)
 	   a)
 	  ((and (zerofx? len)
 		(Js-RegExp? separator))
 	   (when (RegExp-test separator s 0)
-	      (js-property-safe-set! a "0" s))
+	      (js-property-set! a "0" s))
 	   a)
 	  ((zerofx? len) ;; separator must be a string
 	   (unless (string-null? separator)
-	      (js-property-safe-set! a "0" s))
+	      (js-property-set! a "0" s))
 	   a)
 	  ((string-null? separator)
 	   ;; CARE: using bint here, but strings can't have more chars
@@ -659,7 +659,7 @@
 		 ((>=fx i len)
 		  a)
 		 (else
-		  (js-property-safe-set! a (integer->string i)
+		  (js-property-set! a (integer->string i)
 					 (cached-char-string (string-ref s i)))
 		  (loop (+fx i 1))))))
 	  ((and (string? separator)
@@ -675,13 +675,13 @@
 		  =>
 		  (lambda (pos)
 		     (let ((sep-len (string-length separator)))
-			(js-property-safe-set! a
+			(js-property-set! a
 					       (integer->string array-pos)
 					       (substring s last-pos pos))
 			(loop (+fx array-pos 1)
 			      (+fx pos sep-len)))))
 		 (else
-		  (js-property-safe-set! a
+		  (js-property-set! a
 					 (integer->string array-pos)
 					 (substring s last-pos len))
 		  a))))
@@ -703,9 +703,9 @@
 		 (and (flonum? len)
 		      (=fl len limit-fl)))
 	      (define (property-push! o v)
-		 (let* ((o-length (js-property-safe-get o "length"))
+		 (let* ((o-length (js-property-get o "length"))
 			(len-str (any->string o-length)))
-		    (js-property-safe-set! o len-str v)))
+		    (js-property-set! o len-str v)))
 	      (define (split-match pos)
 		 ;; returns 4 values: 1) did we find something? 2) start-pos
 		 ;;   of matched 3) end-pos 4) a (string) scheme-list of
@@ -733,7 +733,7 @@
 			(loop last-pos (+fx search-start-pos 1)))
 		       (else
 			(property-push! a (substring s last-pos from))
-			(if (reached-limit? (js-property-safe-get a "length"))
+			(if (reached-limit? (js-property-get a "length"))
 			    a
 			    (let luup ((captured captured))
 			       (cond
@@ -742,7 +742,7 @@
 				  (else
 				   (property-push! a (car captured))
 				   (if (reached-limit?
-					(js-property-safe-get a "length"))
+					(js-property-get a "length"))
 				       a
 				       (luup (cdr captured)))))))))))))))))
 

@@ -224,11 +224,11 @@
        (let ((len (get-arg 0)))
 	  (let ((int-len (any->uint32 len)))
 	     (if (=fl len int-len)
-		 (js-property-safe-set! a "length" len)
+		 (js-property-set! a "length" len)
 		 (range-error len))))
        (let loop ((i 0))
 	  (when (< i nb-args)
-	     (js-property-safe-set! a (integer->string i) (get-arg i))
+	     (js-property-set! a (integer->string i) (get-arg i))
 	     (loop (+fx i 1)))))
    a)
 
@@ -262,11 +262,11 @@
 (define (js-array-literal length els)
    ;; HACK: we only allow bint elements. (length is of type bint)
    (let ((a (js-new *js-Array*)))
-      (js-property-safe-set! a "length" (fixnum->flonum length))
+      (js-property-set! a "length" (fixnum->flonum length))
       (for-each (lambda (el)
 		   (let ((index (car el))
 			 (val (cadr el)))
-		      (js-property-safe-set! a
+		      (js-property-set! a
 					     (integer->string index)
 					     val)))
 		els)
@@ -285,7 +285,7 @@
 	 (if (null? els)
 	     a
 	     (begin
-		(js-property-safe-set! a
+		(js-property-set! a
 				       (integer->string i)
 				       (car els))
 		(loop (cdr els)
@@ -299,7 +299,7 @@
 	  ""
 	  (el->string el)))
 
-   (let* ((len (any->uint32 (js-property-safe-get a "length")))
+   (let* ((len (any->uint32 (js-property-get a "length")))
 	  (llen (flonum->llong len))
 	  (sep-str (if (js-undefined? sep)
 		       ","
@@ -321,11 +321,11 @@
 			       sorted-l)))
 		(apply string-append sorted-l))))
 	 (else
-	  (let loop ((res (join->string (js-property-safe-get a "0")))
+	  (let loop ((res (join->string (js-property-get a "0")))
 		     (i #l1))
 	     (if (=llong i llen)
 		 res
-		 (let* ((el (js-property-safe-get a (llong->string i)))
+		 (let* ((el (js-property-get a (llong->string i)))
 			(str (join->string el)))
 		    (loop (string-append res sep-str str)
 			  (+llong i #l1)))))))))
@@ -378,7 +378,7 @@
 			     (+llong new-length
 				     (flonum->llong (Js-Array-length a)))))
 		    (let ((str (any->string a)))
-		       (js-property-safe-set! new-a
+		       (js-property-set! new-a
 					      (llong->string new-length)
 					      str)
 		       (loop (+fx array-counter 1)
@@ -404,15 +404,15 @@
    ;; 15.4.4.6
    (js-fun this #f #f "Array.pop"
 	   ()
-	   (let ((len (any->uint32 (js-property-safe-get this "length"))))
+	   (let ((len (any->uint32 (js-property-get this "length"))))
 	      (if (=fl len 0.0)
 		  (begin
-		     (js-property-safe-set! this "length" 0.0)
+		     (js-property-set! this "length" 0.0)
 		     (js-undefined))
 		  (let* ((len-str (llong->string (flonum->llong len)))
-			 (res (js-property-safe-get this len-str)))
+			 (res (js-property-get this len-str)))
 		     (js-property-safe-delete! this len-str)
-		     (js-property-safe-set! this
+		     (js-property-set! this
 					    "length"
 					    (-fl len 1.0))
 		     res)))))
@@ -421,15 +421,15 @@
    ;; 15.4.4.7
    (js-fun this #f (nb-args get-arg) "Array.push"
 	   (first) ;; length == 1
-	   (let ((len (any->uint32 (js-property-safe-get this "length"))))
+	   (let ((len (any->uint32 (js-property-get this "length"))))
 	      (let loop ((i 0)
 			 (llen (flonum->llong len)))
 		 (if (>=fx i nb-args)
 		     (let ((flolen (llong->flonum llen)))
-			(js-property-safe-set! this "length" flolen)
+			(js-property-set! this "length" flolen)
 			flolen)
 		     (begin
-			(js-property-safe-set! this
+			(js-property-set! this
 					       (llong->string llen)
 					       (get-arg i))
 			(loop (+fx i 1)
@@ -439,7 +439,7 @@
    ;; 15.4.4.8
    (js-fun this #f #f "Array.reverse"
 	   ()
-	   (let* ((len (any->uint32 (js-property-safe-get this "length")))
+	   (let* ((len (any->uint32 (js-property-get this "length")))
 		  (llen (flonum->llong len))
 		  (ht (make-hashtable)))
 	      (extract-index-els-in-range this ht #l0 llen #t)
@@ -478,7 +478,7 @@
 ;; shift to the left or right by given nb starting at given number.
 ;; if by is negative shift is to the right
 (define (shift-from-by a from::llong by::llong)
-   (let* ((len (any->uint32 (js-property-safe-get a "length")))
+   (let* ((len (any->uint32 (js-property-get a "length")))
 	  (llen (flonum->llong len))
 	  (left-shift? (positivellong? by)) ;; left-shift
 	  ;; when shifting (to the left) we might have to erase elements left
@@ -519,14 +519,14 @@
    (js-fun
     this #f #f "Array.shift"
     ()
-    (let ((len (any->uint32 (js-property-safe-get this "length"))))
+    (let ((len (any->uint32 (js-property-get this "length"))))
        (if (=fl len 0.0)
 	   (begin
-	      (js-property-safe-set! this "length" 0.0)
+	      (js-property-set! this "length" 0.0)
 	      (js-undefined))
-	   (let ((res (js-property-safe-get this "0")))
+	   (let ((res (js-property-get this "0")))
 	      (shift-from-by this #l1 #l1)
-	      (js-property-safe-set! this "length" (=fl len 1.0))
+	      (js-property-set! this "length" (=fl len 1.0))
 	      res)))))
 
 (define (slice)
@@ -535,7 +535,7 @@
        this #f #f "Array.slice"
        (start-any end-any)
        (let* ((new-a (js-new *js-Array*))
-	      (len (any->uint32 (js-property-safe-get this "length")))
+	      (len (any->uint32 (js-property-get this "length")))
 	      (start-int (any->integer start-any))
 	      (start (if (<fl start-int 0.0)
 			 (maxfl 0.0 (+fl len start-int))
@@ -559,7 +559,7 @@
 					(llong->string (-llong index lstart))
 					(cdr key/val)
 					#f)))
-	  (js-property-safe-set! new-a
+	  (js-property-set! new-a
 				 "length"
 				 (-fl end start))
 	  new-a)))
@@ -569,7 +569,7 @@
    (js-fun
     this #f #f "Array.sort"
     (compare-fn)
-    (let* ((len (any->uint32 (js-property-safe-get this "length")))
+    (let* ((len (any->uint32 (js-property-get this "length")))
 	   (ht (make-hashtable)))
        (extract-index-els-in-range this ht #l0 (flonum->llong len) #t)
        ;; start by deleting all old values.
@@ -629,7 +629,7 @@
     this #f (nb-args get-arg) "Array.splice"
     (start-any delete-count-any)
     (let* ((new-a (js-new *js-Array*))
-	   (len (any->uint32 (js-property-safe-get this "length")))
+	   (len (any->uint32 (js-property-get this "length")))
 	   (start-int (any->integer start-any))
 	   (start (if (<fl start-int 0.0)
 		      (maxfl 0.0 (+fl len start-int))
@@ -641,7 +641,7 @@
 		     (-fl len start)))
 	   (lend (flonum->llong end))
 	   (nb-inserted (-fx nb-args 2)))
-       (js-property-safe-set! new-a "length" delete-count-int)
+       (js-property-set! new-a "length" delete-count-int)
        (if (= delete-count-int nb-inserted)
 	   ;; best case...
 	   (let loop ((k 0)
@@ -654,7 +654,7 @@
 			 (new-val (get-arg (+fx k 2))))
 		     (when old-val
 			(js-property-generic-set! new-a k-str old-val #f))
-		     (js-property-safe-set! this i-str new-val)
+		     (js-property-set! this i-str new-val)
 		     (loop (+fx k 1)
 			   (+llong i #l1)))))
 	   (begin
@@ -677,11 +677,11 @@
 		 ;; copy arguments into array
 		 (let loop ((i 0))
 		    (unless (>= i (-fx nb-args 2))
-		       (js-property-safe-set! this
+		       (js-property-set! this
 					      (llong->string (+ lstart i))
 					      (get-arg (+fx i 2)))
 		       (loop (+fx i 1))))
-		 (js-property-safe-set! this "length"
+		 (js-property-set! this "length"
 					(-fl len (llong->flonum diff)))
 		 new-a))))))
 
@@ -690,14 +690,14 @@
    (js-fun
     this #f (nb-args get-arg) "Array.unshift"
     (first) ;; len 1
-    (let* ((len (any->uint32 (js-property-safe-get this "length")))
+    (let* ((len (any->uint32 (js-property-get this "length")))
 	   (new-len (+ len nb-args)))
        (unless (=fl len 0.0)
 	  ;; remember: unshift requires negative 'by'
 	  (shift-from-by this #l0 (fixnum->llong (- nb-args))))
        (let loop ((i 0))
 	  (unless (< i nb-args)
-	     (js-property-safe-set! this (integer->string i) (get-arg i))
+	     (js-property-set! this (integer->string i) (get-arg i))
 	     (loop (+fx i 1))))
-       (js-property-safe-set! this "length" new-len)
+       (js-property-set! this "length" new-len)
        new-len)))

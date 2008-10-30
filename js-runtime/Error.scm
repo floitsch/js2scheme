@@ -165,14 +165,14 @@
    (js-fun-lambda this #f #f
 		  (msg)
 		  (unless (js-undefined? msg)
-		     (js-property-safe-set! this "message"
+		     (js-property-set! this "message"
 					    (any->safe-string msg)))
 		  this))
 
 (define (Error-construct::Js-Error f-o::Js-Function)
    (instantiate::Js-Error
       (props (make-props-hashtable))
-      (proto (js-property-safe-get f-o "prototype"))))
+      (proto (js-property-get f-o "prototype"))))
 
 (define (toString)
    (js-fun this #f #f "Error.toString"
@@ -180,10 +180,10 @@
 	   (if (not (Js-Error? this))
 	       "ERROR"
 	       (string-append (any->safe-string
-			       (js-property-safe-get this "name"))
+			       (js-property-get this "name"))
 			      ": "
 			      (any->safe-string
-			       (js-property-safe-get this "message"))))))
+			       (js-property-get this "message"))))))
 
 (define (range-error val)
    (raise (js-new *js-Range-Error-orig* val)))
@@ -262,8 +262,8 @@
       ((Js-Number? any) (format "Number<~a>" (Js-Number-value any)))
       ((Js-String? any) (format "String<~a>" (Js-String-str any)))
       ((Js-Error? any)
-       (let ((name (js-property-safe-get any "name"))
-	     (msg (js-property-safe-get any "message")))
+       (let ((name (js-property-get any "name"))
+	     (msg (js-property-get any "message")))
 	  (if (and (string? name)
 		   (string? msg))
 	      (string-append name ": " msg)

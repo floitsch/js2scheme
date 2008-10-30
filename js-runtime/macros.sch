@@ -35,7 +35,7 @@
 	     (tmp-this (gensym 'this)))
 	  `(let* ((,tmp-this (any->object ,o))
 		  (,tmp-o (safe-js-object ,tmp-this)))
-	      (js-call (js-property-safe-get ,tmp-o ,m)
+	      (js-call (js-property-get ,tmp-o ,m)
 		       ,tmp-this
 		       ,@Largs)))
        (let ((tmp-o (gensym 'o))
@@ -50,7 +50,7 @@
 		  (,tmp-object-this (any->object ,tmp-o))
 		  (,tmp-object-o (safe-js-object ,tmp-object-this))
 		  (,tmp-string-field (any->string ,tmp-field)))
-	      (js-call (js-property-safe-get ,tmp-object-o
+	      (js-call (js-property-get ,tmp-object-o
 					     ,tmp-string-field)
 		       ,tmp-object-this
 		       ,@Largs)))))

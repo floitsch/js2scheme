@@ -188,16 +188,16 @@
        (type-error "RegExp-exec applied to " this))
     (let* ((s (any->string string))
 	   (len (string-length s))
-	   (lastIndex (js-property-safe-get this "lastIndex"))
+	   (lastIndex (js-property-get this "lastIndex"))
 	   (lastIndex-int (flonum->fixnum (any->integer lastIndex)))
-	   (global? (js-property-safe-get this "global"))
+	   (global? (js-property-get this "global"))
 	   (i (if global?
 		  lastIndex-int
 		  0)))
        (cond
 	  ((or (<fx i 0)
 	       (>fx i len))
-	   (js-property-safe-set! this "lastIndex" 0.0)
+	   (js-property-set! this "lastIndex" 0.0)
 	   (js-null))
 	  ((regexp-match (Js-RegExp-re this) s i)
 	   =>
@@ -207,24 +207,24 @@
 		    (clusters (caddr match))
 		    (a (empty-js-Array)))
 		 (when global?
-		    (js-property-safe-set! this "lastIndex" final-index))
-		 (js-property-safe-set! a "index" (fixnum->flonum start-index))
-		 (js-property-safe-set! a "input" s)
+		    (js-property-set! this "lastIndex" final-index))
+		 (js-property-set! a "index" (fixnum->flonum start-index))
+		 (js-property-set! a "input" s)
 		 (let loop ((i 0))
 		    (cond
 		       ((>fx (*fx i 2) (vector-length clusters))
 			a)
 		       ((=fx i 0)
-			(js-property-safe-set!
+			(js-property-set!
 			 a "0"
 			 (substring s start-index final-index))
 			(loop (+fx i 1)))
 		       ((not (vector-ref clusters (*fx (-fx i 1) 2)))
-			(js-property-safe-set! a (integer->string i)
+			(js-property-set! a (integer->string i)
 					       (js-undefined))
 			(loop (+fx i 1)))
 		       (else
-			(js-property-safe-set!
+			(js-property-set!
 			 a (integer->string i)
 			 (substring s
 				    (vector-ref clusters (*fx (-fx i 1) 2))
@@ -233,7 +233,7 @@
 			(loop (+fx i 1)))))
 		 )))
 	  (else
-	   (js-property-safe-set! this "lastIndex" 0.0)
+	   (js-property-set! this "lastIndex" 0.0)
 	   (js-null))))))
 
 (define (test)                               ;; 15.10.6.3
@@ -246,31 +246,31 @@
        (type-error "RegExp-test applied to " this))
     (let* ((s (any->string string))
 	   (len (string-length s))
-	   (lastIndex (js-property-safe-get this "lastIndex"))
+	   (lastIndex (js-property-get this "lastIndex"))
 	   (lastIndex-int (flonum->fixnum (any->integer lastIndex)))
-	   (global? (js-property-safe-get this "global"))
+	   (global? (js-property-get this "global"))
 	   (i (if global?
 		  lastIndex-int
 		  0)))
        (cond
 	  ((or (<fx i 0)
 	       (>fx i len))
-	   (js-property-safe-set! this "lastIndex" 0.0)
+	   (js-property-set! this "lastIndex" 0.0)
 	   #f)
 	  (global?
 	   (let ((match (regexp-match (Js-RegExp-re this) s i)))
 	      (if match
 		  (begin
-		     (js-property-safe-set! this "lastIndex"
+		     (js-property-set! this "lastIndex"
 					    (fixnum->flonum (cadr match)))
 		     #t)
 		  (begin
-		     (js-property-safe-set! this "lastIndex" 0.0)
+		     (js-property-set! this "lastIndex" 0.0)
 		     #f))))
 	  ((RegExp-test this s i)
 	   #t)
 	  (else
-	   (js-property-safe-set! this "lastIndex" 0.0)
+	   (js-property-set! this "lastIndex" 0.0)
 	   #f)))))
 
 (define (toString)                           ;; 15.10.6.4
@@ -282,10 +282,10 @@
        (type-error "RegExp-toString applied to " this))
     ;; currently implement the "cheap" variant.
     ;; TODO: return a RegularExpressionLiteral
-    (let ((src (js-property-safe-get this "source"))
-	  (global? (js-property-safe-get this "global"))
-	  (ignore-case? (js-property-safe-get this "ignoreCase"))
-	  (multiline? (js-property-safe-get this "multiline")))
+    (let ((src (js-property-get this "source"))
+	  (global? (js-property-get this "global"))
+	  (ignore-case? (js-property-get this "ignoreCase"))
+	  (multiline? (js-property-get this "multiline")))
        (string-append "/" src "/"
 		      (if global? "g" "")
 		      (if ignore-case? "i" "")

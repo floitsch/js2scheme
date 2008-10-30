@@ -127,7 +127,7 @@
 				(built-in-attributes))))
 				  
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
-   (let ((proto (or (js-object (js-property-safe-get f-o "prototype"))
+   (let ((proto (or (js-object (js-property-get f-o "prototype"))
 		    (js-object-prototype))))
       (instantiate::Js-Object
 	 (props (make-props-hashtable))
@@ -247,7 +247,7 @@
 		      ;;  IIRC bigloo vectors can't have more elements anyways.
 		      (len (flonum->fixnum
 			    (any->uint32
-			     (js-property-safe-get argArray "length"))))
+			     (js-property-get argArray "length"))))
 		      (vec (make-vector (maxfx (-fx len *nb-named-params*)
 					       0))))
 		  ;; start by filling the vector
@@ -255,7 +255,7 @@
 		     (unless (>=fx i len)
 			(let ((str-i (integer->string i)))
 			   (vector-set! vec (-fx i *nb-named-params*)
-					(js-property-safe-get argArray str-i))
+					(js-property-get argArray str-i))
 			   (loop (+fx i 1)))))
 		  ;; now get the named params in reverse order
 		  (let loop ((args (list vec))
@@ -268,7 +268,7 @@
 					 args)))
 			((<fx i len)
 			 (let ((str-i (integer->string i)))
-			    (loop (cons (js-property-safe-get argArray str-i)
+			    (loop (cons (js-property-get argArray str-i)
 					args)
 				  (-fx i 1))))
 			(else

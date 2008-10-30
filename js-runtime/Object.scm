@@ -117,7 +117,7 @@
 		   (let ((name (any->string (car prop)))
 			 (val (cadr prop)))
 		      ;; TODO: js-object-literal can be optimized
-		      (js-property-safe-set! o name val)))
+		      (js-property-set! o name val)))
 		properties)
       o))
 
@@ -134,7 +134,7 @@
 (define (toLocalString) ;; 15.2.4.3
    (js-fun this #f #f "Object.toLocalString"
 	   ()
-	   (js-call (js-property-safe-get this "toString")
+	   (js-call (js-property-get this "toString")
 		    this)))
 
 (define (valueOf)       ;; 15.2.4.4

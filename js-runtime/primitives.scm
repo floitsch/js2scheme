@@ -13,9 +13,9 @@
 	   jsre-global-object
 	   jsre-scope-object)
    (export (inline primitive? v)
-	   (inline js-property-safe-get o::Js-Object prop::bstring)
+	   (inline js-property-get o::Js-Object prop::bstring)
 	   ;; returns the given value
-	   (inline js-property-safe-set! o::Js-Object prop::bstring new-val)
+	   (inline js-property-set! o::Js-Object prop::bstring new-val)
 	   (js-property-update! o::Js-Object prop::bstring new-val)
 	   (inline +infinity::double)
 	   (inline -infinity::double)
@@ -43,7 +43,7 @@
 			     (not (equal? v (*fl v 1.0)))))
 ;;(define-inline (NaN? v) (eqv? *NaN* v))
 
-(define-inline (js-property-safe-get o::Js-Object prop::bstring)
+(define-inline (js-property-get o::Js-Object prop::bstring)
    ;(write-circle o)(print)
    ;(write-circle prop)(print)
    (let ((res (js-property-contains o prop)))
@@ -53,7 +53,7 @@
 	  (js-undefined))))
 
 ;; non-generic. but js-property-generic-set! is.
-(define-inline (js-property-safe-set! o::Js-Object prop::bstring new-value)
+(define-inline (js-property-set! o::Js-Object prop::bstring new-value)
    (js-property-generic-set! o prop (mangle-false new-value) #f)
    new-value)
 

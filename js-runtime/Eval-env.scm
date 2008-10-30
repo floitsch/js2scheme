@@ -80,7 +80,7 @@
 	    (next-env
 	     (env-set! next-env id new-val))
 	    (else
-	     (js-property-safe-set! *js-global-object* id new-val)))))
+	     (js-property-set! *js-global-object* id new-val)))))
    new-val)
    
 (define (env-delete! env id)

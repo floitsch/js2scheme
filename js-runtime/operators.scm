@@ -205,7 +205,7 @@
    (let ((obj1 (js-object v1)))
       (unless obj1
 	 (type-error "not an object" v1))
-      (let* ((prototype (js-property-safe-get (js-object v2) "prototype"))
+      (let* ((prototype (js-property-get (js-object v2) "prototype"))
 	     (prototype-obj (js-object prototype)))
 	 (unless prototype-obj
 	    (type-error "prototype is not an object" prototype))
