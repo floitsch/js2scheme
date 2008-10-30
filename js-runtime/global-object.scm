@@ -75,7 +75,8 @@
 (define *js-global-this* (js-undeclared))
 (define *js-global-object* (js-undeclared)) ;; alias for *js-global-this*
 
-(define-method (js-object->string::bstring o::Js-Global)
+(define-method (js-class-name::bstring o::Js-Global)
+   ;; not defined in ECMA.
    "global")
 
 (define (global-add! id getter setter attributes)

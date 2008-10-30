@@ -25,9 +25,7 @@
 (define *js-Date* #unspecified)
 (define *js-Date-prototype*::Js-Object (js-undeclared))
 
-;; TODO: js-object->string
-
-(define-method (js-object->string::bstring o::Js-Date)
+(define-method (js-class-name::bstring o::Js-Date)
    "Date")
 
 (define (Date-init)

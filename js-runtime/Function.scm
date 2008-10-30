@@ -44,7 +44,7 @@
    (lambda L (js-undefined))) ;; 15.3.4
 (define *js-Function-prototype-object*::Js-Object (js-undeclared))
 
-(define-method (js-object->string::bstring o::Js-Function)
+(define-method (js-class-name::bstring o::Js-Function)
    "Function")
 
 (define *function-prototype-initialized?* #f)

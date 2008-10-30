@@ -61,7 +61,7 @@
    (type-error "can't set property of undefined" "undefined"))
 (define-method (js-property-safe-delete! o::Js-Undefined prop::bstring)
    #t) ;; property is not in Object -> return true
-(define-method (js-object->string::bstring o::Js-Undefined)
+(define-method (js-class-name::bstring o::Js-Undefined)
    "undefined")
 
 
@@ -78,7 +78,7 @@
    (type-error "can't set property of null" "null"))
 (define-method (js-property-safe-delete! o::Js-Null prop::bstring)
    #t) ;; property is not in Object -> return true
-(define-method (js-object->string::bstring o::Js-Null)
+(define-method (js-class-name::bstring o::Js-Null)
    "null")
 
 
@@ -95,6 +95,6 @@
    (undeclared-error #f))
 (define-method (js-property-safe-delete! o::Js-Undeclared prop::bstring)
    (undeclared-error #f))
-(define-method (js-object->string::bstring o::Js-Undeclared)
+(define-method (js-class-name::bstring o::Js-Undeclared)
    (undeclared-error #f))
 

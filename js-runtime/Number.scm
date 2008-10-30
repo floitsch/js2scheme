@@ -24,7 +24,7 @@
 (define *js-Number-orig* (lambda () #f))
 (define *js-Number-prototype*::Js-Object (js-undeclared))
 
-(define-method (js-object->string::bstring o::Js-Number)
+(define-method (js-class-name::bstring o::Js-Number)
    "Number")
 
 (define (Number-init)

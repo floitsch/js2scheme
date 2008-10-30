@@ -19,7 +19,7 @@
 	     o::Js-Object prop::bstring
 	     new-val attributes)
     (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
-    (generic js-object->string::bstring o::Js-Object)
+    (generic js-class-name::bstring o::Js-Object)
     (generic add-enumerables o::Js-Object enumerables-ht shadowed-ht)
 
     (js-for-in-properties-list::pair-nil o::Js-Object)
@@ -202,10 +202,6 @@
 		       #f)))))))
 
 (define-generic (js-class-name::bstring o::Js-Object)
-   "Object")
-
-(define-generic (js-object->string::bstring o::Js-Object)
-   ;; TODO
    "Object")
 
 (define-generic (add-enumerables o::Js-Object enumerables-ht shadowed-ht)

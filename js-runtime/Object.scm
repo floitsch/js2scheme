@@ -32,7 +32,7 @@
 	 (set! *object-prototype-initialized?* #t)))
    *js-Object-prototype*)
 
-(define-method (js-object->string::bstring o::Js-Object)
+(define-method (js-class-name::bstring o::Js-Object)
    "Object")
 
 (define (Object-init)
@@ -127,7 +127,7 @@
    (js-fun this #f #f "Object.toString"
 	   ()
 	   (string-append "[object "
-			  (js-object->string this)
+			  (js-class-name this)
 			  "]")))
 
 

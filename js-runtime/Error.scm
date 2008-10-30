@@ -147,7 +147,7 @@
        (global-runtime-add! 'URIError *js-URI-Error*))))
 
 
-(define-method (js-object->string::bstring o::Js-Error)
+(define-method (js-class-name::bstring o::Js-Error)
    "Error")
 
 (define (Error-lambda name)

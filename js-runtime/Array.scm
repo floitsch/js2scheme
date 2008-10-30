@@ -132,7 +132,7 @@
        #f
        (call-next-method)))
 
-(define-method (js-object->string::bstring o::Js-Array)
+(define-method (js-class-name::bstring o::Js-Array)
    "Array")
 
 (define (Array-init)

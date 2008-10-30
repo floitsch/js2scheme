@@ -36,7 +36,7 @@
       (props (make-props-hashtable))
       (proto (js-null))))
 
-(define-method (js-object->string::bstring o::Js-Scope-Object)
+(define-method (js-class-name::bstring o::Js-Scope-Object)
    "scope-object should never be seen")
 
 (define-method (js-property-one-level-contains? o::Js-Scope-Object

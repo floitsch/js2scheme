@@ -47,7 +47,7 @@
 (define *js-RegExp-prototype*::Js-Object (js-undeclared))
 (define *js-RegExp-exec* #unspecified)
 
-(define-method (js-object->string::bstring o::Js-RegExp)
+(define-method (js-class-name::bstring o::Js-RegExp)
    "RegExp")
 
 (define (RegExp-init)

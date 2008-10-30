@@ -23,7 +23,7 @@
 
 (define *js-Math* #unspecified)
 
-(define-method (js-object->string::bstring o::Js-Math)
+(define-method (js-class-name::bstring o::Js-Math)
    "Math")
 
 (define (Math-init)

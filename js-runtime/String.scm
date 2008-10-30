@@ -30,7 +30,7 @@
 (define *js-String-orig* (lambda () #f))
 (define *js-String-prototype*::Js-Object (js-undeclared))
 
-(define-method (js-object->string::bstring o::Js-String)
+(define-method (js-class-name::bstring o::Js-String)
    "String") ;; 15.5.2.1
 
 (define (String-init)

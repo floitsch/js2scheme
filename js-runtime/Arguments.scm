@@ -6,8 +6,10 @@
    (export (class Js-Arguments::Js-Scope-Object))
    (eval (class Js-Arguments)))
 
-(define-method (js-object->string::bstring o::Js-Arguments)
-   ;; TODO: verify that class-name of Arguments is really "Arguments"
+;; 10.1.8
+(define-method (js-class-name::bstring o::Js-Arguments)
+   ;; The actual class-name is not specified.
+   ;; Some interpreters use "Arguments" others "Object".
    "Arguments")
 
 (define-method (js-property-safe-delete!::bool o::Js-Arguments prop::bstring)
