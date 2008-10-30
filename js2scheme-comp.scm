@@ -12,6 +12,7 @@
 	   stmt-result
 	   fun-bindings
 	   symbol
+	   named-fun
 	   with
 	   ewal
 	   label
@@ -75,6 +76,7 @@
       (js-out ast)
       (fun-bindings! ast)
       (symbol-resolution! ast '())
+      (named-fun! ast)
       (stmt-result ast)
       (label-resolution ast)
       (simplify-labels! ast)

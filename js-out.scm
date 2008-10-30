@@ -433,7 +433,7 @@
 
 (define-pmethod (Named-fun-out priority indent in-for-in?)
    (check-expr
-    (function-out this.fun this.decl indent)))
+    (function-out this.body this.decl indent)))
 
 (define-pmethod (Fun-out priority indent in-for-in?)
    (check-expr
