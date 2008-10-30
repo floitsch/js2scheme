@@ -464,10 +464,6 @@
 		    (rhs (assig-expr in-for-init?)))
 		;; TODO: weed out bad lhs exprs
 		(cond
-		   ((inherits-from? expr (node 'This))
-		    (error "parser"
-			   "'this' is read-only"
-			   'this))
 		   ((and (eq? op '=) (inherits-from? expr (node 'Access)))
 		    (new-node Accsig expr rhs))
 		   ((eq? op '=)
