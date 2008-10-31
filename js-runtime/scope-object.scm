@@ -65,7 +65,8 @@
 		    val))
 	     (js-property-contains proto prop)))))
 
-(define-method (add-enumerables o::Js-Scope-Object enumerables-ht shadowed-ht)
+(define-method (add-enumerables o::Js-Scope-Object enumerables-ht shadowed-ht
+				go-into-prototypes?)
    (with-access::Js-Object o (props proto)
       (hashtable-for-each
        props
@@ -77,9 +78,13 @@
 				(js-undeclared? ((Ref-getter val))))
 		      (hashtable-put! shadowed-ht key #t)
 		      (when enumerable
-			 (hashtable-put! enumerables-ht key #t))))))))
-      ;; no need to test for null. null overloads add-enumerables
-      (add-enumerables proto enumerables-ht shadowed-ht)))
+			 (hashtable-put! enumerables-ht key
+					 (if (Ref? val)
+					     ((Ref-getter val))
+					     val)))))))))
+      (when go-into-prototypes?
+	 ;; no need to test for null. null overloads add-enumerables
+	 (add-enumerables proto enumerables-ht shadowed-ht #t))))
 	  
 (define (js-scope-one-level-property-contains? scope-object id)
    (with-access::Js-Object scope-object (props proto)

@@ -34,7 +34,6 @@
 
 ;; extracts requested indices from object o and prototypes (if requested).
 ;; works, as indices can't be Ref-elements...
-;; DANGEROUS though. (what if I change something?)
 ;; limit must be < max-int (otherwise llong->fixnum will be bad.
 (define (extract-index-els-in-range o ht start::llong end::llong
 				    go-into-prototypes?)
@@ -59,20 +58,16 @@
 			     (+ (*llong res #l10) cv))
 		       #f)))))))
 
-   (unless (js-null? o)
-      (with-access::Js-Object o (props proto)
-	 (hashtable-for-each
-	  props
-	  (lambda (key entry)
+   (let ((enumerables-ht (make-hashtable)))
+      (add-enumerables o enumerables-ht (make-hashtable) go-into-prototypes?)
+      (hashtable-for-each
+       enumerables-ht
+       (lambda (key val)
 	     (let ((index (key->index key)))
 		(when (and index
 			   (not (hashtable-get ht index)))
-		   (with-access::Property-entry entry (val)
-		      (hashtable-put! ht index
-				      (cons key val)))))))
-	 (when go-into-prototypes?
-	    (extract-index-els-in-range proto ht start end
-					go-into-prototypes?)))))
+		   (hashtable-put! ht index
+				   (cons key val))))))))
    
 (define-method (js-property-one-level-contains? o::Js-Array prop::bstring)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
@@ -89,7 +84,8 @@
        (exact->inexact (Js-Array-length o))
        (call-next-method)))
 
-(define-method (add-enumerables o::Js-Array enumerables-ht shadowed-ht)
+(define-method (add-enumerables o::Js-Array enumerables-ht shadowed-ht
+				go-into-prototypes?::bool)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (hashtable-put! shadowed-ht "length" #t)
    (call-next-method))

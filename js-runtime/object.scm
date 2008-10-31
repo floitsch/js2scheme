@@ -20,7 +20,8 @@
 	     new-val attributes)
     (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
     (generic js-class-name::bstring o::Js-Object)
-    (generic add-enumerables o::Js-Object enumerables-ht shadowed-ht)
+    (generic add-enumerables o::Js-Object enumerables-ht shadowed-ht
+	     go-into-prototypes?::bool)
 
     (js-for-in-properties-list::pair-nil o::Js-Object)
     (inline make-props-hashtable)
@@ -204,22 +205,24 @@
 (define-generic (js-class-name::bstring o::Js-Object)
    "Object")
 
-(define-generic (add-enumerables o::Js-Object enumerables-ht shadowed-ht)
+(define-generic (add-enumerables o::Js-Object enumerables-ht shadowed-ht
+				 go-into-prototypes?::bool)
    (with-access::Js-Object o (props proto)
       (hashtable-for-each
        props
        (lambda (key obj)
 	  (unless (hashtable-get shadowed-ht key)
 	     (hashtable-put! shadowed-ht key #t)
-	     (with-access::Property-entry obj (attr)
+	     (with-access::Property-entry obj (attr val)
 		(with-access::Attributes attr (enumerable)
 		   (if enumerable
-		       (hashtable-put! enumerables-ht key #t)))))))
-      ;; no need to test for null. null overloads add-enumerables
-      (add-enumerables proto enumerables-ht shadowed-ht)))
+		       (hashtable-put! enumerables-ht key val)))))))
+      (when go-into-prototypes?
+	 ;; no need to test for null. null overloads add-enumerables
+	 (add-enumerables proto enumerables-ht shadowed-ht #t))))
 
 (define (js-for-in-properties-list::pair-nil o::Js-Object)
    (let ((enumerables-ht (make-string-hashtable))
 	 (shadowed-ht (make-string-hashtable)))
-      (add-enumerables o enumerables-ht shadowed-ht)
+      (add-enumerables o enumerables-ht shadowed-ht #t)
       (hashtable-key-list enumerables-ht)))

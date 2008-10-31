@@ -32,19 +32,19 @@
 
 (define (undefined-primitive)
    (co-instantiate ((undefined (instantiate::Js-Undefined
-				  (props (make-props-hashtable))
+				  (props #f)
 				  (proto undefined))))
       undefined))
 
 (define (null-primitive)
    (co-instantiate ((null (instantiate::Js-Null
-			     (props (make-props-hashtable))
+			     (props #f)
 			     (proto null))))
       null))
 
 (define (undeclared-primitive)
    (co-instantiate ((undeclared (instantiate::Js-Undeclared
-			     (props (make-props-hashtable))
+			     (props #f)
 			     (proto undeclared))))
       undeclared))
 
@@ -52,7 +52,8 @@
    #f)
 (define-method (js-property-is-enumerable? o::Js-Undefined prop::bstring)
    #f)
-(define-method (add-enumerables o::Js-Undefined enumerables-ht shadowed-ht)
+(define-method (add-enumerables o::Js-Undefined enumerables-ht shadowed-ht
+				go-into-prototypes?::bool)
    'do-nothing)
 (define-method (js-property-contains o::Js-Undefined prop::bstring)
    #f) ;; when null is the prototype, then it should simply return #f
@@ -69,7 +70,8 @@
    #f)
 (define-method (js-property-is-enumerable? o::Js-Null prop::bstring)
    #f)
-(define-method (add-enumerables o::Js-Null enumerables-ht shadowed-ht)
+(define-method (add-enumerables o::Js-Null enumerables-ht shadowed-ht
+				go-into-prototypes?::bool)
    'do-nothing)
 (define-method (js-property-contains o::Js-Null prop::bstring)
    #f) ;; when null is the prototype, then it should simply return #f
@@ -86,7 +88,8 @@
    (undeclared-error #f))
 (define-method (js-property-is-enumerable? o::Js-Undeclared prop::bstring)
    (undeclared-error #f))
-(define-method (add-enumerables o::Js-Undeclared enumerables-ht shadowed-ht)
+(define-method (add-enumerables o::Js-Undeclared enumerables-ht shadowed-ht
+				go-into-prototypes?::bool)
    (undeclared-error #f))
 (define-method (js-property-contains o::Js-Undeclared prop::bstring)
    (undeclared-error #f))
