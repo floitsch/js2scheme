@@ -207,7 +207,8 @@
 		    (clusters (caddr match))
 		    (a (empty-js-Array)))
 		 (when global?
-		    (js-property-set! this "lastIndex" final-index))
+		    (js-property-set! this "lastIndex"
+				      (fixnum->flonum final-index)))
 		 (js-property-set! a "index" (fixnum->flonum start-index))
 		 (js-property-set! a "input" s)
 		 (let loop ((i 0))
