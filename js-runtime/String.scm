@@ -241,9 +241,8 @@
 		    (any->string this)))
 	   (c (js-string-ref str pos-any)))
        (if c
-	   (fixnum->flonum
-	    (char->integer c))
-	   (NaN)))))
+	   (fixnum->flonum (char->integer c))
+	   +nan.0))))
 
 (define (concat)                        ;; 15.5.4.6
    (js-fun
@@ -292,8 +291,8 @@
 		   (if find-first? 0 len)
 		   ;; CARE: we use bints here. as strings can't be longer
 		   ;; anyways this should not matter.
-		   (flonum->fixnum (minfl (maxfl (any->integer pos-num)
-						 0.0)
+		   (flonum->fixnum (min-2fl (max-2fl (any->integer pos-num)
+						     0.0)
 					  (fixnum->flonum len)))))
 	  (search-fun (if find-first? string-contains string-contains-right)))
 
@@ -597,11 +596,11 @@
 		    len-fl
 		    (any->integer end-any)))
 	   (from (flonum->fixnum (if (<fl start 0.0)
-				     (maxfl (+fl len-fl start))
-				     (minfl len-fl start))))
+				     (max-2fl (+fl len-fl start) 0.0)
+				     (min-2fl len-fl start))))
 	   (to (flonum->fixnum (if (<fl end 0.0)
-				   (maxfl (+fl len-fl end))
-				   (minfl len-fl end)))))
+				   (max-2fl (+fl len-fl end) 0.0)
+				   (min-2fl len-fl end)))))
        (if (< from to)
 	   (substring s from to)
 	   ""))))
@@ -757,12 +756,18 @@
 	   (str-len-fl (fixnum->flonum str-len))
 	   ;; we have to do the min and max in floating point due to the
 	   ;; infinite values... :(
-	   (start (flonum->fixnum (minfl (maxfl (any->integer start-any) 0.0)
-					 str-len-fl)))
+	   (start (flonum->fixnum (min-2fl (max-2fl (any->integer start-any)
+						    0.0)
+					   str-len-fl)))
 	   (end (if (js-undefined? end-any)
 		    str-len
-		    (flonum->fixnum (minfl (maxfl (any->integer end-any) 0.0)
-					   str-len-fl)))))
+		    (flonum->fixnum (min-2fl (max-2fl (any->integer end-any)
+						      0.0)
+					     str-len-fl)))))
+       (tprint start " " end)
+       (tprint start-any)
+       (tprint (any->integer start-any))
+       (tprint (max-2fl 4.0 0.0))
        (if (<fx start end)
 	   (substring str start end)
 	   (substring str end start)))))

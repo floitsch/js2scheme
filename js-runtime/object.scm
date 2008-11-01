@@ -89,8 +89,8 @@
    (define (build-name read-only? deletable? enumerable?)
       (let* ((ro (if read-only? "readOnly" ""))
 	     (enum (if enumerable?
-		       (concat-name ro "dontEnum")
-		       ro))
+		       ro
+		       (concat-name ro "dontEnum")))
 	     (del (if deletable?
 		      enum
 		      (concat-name enum "dontDelete"))))
@@ -101,14 +101,14 @@
    (let loop ((res '((define *no-attributes* (instantiate::Attributes
 						(read-only #f)
 						(deletable #t)
-						(enumerable #f)))
+						(enumerable #t)))
 		     (define (no-attributes) *no-attributes*)))
 	      (i 1))
       (if (>=fx i 8)
 	  (cons 'begin res)
 	  (let* ((read-only? (>fx (bit-and i 4) 0))
 		 (deletable? (not (>fx (bit-and i 2) 0)))
-		 (enumerable? (>fx (bit-and i 1) 0))
+		 (enumerable? (not (>fx (bit-and i 1) 0)))
 		 (name (build-name read-only? deletable? enumerable?)))
 	     (loop (cons* `(define ,(global-const name)
 			      (instantiate::Attributes
@@ -215,8 +215,8 @@
 	     (hashtable-put! shadowed-ht key #t)
 	     (with-access::Property-entry obj (attr val)
 		(with-access::Attributes attr (enumerable)
-		   (if enumerable
-		       (hashtable-put! enumerables-ht key val)))))))
+		   (when enumerable
+		      (hashtable-put! enumerables-ht key val)))))))
       (when go-into-prototypes?
 	 ;; no need to test for null. null overloads add-enumerables
 	 (add-enumerables proto enumerables-ht shadowed-ht #t))))

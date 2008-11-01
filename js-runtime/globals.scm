@@ -26,14 +26,14 @@
 	   jsg-parseInt
 	   ))
 
-(define jsg-NaN (NaN))
+(define jsg-NaN +nan.0)
 (globals-tmp-add!
  (lambda ()
     (global-special-add! 'NaN              ;; 15.1.1.1
 			 jsg-NaN
 			 (get-Attributes dont-enum dont-delete))))
 
-(define jsg-Infinity (+infinity))
+(define jsg-Infinity +inf.0)
 (globals-tmp-add!
  (lambda ()
     (global-special-add! 'Infinity         ;; 15.1.1.2
@@ -74,7 +74,7 @@
 	       (if (>= i str-len)
 		   (if found-char
 		       (*fl res sign)
-		       (NaN))
+		       +nan.0)
 		   (let* ((c (string-ref s i))
 			  (ci (char->integer (string-ref s i)))
 			  (cv (cond
@@ -118,7 +118,7 @@
 	     (tmp-R (any->int32 radix)))
 	 (if (or (<fl tmp-R 2.0)
 		 (>fl tmp-R 36.0))
-	     (NaN)
+	     +nan.0
 	     (let* ((fix-R (flonum->fixnum tmp-R))
 		    (R (cond
 			  ((and (zero? fix-R)
@@ -132,9 +132,9 @@
 			   fix-R))))
 		(cond
 		   ((<fx R 2)
-		    (NaN))
+		    +nan.0)
 		   ((>fx R 36)
-		    (NaN))
+		    +nan.0)
 		   (else
 		    (parseIntR s
 			       (if (and (=fx R 16)

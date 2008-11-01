@@ -63,11 +63,11 @@
       (hashtable-for-each
        enumerables-ht
        (lambda (key val)
-	     (let ((index (key->index key)))
-		(when (and index
-			   (not (hashtable-get ht index)))
-		   (hashtable-put! ht index
-				   (cons key val))))))))
+	  (let ((index (key->index key)))
+	     (when (and index
+			(not (hashtable-get ht index)))
+		(hashtable-put! ht index
+				(cons key val))))))))
    
 (define-method (js-property-one-level-contains? o::Js-Array prop::bstring)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
@@ -263,8 +263,8 @@
 		   (let ((index (car el))
 			 (val (cadr el)))
 		      (js-property-set! a
-					     (integer->string index)
-					     val)))
+					(integer->string index)
+					val)))
 		els)
       a))
 
@@ -534,15 +534,15 @@
 	      (len (any->uint32 (js-property-get this "length")))
 	      (start-int (any->integer start-any))
 	      (start (if (<fl start-int 0.0)
-			 (maxfl 0.0 (+fl len start-int))
-			 (minfl start-int len)))
+			 (max-2fl 0.0 (+fl len start-int))
+			 (min-2fl start-int len)))
 	      (lstart (flonum->llong start))
 	      (end-int (if (js-undefined? end-any)
 			   len
 			   (any->integer end-any)))
 	      (end (if (<fl end-int 0.0)
-		       (maxfl 0.0 (+fl len end-int))
-		       (minfl end-int len)))
+		       (max-2fl 0.0 (+fl len end-int))
+		       (min-2fl end-int len)))
 	      (ht (make-hashtable)))
 	  (extract-index-els-in-range this ht
 				      lstart
@@ -628,13 +628,13 @@
 	   (len (any->uint32 (js-property-get this "length")))
 	   (start-int (any->integer start-any))
 	   (start (if (<fl start-int 0.0)
-		      (maxfl 0.0 (+fl len start-int))
-		      (minfl start-int len)))
+		      (max-2fl 0.0 (+fl len start-int))
+		      (min-2fl start-int len)))
 	   (lstart (flonum->llong start))
 	   (delete-count-int (maxfl (any->integer delete-count-any)
 				  0.0))
-	   (end (minfl delete-count-int
-		     (-fl len start)))
+	   (end (min-2fl delete-count-int
+			 (-fl len start)))
 	   (lend (flonum->llong end))
 	   (nb-inserted (-fx nb-args 2)))
        (js-property-set! new-a "length" delete-count-int)

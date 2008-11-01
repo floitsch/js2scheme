@@ -143,10 +143,10 @@
 		;; 0 = sunday.
 		;; the 'else' clause is just to make bigloo typing happy
 		((0) 1984.0) ((1) 1996.0) ((2) 1980.0) ((3) 1992.0)
-		((4) 1976.0) ((5) 1988.0) ((6) 1972.0) (else (NaN)))
+		((4) 1976.0) ((5) 1988.0) ((6) 1972.0) (else +nan.0))
 	     (case (flonum->fixnum wd)
 		((0) 1978.0) ((1) 1973.0) ((2) 1974.0) ((3) 1975.0)
-		((4) 1981.0) ((5) 1971.0) ((6) 1977.0) (else (NaN))))))
+		((4) 1981.0) ((5) 1971.0) ((6) 1977.0) (else +nan.0)))))
 
    ;; same as t, but in interval 1970-2038
    (define (get-equivalent-ms t)
@@ -162,8 +162,8 @@
 					   (time-within-day t))))
 		js-date)))))
 
-   (if (not (finite? t))
-       (NaN)
+   (if (not (finitefl? t))
+       +nan.0
        (let* ((equiv-ms (get-equivalent-ms t))
 	      (secs (flonum->elong (/fl equiv-ms 1000.0)))
 	      (bdate (seconds->date secs))
@@ -215,14 +215,9 @@
    (modulofl t *ms-per-second*))
 
 ;; 15.9.1.11
-(define (finite?::bool n::double)
-   (not (or (NaN? n)
-	    (+infinity? n)
-	    (-infinity? n))))
-
 (define (make-js-time::double hour::double min::double sec::double ms::double)
-   (if (not (and (finite? hour) (finite? min) (finite? sec) (finite? ms)))
-       (NaN)
+   (if (not (and (finitefl? hour) (finitefl? min) (finitefl? sec) (finitefl? ms)))
+       +nan.0
        (let ((hour-i (finite->integer hour))
 	     (min-i (finite->integer min))
 	     (sec-i (finite->integer sec))
@@ -259,8 +254,8 @@
 			((11.0) (+fl 334.0 leap-year)))))
 	 (*fl nb-days *ms-per-day*)))
 
-   (if (not (and (finite? year) (finite? month) (finite? date)))
-       (NaN)
+   (if (not (and (finitefl? year) (finitefl? month) (finitefl? date)))
+       +nan.0
        (let* ((year-i (finite->integer year))
 	      (month-i (finite->integer month))
 	      (date-i (finite->integer date))
@@ -272,7 +267,7 @@
 		  (>fl norm-year *max-years*)
 		  (and (=fl norm-year *max-years*)
 		       (>fl month-i *max-month*)))
-	      (NaN)
+	      +nan.0
 	      (let* ((t-y (time-from-year norm-year))
 		     (t-m (time-from-month norm-month
 					   (js-leap-year? norm-year)))
@@ -281,15 +276,15 @@
 
 ;; 15.9.1.13
 (define (make-js-date::double day::double time::double)
-   (if (not (and (finite? day) (finite? time)))
-       (NaN)
+   (if (not (and (finitefl? day) (finitefl? time)))
+       +nan.0
        (+fl (*fl day *ms-per-day*)
 	    time)))
 
 (define (time-clip::double t::double)
    (cond
-      ((not (finite? t)) (NaN))
-      ((>fl (absfl t) 8.64e15) (NaN))
+      ((not (finitefl? t)) +nan.0)
+      ((>fl (absfl t) 8.64e15) +nan.0)
       (else (finite->integer t))))
 
 ;; RFC2822 string.
@@ -505,7 +500,7 @@
    (with-handler
       (lambda (e)
 	 (tprint e)
-	 (NaN))
+	 +nan.0)
       (let ((p (open-input-string s)))
 	 (unwind-protect
 	    (read/lalrp *date-lalr* *date-grammar* p)

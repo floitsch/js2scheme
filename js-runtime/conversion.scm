@@ -123,16 +123,11 @@
 		  (string-prefix? "0X" stripped))
 	      (if (valid-hex-string? stripped)
 		  (string->real stripped)
-		  (NaN)))
-	     ((or (string=? stripped "+Infinity")
-		  (string=? stripped "Infinity"))
-	      (+infinity))
-	     ((string=? stripped "-Infinity")
-	      (-infinity))
+		  +nan.0))
 	     (else
 	      (let ((t (string->number stripped)))
 		 (cond
-		    ((not t)    (NaN))
+		    ((not t)    +nan.0)
 		    ((exact? t) (exact->inexact t))
 		    (else       t))))))))
 
@@ -140,7 +135,7 @@
    (cond
       ((flonum? any) any)
       ((boolean? any) (if any 1.0 0.0)) ;; TODO +0.0
-      ((js-undefined? any) (NaN))
+      ((js-undefined? any) +nan.0)
       ((js-null? any) 0.0)
       ((string? any) (js-string->number any))
       ((number? any)

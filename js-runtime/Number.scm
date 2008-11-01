@@ -67,17 +67,17 @@
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.4
 				"NaN"
-				(NaN)
+				+nan.0
 				(get-Attributes dont-enum dont-delete
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.5
 				"NEGATIVE_INFINITY"
-				(-infinity)
+				-inf.0
 				(get-Attributes dont-enum dont-delete
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.6
 				"POSITIVE_INFINITY"
-				(+infinity)
+				+inf.0
 				(get-Attributes dont-enum dont-delete
 						read-only))
 

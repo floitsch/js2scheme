@@ -200,16 +200,16 @@
 	;; ensure left-to-right order
 	(let* ((xfl (any->number x))
 	       (yfl (any->number y)))
-	   (maxfl xfl yfl)))
+	   (max-2fl xfl yfl)))
        ((=fx nb-args 0)
-	(-infinity))
+	-inf.0)
        ((=fx nb-args 1)
 	(any->number x))
        (else
 	(let loop ((m (any->number x))
 		   (i 1))
 	   (if (<fx i nb-args)
-	       (loop (maxfl m (any->number (get-arg i)))
+	       (loop (max-2fl m (any->number (get-arg i)))
 		     (+fx i 1))
 	       m))))))
 
@@ -223,16 +223,16 @@
 	;; ensure left-to-right order
 	(let* ((xfl (any->number x))
 	       (yfl (any->number y)))
-	   (minfl xfl yfl)))
+	   (min-2fl xfl yfl)))
        ((=fx nb-args 0)
-	(+infinity))
+	+inf.0)
        ((=fx nb-args 1)
 	(any->number x))
        (else
 	(let loop ((m (any->number x))
 		   (i 1))
 	   (if (<fx i nb-args)
-	       (loop (minfl m (any->number (get-arg i)))
+	       (loop (min-2fl m (any->number (get-arg i)))
 		     (+fx i 1))
 	       m))))))
 
@@ -246,7 +246,7 @@
 			   (=fl x -1.0))
 		       (or (+infinity? y)
 			   (-infinity? y)))
-		  (NaN))
+		  +nan.0)
 		 (else
 		  (exptfl x y))))))
 

@@ -17,12 +17,6 @@
 	   ;; returns the given value
 	   (inline js-property-set! o::Js-Object prop::bstring new-val)
 	   (js-property-update! o::Js-Object prop::bstring new-val)
-	   (inline +infinity::double)
-	   (inline -infinity::double)
-	   (inline NaN::double)
-	   *+infinity*
-	   *-infinity*
-	   *NaN*
 	   (inline +infinity?::bool v)
 	   (inline -infinity?::bool v)
 	   (inline NaN?::bool v)))
@@ -30,18 +24,9 @@
 (define-inline (primitive? v)
    (not (Js-Object? v)))
 
-(define *+infinity* (/fl 1.0 0.0))
-(define-inline (+infinity) *+infinity*)
-(define-inline (+infinity? v) (eqv? v *+infinity*))
-(define *-infinity* (/fl -1.0 0.0))
-(define-inline (-infinity) *-infinity*)
-(define-inline (-infinity? v) (eqv? v *-infinity*))
-(define *NaN* (/fl 0.0 0.0))
-(define-inline (NaN) *NaN*)
-;; HACK: NaN?
-(define-inline (NaN? v) (and (flonum? v)
-			     (not (equal? v (*fl v 1.0)))))
-;;(define-inline (NaN? v) (eqv? *NaN* v))
+(define-inline (+infinity? v) (and (flonum? v) (=fl v +inf.0)))
+(define-inline (-infinity? v) (and (flonum? v) (=fl v +inf.0)))
+(define-inline (NaN? v)       (and (flonum? v) (nanfl? v)))
 
 (define-inline (js-property-get o::Js-Object prop::bstring)
    ;(write-circle o)(print)

@@ -114,7 +114,7 @@
 	      (-infinity? n1)
 	      ;; TODO: numbers (+- 0)
 	      (=fl n2 0.0))
-	  (NaN))
+	  +nan.0)
 	 ((=fl n1 0.0) ;; TODO: or (-0)
 	  n1)
 	 (else

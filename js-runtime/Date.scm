@@ -38,7 +38,7 @@
 	 (prototype (instantiate::Js-Date    ;; 15.9.5
 		       (props (make-props-hashtable))
 		       (proto (js-object-prototype))
-		       (t (NaN)))))
+		       (t +nan.0))))
 
       (set! *js-Date-prototype* prototype)
 
@@ -275,10 +275,14 @@
 	       (ms (if (> nb-args 6)
 		       (any->number (get-arg 6))
 		       0.0))
-	       (normalized-year (if (and (not (eq? *NaN* year))
-					 (<=fl year 99.0))
-				    (+fl 1900.0 year)
-				    year))
+	       (normalized-year
+		(if (not (finitefl? year))
+		    year
+		    (let ((int-year (finite->integer year)))
+		       (if (and (<=fl 0.0 int-year)
+				(<=fl int-year 99.0))
+			   (+fl 1900.0 year)
+			   year))))
 	       (js-day (make-js-day normalized-year month date))
 	       (js-time (make-js-time hours minutes seconds ms))
 	       (js-date (make-js-date js-day js-time)))
@@ -289,7 +293,7 @@
    (instantiate::Js-Date
       (props (make-props-hashtable))
       (proto *js-Date-prototype*)
-      (t (NaN))))
+      (t +nan.0)))
 
 ;; CARE: cache is clearly not thread-safe...
 (define (local-info-update! d)
@@ -334,10 +338,14 @@
 	   (ms (if (> nb-args 6)
 		   (any->number (get-arg 6))
 		   0.0))
-	   (normalized-year (if (and (not (eq? *NaN* year))
-				     (<=fl year 99.0))
-				(+fl 1900.0 year)
-				year))
+	   (normalized-year
+	    (if (not (finitefl? year))
+		year
+		(let ((int-year (finite->integer year)))
+		   (if (and (<=fl 0.0 int-year)
+			    (<=fl int-year 99.0))
+		       (+fl 1900.0 year)
+		       year))))
 	   (js-day (make-js-day normalized-year month date))
 	   (js-time (make-js-time hours minutes seconds ms))
 	   (js-date (make-js-date js-day js-time)))
@@ -443,7 +451,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getFullYear applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (year-from-time (Js-local-time this))))))
 
@@ -454,7 +462,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCFullYear applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (year-from-time (Js-Date-t this))))))
    
@@ -465,7 +473,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getMonth applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (month-from-time (Js-local-time this))))))
 
@@ -476,7 +484,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCMonth applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (month-from-time (Js-Date-t this))))))
 
@@ -487,7 +495,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getDate applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (date-from-time (Js-local-time this))))))
 
@@ -498,7 +506,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCDate applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (date-from-time (Js-Date-t this))))))
 
@@ -509,7 +517,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getDay applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (week-day (Js-local-time this))))))
 
@@ -520,7 +528,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCDay applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (week-day (Js-Date-t this))))))
 
@@ -531,7 +539,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getHours applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (hours-from-time (Js-local-time this))))))
 
@@ -542,7 +550,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCHours applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (hours-from-time (Js-Date-t this))))))
 
@@ -553,7 +561,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getMinutes applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (min-from-time (Js-local-time this))))))
 
@@ -564,7 +572,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCMinutes applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 		(min-from-time (Js-Date-t this))))))
 
@@ -575,7 +583,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getSeconds applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (sec-from-time (Js-local-time this))))))
 
@@ -586,7 +594,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCSeconds applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (sec-from-time (Js-Date-t this))))))
 
@@ -597,7 +605,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getMilliseconds applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (ms-from-time (Js-local-time this))))))
 
@@ -608,7 +616,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCMilliseconds applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (ms-from-time (Js-Date-t this))))))
 
@@ -619,7 +627,7 @@
 	      ((not (Js-Date? this))
 	       (type-error "Date-getTimezoneOffset applied to" this))
 	      ((NaN? (Js-Date-t this))
-	       (NaN))
+	       +nan.0)
 	      (else
 	       (let ((t (Js-Date-t this))
 		     (ms-per-minute 60000.0))
