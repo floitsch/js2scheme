@@ -11,7 +11,8 @@
 	   jsre-Number
 	   jsre-Bool
 	   jsre-global-object
-	   jsre-scope-object)
+	   jsre-scope-object
+	   jsre-double)
 ;    (export (inline js-boolify::bool any)
 ; 	   (inline any->bool::bool any)
 ; 	   (inline js-string->number str)
@@ -247,51 +248,18 @@
 	 ((string? any) any)
 	 ((eq? any *js-Null*) "null")
 	 ((eq? any *js-Undefined*) "undefined")
-	 ((boolean? any) (if any
-			     "true"
-			     "false"))
-	 ((flonum? any) (double->string any))
+	 ((boolean? any) (if any "true" "false"))
+	 ((flonum? any) (double->string any 'shortest 0))
 	 (else
 	  (with-output-to-string (lambda ()
 				    (write-circle any))))))
 
-   ;; TODO: not correct!
-   (define (double->string::bstring v::double)
-      (define (add-e+ str)
-	 (let ((pos (string-contains str "e")))
-	    (if (and pos
-		     (not (char=? (string-ref str (+fx pos 1))
-				  #\-)))
-		(string-append (substring str 0 (+fx pos 1))
-			       "+"
-			       (substring str (+fx pos 1)
-					  (string-length str)))
-		str)))
-      (cond
-	 ((NaN? v) "NaN")
-	 ((<fl v 0.0)
-	  (string-append "-" (double->string (-fl 0.0 v))))
-	 ((+infinity? v) "Infinity")
-	 ((=fl (floorfl v) v)
-	  (let* ((str (real->string v))
-		 (pos (string-contains str ".0")))
-	     (if (not pos) ;; most probably something like: 8.34e11
-		 (add-e+ str)
-		 (add-e+ (string-append (substring str 0 pos)
-					(substring str
-						   (+fx pos 2)
-						   (string-length str)))))))
-	 (else
-	  (add-e+ (number->string v)))))
-   
    (cond
       ((string? any) any)
       ((eq? any *js-Null*) "null")
       ((eq? any *js-Undefined*) "undefined")
-      ((boolean? any) (if any
-		       "true"
-		       "false"))
-      ((flonum? any) (double->string any))
+      ((boolean? any) (if any "true" "false"))
+      ((flonum? any) (double->string any 'shortest 0))
       (else
        (any->string2 (any->primitive any 'string)))))
 

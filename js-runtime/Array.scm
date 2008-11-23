@@ -115,7 +115,7 @@
 			   (lambda (index key/val)
 			      (hashtable-remove! props (car key/val))))))
 		    (set! length nb-uint32))
-		 (range-error new-val)))
+		 (range-error "invalid array-index" new-val)))
 	  (let ((index (property-index prop)))
 	     (when (and index
 			(>=fl index length))
@@ -221,7 +221,7 @@
 	  (let ((int-len (any->uint32 len)))
 	     (if (=fl len int-len)
 		 (js-property-set! a "length" len)
-		 (range-error len))))
+		 (range-error "invalid array-length" len))))
        (let loop ((i 0))
 	  (when (< i nb-args)
 	     (js-property-set! a (integer->string i) (get-arg i))

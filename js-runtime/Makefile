@@ -8,7 +8,7 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			primitives runtime operators scope-object \
 			RegExp RegExp-parse RegExp-fsm RegExp-classes \
 			RegExp-dot RegExp-match RegExp-state RegExp-char-set \
-			mset multi-top-level
+			mset multi-top-level double
 
 RUNTIME_BGL_INCLUDES = macros.sch
 

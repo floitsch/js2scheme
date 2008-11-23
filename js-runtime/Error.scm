@@ -26,7 +26,7 @@
 	   *js-URI-Error*
 	   (Error-init)
 	   (class Js-Error::Js-Object)
-	   (range-error val)
+	   (range-error msg val)
 	   (type-error msg val)
 	   (undeclared-error id)
 	   (syntax-error msg)
@@ -179,14 +179,13 @@
 	   ()
 	   (if (not (Js-Error? this))
 	       "ERROR"
-	       (string-append (any->safe-string
-			       (js-property-get this "name"))
-			      ": "
-			      (any->safe-string
-			       (js-property-get this "message"))))))
+	       (format "~a: ~a"
+		       (any->safe-string (js-property-get this "name"))
+		       (any->safe-string (js-property-get this "message"))))))
 
-(define (range-error val)
-   (raise (js-new *js-Range-Error-orig* val)))
+(define (range-error msg val)
+   (raise (js-new *js-Range-Error-orig*
+		  (format "~a: ~a" msg (any->safe-string val)))))
 
 (define (type-error msg val)
    (raise (js-new *js-Type-Error-orig*
@@ -228,24 +227,13 @@
       (else e)))
 
 (define (any->safe-string any)
-   (define (double->string::bstring v::double)
-      (cond
-	 ((NaN? v) "NaN")
-	 ((<fl v 0.0)
-	  (string-append "-" (double->string (-fl 0.0 v))))
-	 ((+infinity? v) "Infinity")
-	 ((=fl (floorfl v) v)
-	  (llong->string (flonum->llong v)))
-	 (else
-	  (number->string v))))
    (cond
-      ((string? any) any)
-      ((eq? any *js-Null*) "null")
-      ((eq? any *js-Undefined*) "undefined")
-      ((boolean? any) (if any
-		       "true"
-		       "false"))
-      ((flonum? any) (double->string any))
+      ((or (string? any)
+	   (js-null? any)
+	   (js-undefined? any)
+	   (boolean? any)
+	   (flonum? any))
+       (any->string any))
       ((Js-Arguments? any) "Arguments")
       ((Js-Array? any) "Array")
       ((Js-Bool? any) (if (Js-Bool-val any)
