@@ -1,6 +1,25 @@
 (module jsre-double
    (export (double->string::bstring d::double how::symbol precision::bint)))
 
+(define (bit-lshbx::bignum x::bignum by::bint)
+   (if (<fx by 0)
+       #z0
+       (*bx x (exptbx #z2 (fixnum->bignum by)))))
+
+(define (bit-rshbx::bignum x::bignum by::bint)
+   (if (<fx by 0)
+       #z0
+       (/bx x (exptbx #z2 (fixnum->bignum by)))))
+
+;; biased-e (the one in the double) contains the exponent-bias and is such that
+;;  1.f*2^e (with f mantissa-bits)
+;; here we use the mantissa rather as 1f (that is without the '.')
+;; and we thus have to add the length of 'f' to the bias.
+(define *exponent-bias* (+fx #x3ff 52)) ;; == 1023 + 52bits of mantissa.
+(define *min-exponent* (negfx *exponent-bias*))
+(define *mantissa-size* 53)             ;; 53 if we count hidden bit.
+(define *first-normal* 2.2250738585072e-308) ;;everything smaller is a denormal
+
 (define (double-biased-exponent::bint d::double)
    (let* ((s (double->ieee-string d))
 	  (b0 (char->integer (string-ref s 0)))
@@ -9,6 +28,39 @@
 		    4)
 	   (bit-rsh (bit-and b1 #xF0)
 		    4))))
+
+(define (compute-denormal-e d)
+   (if (<fl d 0.0)
+       (compute-denormal-e (negfl d))
+       ;; this is not fast, but we don't really care, as this should not
+       ;; happen often
+       ;; denormals do not have the implicit bit anymore.
+       ;; in order to have a continuity the exponent is not used the same way
+       ;; anymore, but has to be decremented by 1.
+       ;; basically: when we had before (2^p + f)*2^e
+       ;;            we now have f*2^(e+1)
+       ;; in other words. it's as if we stayed in the previous exponent but
+       ;; without the implicit bit.
+       ;; We are going to shift the denormalized numbers (see the
+       ;; mantissa-conversions)
+       ;; eg 8.0000.0000.0000 is going to be shifted so it "resembles" a normal 
+       ;;   10.0000.0000.0000.
+       ;; We do the shift here by multiplying with 2.0
+       (let loop ((e (+fx *min-exponent* 1))
+		  (shifted-d d))
+	  (if (>=fl shifted-d *first-normal*)
+	      e
+	      (loop (-fx e 1) (*fl shifted-d 2.0))))))
+   
+(define (double-exponent::bint d::double)
+   (let ((biased-e (double-biased-exponent d)))
+      (cond
+	 ((not (zerofx? biased-e) )
+	  (-fx biased-e *exponent-bias*))
+	 ((=fl d 0.0)
+	  51)
+	 (else
+	  (compute-denormal-e d)))))
 
 (define (double-zero-mantissa?::bool d::double)
    (let* ((s (double->ieee-string d))
@@ -50,7 +102,9 @@
       (let loop ((i 2)
 		 (res highest-bx))
 	 (if (>=fx i 8)
-	     res
+	     (if denormal?
+		 (*bx res #z2)
+		 res)
 	     (loop (+fx i 1)
 		   (+bx (*bx #z256 res)
 			(fixnum->bignum (char->integer (string-ref s i)))))))))
@@ -125,10 +179,6 @@
 		   "method (how) not recognized"
 		   how))))
 
-(define *exponent-bias* (+fx #x3ff 52)) ;; == 1023 + 52bits of mantissa.
-(define *min-exponent* (negfx *exponent-bias*))
-(define *mantissa-size* 53)             ;; 53 if we count hidden bit.
-
 ;; if the boundaries are not needed, they are set to #z0.
 ;; This way manipulations (multiplications) should be quite fast on them.
 (define (initial-start-values d::double e need-boundaries?)
@@ -138,9 +188,7 @@
        (values (flonum->bignum d) #z1 #z0 #z0))
       ((not need-boundaries?)
        (let ((f (double-mantissa->bignum d)))
-	  (values f
-		  (exptbx #z2 (fixnum->bignum (negfx e)))
-		  #z0 #z0)))
+	  (values f (bit-lshbx #z1 (negfx e)) #z0 #z0)))
       (else
        ;; Here we create r, s, m- and m+
        ;; we return r, s such that d = r/s
@@ -157,13 +205,13 @@
        (let ((^p-1? (double-zero-mantissa? d)))
 	  (cond
 	     ((and (>=fx e 0) (not ^p-1?))
-	      (let ((m+ (exptbx #z2 (fixnum->bignum e))))
+	      (let ((m+ (bit-lshbx #z1 e)))
 		 (values (*bx #z2 (flonum->bignum d))    ;; r
 			 #z2                             ;; s
 			 m+
 			 m+)))                           ;; m- == m+
 	     ((>=fx e 0) ;; ^p-1
-	      (let ((m- (exptbx #z2 (fixnum->bignum e))))
+	      (let ((m- (bit-lshbx #z1 e)))
 		 (values (*bx #z4 (flonum->bignum d)) ;; r
 			 #z4                          ;; s
 			 (*bx #z2 m-)
@@ -171,14 +219,14 @@
 	     ((or (=fx e *min-exponent*) ;; denormal
 		  (not ^p-1?)) ;; e < 0 and not all 0s
 	      (let ((f (double-mantissa->bignum d)))
-		 (values (*bx #z2 f)                             ;; r
-			 (exptbx #z2 (fixnum->bignum (-fx 1 e))) ;; s
+		 (values (*bx #z2 f)               ;; r
+			 (bit-lshbx #z1 (-fx 1 e)) ;; s
 			 #z1     ;; m+
 			 #z1)))  ;; m-
 	     (else ;; e < 0 but not a denormal
 	      (let ((f (double-mantissa->bignum d)))
 		 (values (*bx #z4 f)
-			 (exptbx #z2 (fixnum->bignum (-fx 2 e)))
+			 (bit-lshbx #z1 (-fx 2 e))
 			 #z2
 			 #z1))))))))
 
@@ -186,6 +234,9 @@
 
 ;; returns an estimation of k such that v < 10^k with v=f*2^e
 ;; could undershoot by 1.
+;; examples:
+;;  (k-estimation 0)   => 16
+;;  (k-estimation -52) => 0
 (define (k-estimation d e)
    ;; this estimates log10 of v where v = f*2^e
    ;; given that log10(v) == log2(v)/log2(10) and
@@ -347,15 +398,7 @@
    (let* ((need-shortest? (or (eq? how 'shortest)
 			      (eq? how 'shortest-exponential)))
 	  (need-boundaries? need-shortest?)
-	  (biased-e (double-biased-exponent d))
-	  ;; no need to deal with nan, inf, ... anymore.
-	  ;; biased-e contains the exponent-bias and is such that
-	  ;;  1.f*2^e (with f mantissa-bits)
-	  ;; here we use the mantissa rather as 1f (that is without the '.')
-	  ;; and we thus have to remove the length of 'f' from e.
-	  (e (if (=fl d 0.0)
-		 51
-		 (-fx biased-e *exponent-bias*)))
+	  (e (double-exponent d))
 	  ;; k-est is an estimation of 'k', the exponent of the decimal target
 	  ;; number.
 	  (k-est (k-estimation d e))
