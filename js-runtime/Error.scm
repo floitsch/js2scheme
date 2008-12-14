@@ -32,6 +32,7 @@
 	   (syntax-error msg)
 	   (eval-error msg)
 	   (delete-error msg)
+	   (uri-error msg)
 	   (any->safe-string::bstring any)
 	   (error->js-exception e)))
 
@@ -193,18 +194,21 @@
 
 (define (undeclared-error id)
    ;; TODO: is undeclared-error really a reference-error?
-   (raise (js-new *js-Reference-Error* id)))
+   (raise (js-new *js-Reference-Error-orig* id)))
 
 (define (syntax-error msg)
-   (raise (js-new *js-Syntax-Error* msg)))
+   (raise (js-new *js-Syntax-Error-orig* msg)))
 
 (define (eval-error msg)
-   (raise (js-new *js-Eval-Error* msg)))
+   (raise (js-new *js-Eval-Error-orig* msg)))
 
 (define (delete-error msg)
    (raise (js-new *js-Type-Error-orig*
 		  (string-append "can't delete "
 				 (any->safe-string msg)))))
+
+(define (uri-error msg)
+   (raise (js-new *js-URI-Error-orig* msg)))
 
 (define (error->js-exception e)
    (cond

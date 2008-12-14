@@ -28,7 +28,7 @@
 ; 	   (js-object->primitive o::Js-Object hint::symbol)))
    (export (js-boolify::bool any)
 	   (any->bool::bool any)
-	   (js-string->number str)
+	   (js-string->number::double str::bstring)
 	   (any->number any)
 	   (any->primitive any hint)
 	   (finite->integer::double n::double)
@@ -73,9 +73,38 @@
 (define (any->bool::bool any)
    (js-boolify any))
 
-(define (js-string->number str) ;; TODO: number
-   ;; still not completely compliant.
+(define (js-string->number str)
+   (define whitespace? char-whitespace?)   ;; TODO not spec-conform (white-space)
 
+   (cond-expand
+      (bigloo-c (define hex-string->real string->real))
+      (else
+       (define (hex-string->real str)
+	  ;; TODO hex-string->real could be much faster.
+	  ;;      In theory we should just take the 53 first bits, and adjust
+	  ;;      the exponent accordingly.
+	  (let ((str-len (string-length str))
+		(val0 (char->integer #\0))
+		(val9 (char->integer #\9))
+		(vala (char->integer #\a))
+		(valf (char->integer #\f))
+		(valA (char->integer #\A))
+		(valF (char->integer #\F)))
+	     (let ((res 0.0)
+		   (i 0))
+		(if (>= i str-len)
+		    res
+		    (let* ((c (string-ref str i))
+			   (v (char->integer c)))
+		       ((and (>=fx v val0) (<= v val9))
+			(+fl (*fl res 16.0) (fixnum->flonum (-fx v val0))))
+		       ((and (>=fx v vala) (<= v valf))
+			(+fl (*fl res 16) (fixnum->flonum (+fx 10 (-fx v vala)))))
+		       ((and (>=fx v valA) (<= v valF))
+			(+fl (*fl res 16 (fixnum->flonum (+fx 10 (-fx v valA)))))))))))))
+		
+	  
+   
    ;; remove whitespaces
    (define (strip str)
       (let ((str-len (string-length str)))
@@ -83,13 +112,16 @@
 	    (cond
 	       ((>= start str-len)
 		"")
-	       ((char-whitespace? (string-ref str start))
+	       ((whitespace? (string-ref str start))
 		(loop (+fx start 1)))
 	       (else
 		(let luup ((end (-fx str-len 1)))
 		   (cond
-		      ((char-whitespace? (string-ref str end))
+		      ((whitespace? (string-ref str end))
 		       (luup (-fx end 1)))
+		      ((and (=fx start 0)
+			    (=fx end (-fx str-len 1)))
+		       str)
 		      (else
 		       (substring str start (+fx end 1))))))))))
 
@@ -120,10 +152,13 @@
       (if (string-null? stripped)
 	  0.0
 	  (cond
+	     ((string=? stripped "+Infinity") +inf.0)
+	     ((string=? stripped "-Infinity") -inf.0)
+	     ((string=? stripped "Infinity") +inf.0)
 	     ((or (string-prefix? "0x" stripped)
 		  (string-prefix? "0X" stripped))
 	      (if (valid-hex-string? stripped)
-		  (string->real stripped)
+		  (hex-string->real stripped)
 		  +nan.0))
 	     (else
 	      (let ((t (string->number stripped)))
