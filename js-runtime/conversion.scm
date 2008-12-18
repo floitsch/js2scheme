@@ -125,7 +125,56 @@
 		      (else
 		       (substring str start (+fx end 1))))))))))
 
-   ;; simplified test: length at least >= 3 and all chars have to be a-fA-F
+   (define (valid-real? str)
+      (let ((str-len (string-length str))
+	    (val0 (char->integer #\0))
+	    (val9 (char->integer #\9)))
+	 (let loop ((i 0)
+		    (allow-sign? #t)
+		    (allow-dot? #t)
+		    (allow-e? #t)
+		    (need-digit? #t))
+	    (cond
+	       ((and (>=fx i str-len)
+		     need-digit?)
+		#f)
+	       ((>=fx i str-len)
+		#t)
+	       ((and (>=fx (char->integer (string-ref str i)) val0)
+		     (<=fx (char->integer (string-ref str i)) val9))
+		(loop (+fx i 1)
+		      #f
+		      allow-dot?
+		      allow-e?
+		      #f))
+	       ((and allow-dot?
+		     (char=? #\. (string-ref str i)))
+		(loop (+fx i 1)
+		      #f
+		      #f
+		      allow-e?
+		      need-digit?))
+	       ((and allow-sign?
+		     (or (char=? #\+ (string-ref str i))
+			 (char=? #\- (string-ref str i))))
+		(loop (+fx i 1)
+		      #f
+		      allow-dot?
+		      allow-e?
+		      need-digit?))
+	       ((and allow-e?
+		     (not need-digit?)
+		     (or (char=? #\e (string-ref str i))
+			 (char=? #\E (string-ref str i))))
+		(loop (+fx i 1)
+		      #t
+		      #f
+		      #f
+		      #t))
+	       (else
+		#f)))))
+
+   ;; simplified test: length at least >= 3 and all chars have to be 0-f0-F
    (define (valid-hex-string? str)
       (let ((str-len (string-length str))
 	    (val0 (char->integer #\0))
@@ -135,6 +184,9 @@
 	    (valA (char->integer #\A))
 	    (valF (char->integer #\F)))
 	 (and (>fx str-len 2)
+	      (char=? #\0 (string-ref str 0))
+	      (or (char=? #\x (string-ref str 1))
+		  (char=? #\X (string-ref str 1)))
 	      (let loop ((i 2))
 		 (if (>= i str-len)
 		     #t
@@ -152,20 +204,16 @@
       (if (string-null? stripped)
 	  0.0
 	  (cond
+	     ((string-null? stripped) 0.0)
+	     ((valid-real? stripped)
+	      (string->real stripped))
 	     ((string=? stripped "+Infinity") +inf.0)
 	     ((string=? stripped "-Infinity") -inf.0)
 	     ((string=? stripped "Infinity") +inf.0)
-	     ((or (string-prefix? "0x" stripped)
-		  (string-prefix? "0X" stripped))
-	      (if (valid-hex-string? stripped)
-		  (hex-string->real stripped)
-		  +nan.0))
+	     ((valid-hex-string? stripped)
+	      (hex-string->real stripped))
 	     (else
-	      (let ((t (string->number stripped)))
-		 (cond
-		    ((not t)    +nan.0)
-		    ((exact? t) (exact->inexact t))
-		    (else       t))))))))
+	      +nan.0)))))
 
 (define (any->number any)
    (cond
