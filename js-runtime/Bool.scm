@@ -1,39 +1,37 @@
 (module jsre-Bool
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-natives
-	   jsre-Error
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
-   (export *js-Bool* ;; can be modified by user -> can't be ::procedure
+   (import jsre-natives)
+   (use jsre-object
+	jsre-Object
+	jsre-Date
+	jsre-Function
+	jsre-String
+	jsre-Number
+	jsre-Error
+	jsre-primitives
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
+   (export *jsg-Bool*
 	   *js-Bool-orig* ; ::procedure ;; Bigloo recently had bugs with types
 	   (class Js-Bool::Js-Object
 	      val::bool)
 	   (Bool-init)))
 
-(define *js-Bool* #unspecified)
-(define *js-Bool-orig* (lambda () #f))
-(define *js-Bool-prototype*::Js-Object (js-undeclared))
+(define *jsg-Bool* #unspecified)
+(define *js-Bool-orig* (lambda () 'to-be-replaced))
+(define *js-Bool-prototype*::Js-Object (js-null))
 
 (define-method (js-class-name::bstring o::Js-Bool)
    "Boolean")
 
 (define (Bool-init)
-   (set! *js-Bool* (Bool-lambda))
-   (set! *js-Bool-orig* *js-Bool*)
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Boolean *js-Bool*)))
+   (set! *js-Bool-orig* (Bool-lambda))
+   (set! *jsg-Bool* (create-runtime-global "Boolean" *js-Bool-orig*))
 
    (let* ((text-repr "function(v) { /* native Boolean */ throw 'native'; }")
-	  (bool-object (create-function-object *js-Bool*
+	  (bool-object (create-function-object *js-Bool-orig*
 					       (Bool-new)
 					       Bool-construct
 					       text-repr))
@@ -56,7 +54,7 @@
 
       (js-property-generic-set! prototype    ;; 15.6.4.1
 				"constructor"
-				*js-Bool*
+				*js-Bool-orig*
 				(constructor-attributes))
       (js-property-generic-set! prototype    ;; 15.6.4.2
 				"toString"

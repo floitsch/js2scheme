@@ -1,36 +1,35 @@
 (module jsre-Array
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-natives
-	   jsre-primitives
-	   jsre-Error
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
+   (import jsre-natives)
+   (use jsre-object
+	jsre-Object
+	jsre-Date
+	jsre-Function
+	jsre-String
+	jsre-Number
+	jsre-Bool
+	jsre-primitives
+	jsre-Error
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
    (export
-    *js-Array*
+    *jsg-Array*
     (class Js-Array::Js-Object
        length::real) ;; TODO: really not optimal :(
     (Array-init)
     (js-array-literal length::bint els::pair-nil)
     (scm-list->js-array::Js-Array els::pair-nil)
-    (orig-Js-Array?::bool a)
+    (orig-Js-Array?::bool)
     (empty-js-Array::Js-Array)))
 
 ;; TODO: Array is really not optimal: number operations are bad, and
 ;;       the array implementation based on hashtables is slow.
 
-(define *js-Array* #unspecified)
-(define *js-Array-orig* #unspecified)
-(define *js-Array-prototype*::Js-Object (js-undeclared))
+(define *jsg-Array* #unspecified)
+(define *js-Array-orig* (lambda () 'to-be-replaced))
+(define *js-Array-prototype*::Js-Object (js-null))
 
 ;; extracts requested indices from object o and prototypes (if requested).
 ;; works, as indices can't be Ref-elements...
@@ -90,7 +89,7 @@
    (hashtable-put! shadowed-ht "length" #t)
    (call-next-method))
 
-(define *array-index-limit* (llong->flonum #lxffffffff))
+(define *array-index-limit* 4294967295.0) ;; #xffffffff))
 (define-method (js-property-generic-set! o::Js-Array prop::bstring
 					 new-val attributes)
    (define (property-index prop)
@@ -132,11 +131,10 @@
    "Array")
 
 (define (Array-init)
-   (set! *js-Array* (Array-lambda))
-   (set! *js-Array-orig* *js-Array*)
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Array *js-Array*)))
+   (set! *js-Array-orig* (Array-lambda))
+   (set! *jsg-Array* (create-runtime-global "Array" *js-Array-orig*))
    (let* ((text-repr "function(v) { /* native Array */ throw 'native'; }")
-	  (array-object (create-function-object *js-Array*
+	  (array-object (create-function-object *js-Array-orig*
 						(Array-new)
 						Array-construct
 						text-repr))
@@ -159,7 +157,7 @@
       
       (js-property-generic-set! prototype               ;; 15.4.4.1
 				"constructor"
-				*js-Array*
+				*js-Array-orig*
 				(constructor-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.2
 				"toString"
@@ -257,7 +255,7 @@
 
 (define (js-array-literal length els)
    ;; HACK: we only allow bint elements. (length is of type bint)
-   (let ((a (js-new *js-Array*)))
+   (let ((a (js-new (global-read *jsg-Array*))))
       (js-property-set! a "length" (fixnum->flonum length))
       (for-each (lambda (el)
 		   (let ((index (car el))
@@ -268,8 +266,9 @@
 		els)
       a))
 
-(define (orig-Js-Array? a)
-   (eq? a *js-Array-orig*))
+(define (orig-Js-Array?)
+   (eq? (global-typeof-read *jsg-Array*)
+	*js-Array-orig*))
 
 (define (empty-js-Array)
    (Array-construct #unspecified))
@@ -359,7 +358,7 @@
 				       (cdr key/val)
 				       #f)))))
    
-   (let ((new-a (js-new *js-Array*)))
+   (let ((new-a (js-new (global-read *jsg-Array*))))
       (let loop ((array-counter 0)
 		 (new-length #l0))
 	 (if (=fx array-counter nb-arrays)
@@ -530,7 +529,7 @@
       (js-fun
        this #f #f "Array.slice"
        (start-any end-any)
-       (let* ((new-a (js-new *js-Array*))
+       (let* ((new-a (js-new (global-read *jsg-Array*)))
 	      (len (any->uint32 (js-property-get this "length")))
 	      (start-int (any->integer start-any))
 	      (start (if (<fl start-int 0.0)
@@ -624,7 +623,7 @@
    (js-fun
     this #f (nb-args get-arg) "Array.splice"
     (start-any delete-count-any)
-    (let* ((new-a (js-new *js-Array*))
+    (let* ((new-a (js-new (global-read *jsg-Array*)))
 	   (len (any->uint32 (js-property-get this "length")))
 	   (start-int (any->integer start-any))
 	   (start (if (<fl start-int 0.0)

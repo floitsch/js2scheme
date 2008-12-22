@@ -1,11 +1,10 @@
 (module jsre-eval
 ;   (library js2scheme-comp)
-   (import jsre-Eval-env
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-object
-	   jsre-Eval-env
-	   jsre-Error)
+   (use jsre-Eval-env
+	jsre-global-object
+	jsre-scope-object
+	jsre-object
+	jsre-Error)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
 	   (js-Function-eval src::bstring)))
 
@@ -18,7 +17,7 @@
 ;; - envs: a list of all environments that need to be searched for variables.
 ;;   note the top-level-obj is in this list too.
 (define (js-eval prog top-level-obj top-level-this next-env . Lenvs)
-   ;(tprint prog)
+   ;(tprint "**" prog)
    ;; TODO error handling
    (if (not (string? prog))
        prog

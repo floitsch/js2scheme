@@ -1,141 +1,141 @@
 (module jsre-Math
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Error
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-natives
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
+   (use jsre-object
+	jsre-Error
+	jsre-Object
+	jsre-Date
+	jsre-Function
+	jsre-String
+	jsre-Number
+	jsre-Bool
+	jsre-natives
+	jsre-primitives
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
    (export (class Js-Math::Js-Object)
-	   *js-Math* ;; can be modified by user -> can't be ::Js-Object
+	   *jsg-Math*
 	   (Math-init)))
 
 ;; 15.8 Math Object
 
-(define *js-Math* #unspecified)
+(define *jsg-Math* #unspecified)
 
 (define-method (js-class-name::bstring o::Js-Math)
    "Math")
 
 (define (Math-init)
-   (set! *js-Math* (instantiate::Js-Math
-		      (props (make-props-hashtable))
-		      (proto (js-object-prototype))))
-   
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Math *js-Math*)))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.1
-			     "E"
-			     2.71828182845904523536
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.2
-			     "LN10"
-			     2.3025850929940459011
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.3
-			     "LN2"
-			     0.69314718055994528623
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.4
-			     "LOG2E"
-			     1.442695040888963387
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.5
-			     "LOG10E"
-			     0.43429448190325181667
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.6
-			     "PI"
-			     3.14159265358979323846264338327950288419716939937510
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.7
-			     "SQRT1_2"
-			     0.70710678118654757274
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math* ;; 15.8.1.8
-			     "SQRT2"
-			     1.4142135623730951455
-			     (get-Attributes dont-enum dont-delete read-only))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.1
-			     "abs"
-			     (abs)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.2
-			     "acos"
-			     (acos)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.3
-			     "asin"
-			     (asin)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.4
-			     "atan"
-			     (atan)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.5
-			     "atan2"
-			     (atan2)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.6
-			     "ceil"
-			     (ceil)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.7
-			     "cos"
-			     (cos)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.8
-			     "exp"
-			     (exp)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.9
-			     "floor"
-			     (floor)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.10
-			     "log"
-			     (log)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.11
-			     "max"
-			     (max)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.12
-			     "min"
-			     (min)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.13
-			     "pow"
-			     (pow)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.14
-			     "random"
-			     (random-js)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.15
-			     "round"
-			     (round)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.16
-			     "sin"
-			     (sin)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.17
-			     "sqrt"
-			     (sqrt)
-			     (built-in-attributes))
-   (js-property-generic-set! *js-Math*    ;; 15.8.2.18
-			     "tan"
-			     (tan)
-			     (built-in-attributes)))
+   (let ((math (instantiate::Js-Math
+		  (props (make-props-hashtable))
+		  (proto (js-object-prototype)))))
+      
+      (set! *jsg-Math* (create-runtime-global "Math" math))
+      
+      (js-property-generic-set! math ;; 15.8.1.1
+				"E"
+				2.71828182845904523536
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math ;; 15.8.1.2
+				"LN10"
+				2.3025850929940459011
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math ;; 15.8.1.3
+				"LN2"
+				0.69314718055994528623
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math ;; 15.8.1.4
+				"LOG2E"
+				1.442695040888963387
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math ;; 15.8.1.5
+				"LOG10E"
+				0.43429448190325181667
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math ;; 15.8.1.6
+				"PI"
+				3.14159265358979323846264338327950288419716939937510
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math ;; 15.8.1.7
+				"SQRT1_2"
+				0.70710678118654757274
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math ;; 15.8.1.8
+				"SQRT2"
+				1.4142135623730951455
+				(get-Attributes dont-enum dont-delete read-only))
+      (js-property-generic-set! math    ;; 15.8.2.1
+				"abs"
+				(abs)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.2
+				"acos"
+				(acos)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.3
+				"asin"
+				(asin)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.4
+				"atan"
+				(atan)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.5
+				"atan2"
+				(atan2)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.6
+				"ceil"
+				(ceil)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.7
+				"cos"
+				(cos)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.8
+				"exp"
+				(exp)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.9
+				"floor"
+				(floor)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.10
+				"log"
+				(log)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.11
+				"max"
+				(max)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.12
+				"min"
+				(min)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.13
+				"pow"
+				(pow)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.14
+				"random"
+				(random-js)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.15
+				"round"
+				(round)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.16
+				"sin"
+				(sin)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.17
+				"sqrt"
+				(sqrt)
+				(built-in-attributes))
+      (js-property-generic-set! math    ;; 15.8.2.18
+				"tan"
+				(tan)
+				(built-in-attributes))))
 
 (define (abs)                           ;; 15.8.2.1
    (js-fun #f #f #f "Math.abs"

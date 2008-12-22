@@ -1,18 +1,16 @@
 (module jsre-conversion
    (include "macros.sch")
-   (import jsre-object
-	   jsre-natives ;; undefined, null, ...
-	   jsre-Error
-	   jsre-primitives
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-double)
+   (use jsre-object
+	jsre-natives ;; undefined, null, ...
+	jsre-Error
+	jsre-primitives
+	jsre-Object
+	jsre-Date
+	jsre-Function
+	jsre-String
+	jsre-Number
+	jsre-Bool)
+   (import jsre-double)
 ;    (export (inline js-boolify::bool any)
 ; 	   (inline any->bool::bool any)
 ; 	   (inline js-string->number str)

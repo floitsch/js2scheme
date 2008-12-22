@@ -4,7 +4,7 @@ TARGETNAMES	= repl
 
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
-			natives object global-object globals globals-tmp \
+			natives object global-object globals \
 			primitives runtime operators scope-object \
 			RegExp RegExp-parse RegExp-fsm RegExp-classes \
 			RegExp-dot RegExp-match RegExp-state RegExp-char-set \

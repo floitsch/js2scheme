@@ -9,6 +9,7 @@
 	   jsre-globals
 	   jsre-eval
 	   jsre-Object
+	   jsre-Array
 	   jsre-Number
 	   jsre-String
 	   jsre-Function
@@ -43,6 +44,9 @@
 	 jsre-Arguments)
    (eval (export-all)))
 
+;; Object-init must be before Function-init.
+;; in fact: Object-init will first initialize the global Object var, which will
+;; then be used by create-function-object.
 (Object-init)
 (Function-init)
 (Array-init)
@@ -53,4 +57,5 @@
 (Math-init)
 (Error-init)
 (RegExp-init)
-(global-object-init)
+(globals-init)
+(global-object-init) ;; can be last.

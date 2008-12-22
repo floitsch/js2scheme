@@ -496,11 +496,8 @@
 	  'info)))
 	  
 
-   (tprint s)
    (with-handler
-      (lambda (e)
-	 (tprint e)
-	 +nan.0)
+      (lambda (e) +nan.0)
       (let ((p (open-input-string s)))
 	 (unwind-protect
 	    (read/lalrp *date-lalr* *date-grammar* p)

@@ -109,13 +109,11 @@
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
 	  ;; still exists.
-	  `(if (not (js-undeclared? ,scm-id))
+	  `(if (not (js-deleted? ,scm-id))
 	       ,scm-id
 	       ,(this.eval-next-var.access)))
 	 (this.global?
-	  `(if (not (js-undeclared? ,scm-id))
-	       ,scm-id
-	       (undeclared-error ',this.id)))
+	  `(global-read ,scm-id))
 	 (else
 	  scm-id))))
 (define-pmethod (Intercepted-var-access)
@@ -146,10 +144,10 @@
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
 	  ;; still exists.
-	  `(if (not (js-undeclared? ,scm-id))
+	  `(if (not (js-deleted? ,scm-id))
 	       ,scm-id
 	       ,(this.eval-next-var.typeof)))
-	 (this.global? scm-id)
+	 (this.global? `(global-typeof-read ,scm-id))
 	 (else scm-id))))
 (define-pmethod (Intercepted-var-typeof)
    (let* ((id this.id)
@@ -180,14 +178,11 @@
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
 	  ;; still exists.
-	  `(if (not (js-undeclared? ,scm-id))
+	  `(if (not (js-deleted? ,scm-id))
 	       (begin (set! ,scm-id ,val) ,scm-id)
 	       ,(this.eval-next-var.set! val)))
 	 (this.global?
-	  ;; Verified: no global runtime-variable is read-only.
-	  ;; some properties inside global objects are, but not properties of
-	  ;; the global this-object.
-	  `(begin (set! ,scm-id ,val) ,scm-id))
+	  `(global-set! ,scm-id ,val))
 	 (this.named-fun? ;; named funs are read-only
 	  `(begin ,val #f))
 	 (else
@@ -217,9 +212,9 @@
 	  `(env-delete! ,(thread-parameter 'eval-env)
 			,(symbol->string this.id)))
 	 (this.local-eval?
-	  `(if (not (js-undeclared? ,scm-id))
-	       (js-property-delete! ,this.eval-obj-id
-				    ,(symbol->string this.id))
+	  `(if (not (js-deleted? ,scm-id))
+	       (js-property-safe-delete! ,this.eval-obj-id
+					 ,(symbol->string this.id))
 	       ,(this.eval-next-var.delete)))
 	 (else
 	  #f))))
@@ -229,7 +224,7 @@
 	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
       `(if (js-property-contains ,obj-id ,id-str)
-	   (jsop-property-delete! ,obj-id ,id-str)
+	   (js-property-safe-delete ,obj-id ,id-str)
 	   ,(intercepted.delete))))
 (define-pmethod (This-var-delete)
    (error "Var-delete"
@@ -263,13 +258,11 @@
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
 	  ;; still exists.
-	  `(if (not (js-undeclared? ,scm-id))
+	  `(if (not (js-deleted? ,scm-id))
 	       ,scm-id
 	       ,(this.eval-next-var.access+base base)))
 	 (this.global?
-	  `(if (not (js-undeclared? ,scm-id))
-	       ,scm-id
-	       (undeclared-error ',this.id)))
+	  `(global-read ,scm-id))
 	 (else
 	  scm-id))))
 (define-pmethod (Intercepted-var-access+base base)
@@ -328,18 +321,14 @@
 				      list)
 		       '()))
 	      ,@(map (lambda (var)
-			`(define ,(var.compiled-id) (js-undefined)))
-		     declared-globals-w/o-this)
-	      ,@(map (lambda (decl)
-			`(define ,(decl.var.compiled-id) (js-undeclared)))
-		     this.implicit-globals)
-	      ,@(map (lambda (var)
-			`(global-declared-add! ',var.id ,(var.compiled-id)))
+			`(define ,(var.compiled-id)
+			    (create-declared-global ,(symbol->string var.id))))
 		     declared-globals-w/o-this)
 	      ,@(map (lambda (decl)
 			(let ((var decl.var))
-			   `(global-implicit-add! ',var.id
-						  ,(var.compiled-id))))
+			   `(define ,(var.compiled-id)
+			       (create-implicit-global
+				,(symbol->string var.id)))))
 		     this.implicit-globals)
 	      ,(this.body.traverse))
 	  ;; eval does not do anything for implicit vars.
@@ -364,11 +353,11 @@
 			       `(js-property-generic-set! ,tlo ,id-str
 							  (js-undefined)
 							  (default-attributes))
-			       `(unless (js-scope-one-level-property-contains?
+			       `(unless (js-property-one-level-contains?
 					 ,tlo ,id-str)
 				   (js-property-set! ,tlo
-							  ,id-str
-							  (js-undefined))))))
+						     ,id-str
+						     (js-undefined))))))
 		     declared-globals-w/o-this)
 	      ,(this.body.traverse)))))
 
@@ -697,8 +686,8 @@
    ((car this.args).var.delete))
 
 (define-pmethod (Delete-property-call-out)
-   `(jsop-property-delete! ,((car this.args).traverse)
-			   ,((cadr this.args).traverse)))
+   `(jsop-delete ,((car this.args).traverse)
+		 ,((cadr this.args).traverse)))
 
 (define-pmethod (Method-call-out)
    `(js-method-call ,(this.op.obj.traverse)
@@ -715,7 +704,7 @@
 	  (next-env (thread-parameter 'eval-env))
 	  (env-vars this.env-vars))
       `(let ((,t ,(this.op.traverse)))
-	  (if (eq? ,t ,eval-id)
+	  (if (eq? ,t (js-eval-orig))
 	      ;; we have a real eval here
 	      ,(if (null? this.args)
 		   `(js-undefined)
@@ -800,4 +789,4 @@
 	  (flags (substring pattern/flags
 			    (+ last-/ 1)
 			    (string-length pattern/flags))))
-      `(js-new *js-RegExp* ,pattern ,flags)))
+      `(js-new (global-read *jsg-RegExp*) ,pattern ,flags)))

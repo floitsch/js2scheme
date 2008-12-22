@@ -1,24 +1,23 @@
 (module jsre-String
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Object
-	   jsre-Date
-	   jsre-Array
-	   jsre-Function
-	   jsre-Number
-	   jsre-Bool
-	   jsre-natives
-	   jsre-Error
-	   jsre-RegExp
-	   jsre-RegExp-match
-	   jsre-RegExp-fsm
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
-   (export *js-String* ;; can be modified by user -> can't be ::procedure
+   (import jsre-natives)
+   (use jsre-object
+	jsre-Object
+	jsre-Date
+	jsre-Array
+	jsre-Function
+	jsre-Number
+	jsre-Bool
+	jsre-Error
+	jsre-RegExp
+	jsre-RegExp-match
+	jsre-RegExp-fsm
+	jsre-primitives
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
+   (export *jsg-String*
 	   *js-String-orig*::procedure
 	   (class Js-String::Js-Object
 	      (str::bstring read-only))
@@ -26,20 +25,19 @@
 
 ;; 15.5 String Objects
 
-(define *js-String* #unspecified)
-(define *js-String-orig* (lambda () #f))
-(define *js-String-prototype*::Js-Object (js-undeclared))
+(define *jsg-String* #unspecified)
+(define *js-String-orig* (lambda () 'to-be-replaced))
+(define *js-String-prototype*::Js-Object (js-null))
 
 (define-method (js-class-name::bstring o::Js-String)
    "String") ;; 15.5.2.1
 
 (define (String-init)
-   (set! *js-String* (String-lambda))
-   (set! *js-String-orig* *js-String*)
-   (globals-tmp-add! (lambda () (global-runtime-add! 'String *js-String*)))
+   (set! *js-String-orig* (String-lambda))
+   (set! *jsg-String* (create-runtime-global "String" *js-String-orig*))
 
    (let* ((text-repr "function(v) {/* native String */ throw 'native';}")
-	  (string-object (create-function-object *js-String*
+	  (string-object (create-function-object *js-String-orig*
 						 (String-new)
 						 String-construct
 						 text-repr))
@@ -72,7 +70,7 @@
 						dont-delete read-only))
       (js-property-generic-set! prototype      ;; 15.5.4.1
 				"constructor"
-				*js-String*
+				*js-String-orig*
 				(constructor-attributes))
       (js-property-generic-set! prototype      ;; 15.5.4.2
 				"toString"
@@ -334,7 +332,7 @@
     (regexp)
     (let* ((re (if (Js-RegExp? regexp) ;; re does not need to be an object
 		   regexp
-		   (js-new *js-RegExp* regexp)))
+		   (js-new (global-read *jsg-RegExp*) regexp)))
 	   (s (if (Js-String? this)
 		  (Js-String-str this)
 		  (any->string this))))
@@ -571,7 +569,7 @@
     (regexp)
     (let* ((re (if (Js-RegExp? regexp) ;; re does not need to be an object
 		   regexp
-		   (js-new *js-RegExp* regexp)))
+		   (js-new (global-read *jsg-RegExp*) regexp)))
 	   (s (if (Js-String? this)
 		  (Js-String-str this)
 		  (any->string this))))
@@ -627,7 +625,7 @@
 		  (Js-String-str this)
 		  (any->string this)))
 	   (len (string-length s))
-	   (a (js-new *js-Array*)) ;; may throw an error
+	   (a (js-new (global-read *jsg-Array*))) ;; may throw an error
 	   (limit (if (js-undefined? limit-any)
 		      (maxvalfx) ;; TODO: should be maxuint32
 		      ;; TODO using bints here.
@@ -662,7 +660,7 @@
 					 (cached-char-string (string-ref s i)))
 		  (loop (+fx i 1))))))
 	  ((and (string? separator)
-		(orig-Js-Array? *js-Array*)) ;; we can optimize this case.
+		(orig-Js-Array?)) ;; we can optimize this case.
 	   ;; simply remove all matched occurences and create and put all
 	   ;; interleaved elements into the array.
 	   (let loop ((array-pos 0)
@@ -764,10 +762,6 @@
 		    (flonum->fixnum (min-2fl (max-2fl (any->integer end-any)
 						      0.0)
 					     str-len-fl)))))
-       (tprint start " " end)
-       (tprint start-any)
-       (tprint (any->integer start-any))
-       (tprint (max-2fl 4.0 0.0))
        (if (<fx start end)
 	   (substring str start end)
 	   (substring str end start)))))

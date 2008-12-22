@@ -1,8 +1,8 @@
 (module jsre-Arguments
    (include "macros.sch")
-   (import jsre-object
-	   jsre-scope-object
-	   jsre-natives)
+   (use jsre-object
+	jsre-scope-object
+	jsre-natives)
    (export (class Js-Arguments::Js-Scope-Object))
    (eval (class Js-Arguments)))
 

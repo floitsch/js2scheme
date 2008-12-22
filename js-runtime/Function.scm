@@ -1,24 +1,23 @@
 (module jsre-Function
    (include "macros.sch")
-   (import jsre-object
-	   jsre-eval
-	   jsre-Object ;; recursive dependency :(
-	   jsre-Date
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-natives
-	   jsre-Error
-	   jsre-Arguments
-	   jsre-Array
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
+   (import jsre-natives)
+   (use jsre-object
+	jsre-eval
+	jsre-Object
+	jsre-Date
+	jsre-String
+	jsre-Number
+	jsre-Bool
+	jsre-Error
+	jsre-Arguments
+	jsre-Array
+	jsre-primitives
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
    (export
-    *js-Function* ;; can be modified by user -> can't be ::procedure
+    *jsg-Function*
     (class Js-Function::Js-Object
        fun::procedure      ;;the procedure (a js-fun-lambda)
        new::procedure      ;;when called as constructor. usually same as 'fun'.
@@ -39,10 +38,10 @@
     (Function-init)
     (inline create-empty-object-lambda::Js-Object f-o::Js-Function)))
 
-(define *js-Function* #unspecified)
+(define *jsg-Function* #unspecified)
 (define *js-Function-prototype* ;; ::procedure
    (lambda L (js-undefined))) ;; 15.3.4
-(define *js-Function-prototype-object*::Js-Object (js-undeclared))
+(define *js-Function-prototype-object*::Js-Object (js-null))
 
 (define-method (js-class-name::bstring o::Js-Function)
    "Function")
@@ -72,15 +71,16 @@
    *js-Function-prototype-object*)
 
 (define (Function-init)
-   (set! *js-Function* (Function-lambda))
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Function *js-Function*)))
-   (let* ((fun-text "function(b) {/* native Function */ throw 'native'; }")
-	  (fun-obj (create-function-object *js-Function*
-					   *js-Function* ;; new == lambda
+   (let* ((fun (Function-lambda))
+	  (fun-text "function(b) {/* native Function */ throw 'native'; }")
+	  (fun-obj (create-function-object fun
+					   fun ;; new == lambda
 					   (lambda (ignored) 'ignored)
 					   fun-text))
 	  (prototype (js-function-prototype))
 	  (prototype-obj (js-function-prototype-object)))
+
+      (set! *jsg-Function* (create-runtime-global "Function" fun))
       
       (js-property-generic-set! fun-obj       ;; 15.3.3
 				"length"
@@ -105,13 +105,13 @@
 				(length-attributes))
       (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
 				"prototype"
-				(js-new *js-Object*)
+				(js-new (global-read *jsg-Object*))
 				(get-Attributes dont-enum
 						dont-delete read-only))
 				
       (js-property-generic-set! prototype-obj ;; 15.3.4.1
 				"constructor"
-				*js-Function*
+				fun
 				(constructor-attributes))
       (js-property-generic-set! prototype-obj ;; 15.3.4.2
 				"toString"
@@ -143,7 +143,7 @@
 ;; that (substring start end) gives a correct representation.
 (define (create-function js-lambda length text-repr)
    ;; 13.2
-   (let* ((fun-prototype (js-new *js-Object*))
+   (let* ((fun-prototype (js-new (global-read *jsg-Object*)))
 	  (fun-obj (create-function-object js-lambda ;; lambda
 					   js-lambda ;; new
 					   ;;constructed object will be ignored

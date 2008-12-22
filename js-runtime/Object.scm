@@ -1,26 +1,26 @@
 (module jsre-Object
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Function ;; recursive dependency :(
-	   jsre-Date
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-natives
-	   jsre-Error
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
-   (export *js-Object* ;; can be modified by user -> can't be ::Js-Object
+   (import jsre-natives)
+   (use jsre-object
+	jsre-Function
+	jsre-Date
+	jsre-String
+	jsre-Number
+	jsre-Bool
+	jsre-natives
+	jsre-Error
+	jsre-primitives
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
+   (export *jsg-Object*
 	   (js-object-prototype::Js-Object)
 	   (Object-init)
 	   (js-object-literal properties::pair-nil)))
 
-(define *js-Object* #unspecified)
-(define *js-Object-prototype*::Js-Object (js-undeclared))
+(define *jsg-Object* #unspecified)
+(define *js-Object-prototype*::Js-Object (js-null))
 
 (define *object-prototype-initialized?* #f)
 (define (js-object-prototype)
@@ -36,11 +36,10 @@
    "Object")
 
 (define (Object-init)
-   (set! *js-Object* (Object-lambda))
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Object *js-Object*)))
+   (set! *jsg-Object* (create-runtime-global "Object" (Object-lambda)))
 
    (let* ((text-repr "function(v) {/* native Object */ throw 'native'; }")
-	  (proc-object (create-function-object *js-Object*
+	  (proc-object (create-function-object (global-read *jsg-Object*)
 					       (Object-new)
 					       Object-construct
 					       text-repr))
@@ -61,7 +60,7 @@
       
       (js-property-generic-set! prototype  ;; 15.2.4.1
 				"constructor"
-				*js-Object*
+				(global-read *jsg-Object*)
 				(constructor-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.2
 				"toString"
@@ -112,7 +111,7 @@
    (create-empty-object-lambda c))
 
 (define (js-object-literal properties)
-   (let ((o (js-new *js-Object*)))
+   (let ((o (js-new (global-read *jsg-Object*))))
       (for-each (lambda (prop)
 		   (let ((name (any->string (car prop)))
 			 (val (cadr prop)))

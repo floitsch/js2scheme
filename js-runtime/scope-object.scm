@@ -1,28 +1,30 @@
 (module jsre-scope-object
    (include "macros.sch")
-   (import jsre-object
-	   jsre-global-object
-	   jsre-natives ;; undefined, null, ...
-	   jsre-Error
-	   jsre-primitives
-	   jsre-Object
-	   jsre-Date
-	   jsre-String
-	   jsre-Bool
-	   jsre-Number
-	   jsre-Function
-	   jsre-conversion
-	   jsre-globals-tmp)
+   (use jsre-object
+	jsre-global-object
+	jsre-natives ;; undefined, null, ...
+	jsre-Error
+	jsre-primitives
+	jsre-Object
+	jsre-Date
+	jsre-String
+	jsre-Bool
+	jsre-Number
+	jsre-Function
+	jsre-conversion)
    (export (class Js-Scope-Object::Js-Object)
 	   (class Js-Activation-Object::Js-Scope-Object)
 	   (class Ref
 	      (getter::procedure read-only)
 	      (setter::procedure read-only))
-	   (js-scope-one-level-property-contains? scope-object::Js-Scope-Object
-						  id::bstring)
 	   (js-create-scope-object::Js-Scope-Object . Lproto)
-	   (js-create-activation-object::Js-Activation-Object))
+	   (js-create-activation-object::Js-Activation-Object)
+	   *js-deleted-token*
+	   (inline js-deleted?::bool v))
    (eval (class Ref)))
+
+(define *js-deleted-token* (cons 'deleted 'deleted))
+(define-inline (js-deleted? v) (eq? v *js-deleted-token*))
 
 (define (js-create-scope-object . Lproto)
    (instantiate::Js-Scope-Object
@@ -39,12 +41,23 @@
 (define-method (js-class-name::bstring o::Js-Scope-Object)
    "scope-object should never be seen")
 
+
+(define (js-scope-property-one-level-contains? scope-object id)
+   (with-access::Js-Object scope-object (props proto)
+      (let ((ht-entry (hashtable-get props id)))
+	 (and ht-entry
+	      (let ((val (Property-entry-val ht-entry)))
+		 (if (Ref? val)
+		     ;; dereference
+		     (let ((ref-val ((Ref-getter val))))
+			(not (js-deleted? ref-val)))
+		     #t))))))
 (define-method (js-property-one-level-contains? o::Js-Scope-Object
 						prop::bstring)
-   (js-scope-one-level-property-contains? o prop))
+   (js-scope-property-one-level-contains? o prop))
 (define-method (js-property-is-enumerable? o::Js-Scope-Object
 					   prop::bstring)
-   (if (js-scope-one-level-property-contains? o prop)
+   (if (js-scope-property-one-level-contains? o prop)
        (with-access::Js-Object o (props)
 	  (with-access::Property-entry (hashtable-get props prop) (attr)
 	     (with-access::Attributes attr (enumerable)
@@ -58,7 +71,7 @@
 		(if (Ref? val)
 		    ;; dereference
 		    (let ((ref-val ((Ref-getter val))))
-		       (if (js-undeclared? ref-val)
+		       (if (js-deleted? ref-val)
 			   ;; as if the ht-entry didn't exist.
 			   (js-property-contains proto prop)
 			   (mangle-false ref-val)))
@@ -74,8 +87,8 @@
 	  (unless (hashtable-get shadowed-ht key)
 	     (with-access::Property-entry obj (attr val)
 		(with-access::Attributes attr (enumerable)
-		   (unless (and (Ref? val) ;;ignore entries that are undeclared
-				(js-undeclared? ((Ref-getter val))))
+		   (unless (and (Ref? val) ;;ignore entries that are deleted
+				(js-deleted? ((Ref-getter val))))
 		      (hashtable-put! shadowed-ht key #t)
 		      (when enumerable
 			 (hashtable-put! enumerables-ht key
@@ -86,17 +99,6 @@
 	 ;; no need to test for null. null overloads add-enumerables
 	 (add-enumerables proto enumerables-ht shadowed-ht #t))))
 	  
-(define (js-scope-one-level-property-contains? scope-object id)
-   (with-access::Js-Object scope-object (props proto)
-      (let ((ht-entry (hashtable-get props id)))
-	 (and ht-entry
-	      (let ((val (Property-entry-val ht-entry)))
-		 (if (Ref? val)
-		     ;; dereference
-		     (let ((ref-val ((Ref-getter val))))
-			(not (js-undeclared? ref-val)))
-		     #t))))))
-
 (define-method (js-property-generic-set! o::Js-Scope-Object prop::bstring
 					 new-val attributes)
 ;   (print "setting " prop)
@@ -109,7 +111,7 @@
 	     (with-access::Attributes attr (read-only)
 		(cond
 		   ((and (Ref? val)
-			 (js-undeclared? ((Ref-getter val))))
+			 (js-deleted? ((Ref-getter val))))
 		    ;; does not exist yet, or has been deleted.
 		    ;; we reuse the ref. (was probably an implicit
 		    ;; global, or a runtime-var)
@@ -143,13 +145,13 @@
 		(with-access::Attributes attr (deletable)
 		   (cond
 		      ((and (Ref? val)
-			    (js-undeclared? ((Ref-getter val))))
+			    (js-deleted? ((Ref-getter val))))
 		       ;; as if we weren't here.
 		       (js-property-safe-delete! proto prop))
 		      ((not deletable)
 		       #f)
 		      ((Ref? val)
-		       ((Ref-setter val) (js-undeclared))
+		       ((Ref-setter val) *js-deleted-token*)
 		       #t)
 		      (else
 		       (hashtable-remove! props prop)

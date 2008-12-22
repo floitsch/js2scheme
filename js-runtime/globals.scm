@@ -1,26 +1,26 @@
 (module jsre-globals
    (include "macros.sch")
-   (import jsre-object
-	   jsre-natives ;; undefined, null, ...
-	   jsre-primitives
-	   jsre-Error
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
+   (use jsre-object
+	jsre-natives ;; undefined, null, ...
+	jsre-primitives
+	jsre-Error
+	jsre-Object
+	jsre-Date
+	jsre-Function
+	jsre-String
+	jsre-Number
+	jsre-Bool
+	jsre-conversion
+	jsre-scope-object
+	jsre-global-object
+	)
    (export jsg-NaN
 	   jsg-Infinity
 	   jsg-undefined
 	   jsg-print
 	   jsg-scmprint
 	   jsg-eval
+	   (js-eval-orig::procedure)
 	   jsg-isNaN
 	   jsg-isFinite
 	   jsg-parseInt
@@ -29,27 +29,66 @@
 	   jsg-decodeURIComponent
 	   jsg-encodeURI
 	   jsg-encodeURIComponent
+	   (globals-init)
 	   ))
 
-(define jsg-NaN +nan.0)
-(globals-tmp-add!
- (lambda ()
-    (global-special-add! 'NaN              ;; 15.1.1.1
-			 jsg-NaN
-			 (get-Attributes dont-enum dont-delete))))
+(define jsg-NaN #unspecified)
+(define jsg-Infinity #unspecified)
+(define jsg-undefined #unspecified)
 
-(define jsg-Infinity +inf.0)
-(globals-tmp-add!
- (lambda ()
-    (global-special-add! 'Infinity         ;; 15.1.1.2
-			 jsg-Infinity
-			 (get-Attributes dont-enum dont-delete))))
-(define jsg-undefined (js-undefined))
-(globals-tmp-add!
- (lambda ()
-    (global-special-add! 'undefined        ;; 15.1.1.3
-			 jsg-undefined
-			 (get-Attributes dont-enum dont-delete))))
+(define *js-eval-orig* (lambda () 'to-be-replaced))
+(define (js-eval-orig) *js-eval-orig*)
+
+(define (globals-init)
+   (set! jsg-NaN                            ;; 15.1.1.1
+	 (create-special-global "NaN"
+				(get-Attributes dont-enum dont-delete)
+				+nan.0))
+
+   (set! jsg-Infinity                       ;; 15.1.1.2
+	 (create-special-global "Infinity"
+				(get-Attributes dont-enum dont-delete)
+				+inf.0))
+
+   (set! jsg-undefined                      ;; 15.1.1.3
+	 (create-special-global "undefined"
+				(get-Attributes dont-enum dont-delete)
+				(js-undefined)))
+
+   (for-each (lambda (f) (f)) *delayed-assigs*)
+   (set! *delayed-assigs* #unspecified)
+   (set! *js-eval-orig* (global-read jsg-eval)))
+
+(define-macro (define-runtime-globals . L)
+   (let* ((ids (map (lambda (def)
+		       (if (pair? (cadr def))
+			   (caadr def)
+			   (cadr def)))
+		    L))
+	  (exported-ids (map (lambda (id) (symbol-append 'jsg- id)) ids))
+	  (vals (map (lambda (def id)
+			(if (pair? (cadr def))
+			    `(js-fun #f #f #f ,(symbol->string id)
+				     ,(cdr (cadr def))
+				     ,@(cddr def))
+			    (caddr def)))
+			L ids)))
+      `(begin
+	  ,@(map (lambda (exported-id id val)
+		    `(begin
+			(define ,exported-id #unspecified)
+			(set! *delayed-assigs*
+			      (cons (lambda ()
+				       (set! ,exported-id
+					     (create-runtime-global
+					      ,(symbol->string id)
+					      ,val)))
+				    *delayed-assigs*))))
+		 exported-ids
+		 ids
+		 vals))))
+
+(define *delayed-assigs* '())
 
 (define-runtime-globals
    (define (print to-print)
@@ -70,7 +109,7 @@
       (define (white-space? c)
 	 ;; TODO: not spec-conform
 	 (char-whitespace? c))
-
+      
       (define (parseIntR s i R sign)
 	 (let ((str-len (string-length s)))
 	    (let loop ((i i)
@@ -129,7 +168,7 @@
 			  ((and (zero? fix-R)
 				(or (substring-at? s "0x" i)
 				    (substring-at? s "0X" i)))
-			   ;; i will be increased by two at call to parseIntR.
+			   ;; i will be increased by 2 at call to parseIntR.
 			   16)
 			  ((zero? fix-R)
 			   10)
@@ -148,11 +187,12 @@
 				   i)
 			       R
 			       sign)))))))
-
+   
    (define (parseFloat string) ;; 15.1.2.3
       (define decimal-char? char-numeric?)
-      (define whitespace? char-whitespace?)   ;; TODO not spec-conform (whitespace)
-
+      ;; TODO not spec-conform (whitespace)
+      (define whitespace? char-whitespace?)
+      
       (define (substring->real str str-len from to)
 	 (cond
 	    ((=fx from to) +nan.0)
@@ -161,7 +201,7 @@
 	     (string->real str))
 	    (else
 	     (string->real (substring str from to)))))
-
+      
       (define (read-ws str i str-len)
 	 (cond
 	    ((>= i str-len)
@@ -170,7 +210,7 @@
 	     (read-ws str (+fx i 1) str-len))
 	    (else
 	     (read-str-decimal-literal str i str-len))))
-
+      
       (define (read-str-decimal-literal str i str-len)
 	 ;; get rid of infinity.
 	 (cond
@@ -183,7 +223,7 @@
 	     (read-unsigned str (+fx i 1) str-len i))
 	    (else
 	     (read-unsigned str i str-len i))))
-
+      
       (define (read-unsigned str i str-len start-pos)
 	 (let loop ((i i)
 		    (need-digit? #t)
@@ -216,7 +256,7 @@
 		+nan.0)
 	       (else
 		(substring->real str str-len start-pos i)))))
-
+      
       (define (read-exponent-integer str i str-len start-pos)
 	 (let loop ((i (+fx i 1)) ;; skip 'e'
 		    (end-pos i)  ;; last-valid end-pos
@@ -239,65 +279,68 @@
 		      #f))
 	       (else
 		(substring->real str str-len start-pos end-pos)))))
-
+      
       (let ((str (any->string string)))
 	 (read-ws str 0 (string-length str))))
-
+   
    (define (decodeURI encodedURI)                     ;; 15.1.3.1
       (let ((str (any->string encodedURI)))
 	 (uri-decode str (lambda (c)
 			    (case c
-			       ((#\; #\/ #\? #\: #\@ #\& #\= #\+ #\$ #\,) #t)
+			       ((#\; #\/ #\? #\: #\@ #\& #\= #\+ #\$ #\,)
+				#t)
 			       ((#\#) #t)
 			       (else #f))))))
-
+   
    (define (decodeURIComponent encodedURIComponent)   ;; 15.1.3.2
       (let ((str (any->string encodedURIComponent)))
 	 (uri-decode str (lambda (c)
 			    #f))))
-
+   
    (define (encodeURI uri)                            ;; 15.1.3.3
       (let ((str (any->string uri)))
-	 (uri-encode str (lambda (c)
-			    (and (<fx c 128)
-				 (case (integer->char c)
-				    ((#\; #\/ #\? #\: #\@ #\& #\= #\+ #\$ #\,)
-				     #t)
-				    ((#\#)
-				     #t)
-				    ((#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j
-					  #\k #\l #\m #\n #\o #\p #\q #\r #\s
-					  #\t #\u #\v #\w #\x #\y #\z)
-				     #t)
-				    ((#\A #\B #\C #\D #\E #\F #\G #\H #\I #\J
-					  #\K #\L #\M #\N #\O #\P #\Q #\R #\S
-					  #\T #\U #\V #\W #\X #\Y #\Z)
-				     #t)
-				    ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
-				     #t)
-				    ((#\- #\_ #\. #\! #\~ #\* #\' #\( #\))
-				     #t)
-				    (else #f)))))))
-
+	 (uri-encode str
+		     (lambda (c)
+			(and (<fx c 128)
+			     (case (integer->char c)
+				((#\; #\/ #\? #\: #\@ #\& #\= #\+ #\$ #\,)
+				 #t)
+				((#\#)
+				 #t)
+				((#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j
+				      #\k #\l #\m #\n #\o #\p #\q #\r #\s
+				      #\t #\u #\v #\w #\x #\y #\z)
+				 #t)
+				((#\A #\B #\C #\D #\E #\F #\G #\H #\I #\J
+				      #\K #\L #\M #\N #\O #\P #\Q #\R #\S
+				      #\T #\U #\V #\W #\X #\Y #\Z)
+				 #t)
+				((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+				 #t)
+				((#\- #\_ #\. #\! #\~ #\* #\' #\( #\))
+				 #t)
+				(else #f)))))))
+   
    (define (encodeURIComponent uriComponent)          ;; 15.1.3.4
       (let ((str (any->string uriComponent)))
-	 (uri-encode str (lambda (c)
-			    (and (<fx c 128)
-				 (case (integer->char c)
-				    ((#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j
-					  #\k #\l #\m #\n #\o #\p #\q #\r #\s
-					  #\t #\u #\v #\w #\x #\y #\z)
-				     #t)
-				    ((#\A #\B #\C #\D #\E #\F #\G #\H #\I #\J
-					  #\K #\L #\M #\N #\O #\P #\Q #\R #\S
-					  #\T #\U #\V #\W #\X #\Y #\Z)
-				     #t)
-				    ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
-				     #t)
-				    ((#\- #\_ #\. #\! #\~ #\* #\' #\( #\))
-				     #t)
-				    (else #f)))))))
-)
+	 (uri-encode str
+		     (lambda (c)
+			(and (<fx c 128)
+			     (case (integer->char c)
+				((#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j
+				      #\k #\l #\m #\n #\o #\p #\q #\r #\s
+				      #\t #\u #\v #\w #\x #\y #\z)
+				 #t)
+				((#\A #\B #\C #\D #\E #\F #\G #\H #\I #\J
+				      #\K #\L #\M #\N #\O #\P #\Q #\R #\S
+				      #\T #\U #\V #\W #\X #\Y #\Z)
+				 #t)
+				((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+				 #t)
+				((#\- #\_ #\. #\! #\~ #\* #\' #\( #\))
+				 #t)
+				(else #f)))))))
+   )
 
 ;; 15.1.3 URI functions
 (define-inline (uri-encode str in-unescaped-set?)

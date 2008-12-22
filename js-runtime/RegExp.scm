@@ -1,25 +1,23 @@
 (module jsre-RegExp
    (include "macros.sch")
-   (import jsre-RegExp-parse
-	   jsre-object
-	   jsre-Object
-	   jsre-Function
-	   jsre-String
-	   jsre-Array
-	   jsre-Error
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-natives
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-globals-tmp)
+   (import jsre-natives)
+   (use jsre-object
+	jsre-Object
+	jsre-Function
+	jsre-String
+	jsre-Array
+	jsre-Error
+	jsre-global-object
+	jsre-scope-object
+	jsre-primitives
+	jsre-conversion)
    (import jsre-RegExp-classes
 	   jsre-RegExp-fsm
 	   jsre-RegExp-parse
 	   jsre-RegExp-dot
 	   jsre-RegExp-match)
    (export
-    *js-RegExp* ;; can be modified by user -> can't be ::procedure
+    *jsg-RegExp*
     *js-RegExp-exec*
     (class Js-RegExp::Js-Object
        re)
@@ -42,20 +40,19 @@
     (RegExp-cluster-captures re-cluster str::bstring)
     ))
 
-(define *js-RegExp* #unspecified)
-(define *js-RegExp-orig* #unspecified)
-(define *js-RegExp-prototype*::Js-Object (js-undeclared))
+(define *jsg-RegExp* #unspecified)
+(define *js-RegExp-orig* (lambda () 'to-be-replaced))
+(define *js-RegExp-prototype*::Js-Object (js-null))
 (define *js-RegExp-exec* #unspecified)
 
 (define-method (js-class-name::bstring o::Js-RegExp)
    "RegExp")
 
 (define (RegExp-init)
-   (set! *js-RegExp* (RegExp-lambda))
-   (set! *js-RegExp-orig* *js-RegExp*)
-   (globals-tmp-add! (lambda () (global-runtime-add! 'RegExp *js-RegExp*)))
+   (set! *js-RegExp-orig* (RegExp-lambda))
+   (set! *jsg-RegExp* (create-runtime-global "RegExp" *js-RegExp-orig*))
    (let* ((text-repr "function(p, f) { /* native RegExp */ throw 'native'; }")
-	  (regexp-object (create-function-object *js-RegExp*
+	  (regexp-object (create-function-object *js-RegExp-orig*
 						 (RegExp-new)
 						 RegExp-construct
 						 text-repr))
@@ -77,7 +74,7 @@
 
       (js-property-generic-set! prototype                ;; 15.10.6.1
 				"constructor"
-				*js-RegExp*
+				*js-RegExp-orig*
 				(constructor-attributes))
 
       (set! *js-RegExp-exec* (exec))

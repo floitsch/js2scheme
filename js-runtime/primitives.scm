@@ -1,17 +1,7 @@
 (module jsre-primitives
    (include "macros.sch")
-   (import jsre-object
-	   jsre-natives ;; undefined, null, ...
-	   jsre-Error
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object)
+   (use jsre-object
+	jsre-natives) ;; undefined, null, ...
    (export (inline primitive? v)
 	   (inline js-property-get o::Js-Object prop::bstring)
 	   ;; returns the given value
@@ -21,11 +11,10 @@
 	   (inline -infinity?::bool v)
 	   (inline NaN?::bool v)))
 
-(define-inline (primitive? v)
-   (not (Js-Object? v)))
+(define-inline (primitive? v) (not (Js-Object? v)))
 
 (define-inline (+infinity? v) (and (flonum? v) (=fl v +inf.0)))
-(define-inline (-infinity? v) (and (flonum? v) (=fl v +inf.0)))
+(define-inline (-infinity? v) (and (flonum? v) (=fl v -inf.0)))
 (define-inline (NaN? v)       (and (flonum? v) (nanfl? v)))
 
 (define-inline (js-property-get o::Js-Object prop::bstring)
@@ -51,4 +40,3 @@
       (else
        (with-access::Js-Object o (proto)
 	  (js-property-update! proto prop new-value)))))
-

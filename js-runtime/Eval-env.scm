@@ -1,19 +1,18 @@
 (module jsre-Eval-env
    (include "macros.sch")
-   (import jsre-object
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-natives ;; undefined, null, ...
-	   jsre-Error
-	   jsre-primitives
-	   jsre-Object
-	   jsre-Date
-	   jsre-String
-	   jsre-Bool
-	   jsre-Number
-	   jsre-Function
-	   jsre-conversion
-	   jsre-globals-tmp)
+   (use jsre-object
+	jsre-global-object
+	jsre-scope-object
+	jsre-natives ;; undefined, null, ...
+	jsre-Error
+	jsre-primitives
+	jsre-Object
+	jsre-Date
+	jsre-String
+	jsre-Bool
+	jsre-Number
+	jsre-Function
+	jsre-conversion)
    (export (class Js-Eval-env
 	      (objs::pair-nil read-only)
 	      (next-env read-only))
@@ -67,7 +66,7 @@
 	    (next-env
 	     (env-typeof-get next-env id))
 	    (else
-	     (js-undeclared))))))
+	     (js-undefined))))))
 
 (define (env-set! env id new-val)
    (with-access::Js-Eval-env env (objs next-env)

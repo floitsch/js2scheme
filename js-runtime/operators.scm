@@ -1,21 +1,18 @@
 (module jsre-operators
    (include "macros.sch")
-   (import jsre-object
-	   jsre-natives ;; undefined, null, ...
-	   jsre-primitives
-	   jsre-Error
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp)
+   (use jsre-object
+	jsre-natives ;; undefined, null, ...
+	jsre-primitives
+	jsre-Error
+	jsre-Object
+	jsre-Date
+	jsre-Function
+	jsre-String
+	jsre-Number
+	jsre-Bool
+	jsre-conversion)
    (export
-	   (inline jsop-property-delete! obj prop)
+	   (inline jsop-delete obj prop)
 	   (inline jsop-typeof v)
 	   (inline jsop-unary-- v)
 	   (inline jsop-unary-+ v)
@@ -55,9 +52,7 @@
 	   (inline jsop-any->number expr)
 	   ))
 
-;; base must not be undefined or null (which can only happen for
-;; undeclared variables anyways.
-(define-inline (jsop-property-delete! base prop)
+(define-inline (jsop-delete base prop)
    ;; mostly similar to js-property-get
    (let ((o-typed (safe-js-object (any->object base)))
 	 (prop-typed (any->string prop)))
@@ -71,7 +66,6 @@
       ((procedure? v) "function")
       ((js-undefined? v) "undefined")
       ((js-null? v) "object")
-      ((js-undeclared? v) "undefined")
       ((Js-Object? v) "object")
       (else
        (print)

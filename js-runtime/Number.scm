@@ -1,40 +1,38 @@
 (module jsre-Number
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Error
-	   jsre-Object
-	   jsre-Date
-	   jsre-Function
-	   jsre-String
-	   jsre-Bool
-	   jsre-natives
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   jsre-double
-	   )
+   (import jsre-natives
+	   jsre-double)
+   (use jsre-object
+	jsre-Error
+	jsre-Object
+	jsre-Date
+	jsre-Function
+	jsre-String
+	jsre-Bool
+	jsre-primitives
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
    (export (class Js-Number::Js-Object
 	      (value::double read-only))
-	   *js-Number* ;; can be modified by user -> can't be ::procedure
+	   *jsg-Number* ;; can be modified by user -> can't be ::procedure
 	   *js-Number-orig*::procedure
 	   (Number-init)))
 
-(define *js-Number* #unspecified)
-(define *js-Number-orig* (lambda () #f))
-(define *js-Number-prototype*::Js-Object (js-undeclared))
+(define *jsg-Number* #unspecified)
+(define *js-Number-orig* (lambda () 'to-be-replaced))
+(define *js-Number-prototype*::Js-Object (js-null))
 
 (define-method (js-class-name::bstring o::Js-Number)
    "Number")
 
 (define (Number-init)
-   (set! *js-Number* (Number-lambda))
-   (set! *js-Number-orig* *js-Number*)
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Number *js-Number*)))
-   
+   (set! *js-Number-orig* (Number-lambda))
+   (set! *jsg-Number* (create-runtime-global "Number" *js-Number-orig*))
+
    (let* ((text-repr "function(v) { /* native Number */ throw 'native'; }")
-	  (number-object (create-function-object *js-Number*
+	  (number-object (create-function-object *js-Number-orig*
 						 (Number-new)
 						 Number-construct
 						 text-repr))
@@ -85,7 +83,7 @@
 
       (js-property-generic-set! prototype     ;; 15.7.4.1
 				"constructor"
-				*js-Number*
+				*js-Number-orig*
 				(constructor-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.2
 				"toString"

@@ -1,29 +1,28 @@
 (module jsre-Error
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Function
-	   jsre-Array
-	   jsre-Math
-	   jsre-Arguments
-	   jsre-scope-object
-	   jsre-primitives
-	   jsre-natives
-	   jsre-Date
-	   jsre-Bool
-	   jsre-String
-	   jsre-Function
-	   jsre-Object
-	   jsre-Number
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-globals-tmp)
-   (export *js-Error* ;; can be modified by user -> can't be ::Js-Object
-	   *js-Eval-Error*
-	   *js-Range-Error*
-	   *js-Reference-Error*
-	   *js-Syntax-Error*
-	   *js-Type-Error*
-	   *js-URI-Error*
+   (use jsre-object
+	jsre-Function
+	jsre-Array
+	jsre-Math
+	jsre-Arguments
+	jsre-scope-object
+	jsre-primitives
+	jsre-natives
+	jsre-Date
+	jsre-Bool
+	jsre-String
+	jsre-Function
+	jsre-Object
+	jsre-Number
+	jsre-conversion
+	jsre-global-object)
+   (export *jsg-Error*
+	   *jsg-Eval-Error*
+	   *jsg-Range-Error*
+	   *jsg-Reference-Error*
+	   *jsg-Syntax-Error*
+	   *jsg-Type-Error*
+	   *jsg-URI-Error*
 	   (Error-init)
 	   (class Js-Error::Js-Object)
 	   (range-error msg val)
@@ -36,26 +35,26 @@
 	   (any->safe-string::bstring any)
 	   (error->js-exception e)))
 
-(define *js-Error* #unspecified)
-(define *js-Error-orig* #unspecified)
+(define *jsg-Error* #unspecified)
+(define *js-Error-orig* (lambda () 'to-be-replaced))
 
-(define *js-Eval-Error* #unspecified)
-(define *js-Eval-Error-orig* #unspecified)
+(define *jsg-Eval-Error* #unspecified)
+(define *js-Eval-Error-orig* (lambda () 'to-be-replaced))
 
-(define *js-Range-Error* #unspecified)
-(define *js-Range-Error-orig* #unspecified)
+(define *jsg-Range-Error* #unspecified)
+(define *js-Range-Error-orig* (lambda () 'to-be-replaced))
 
-(define *js-Reference-Error* #unspecified)
-(define *js-Reference-Error-orig* #unspecified)
+(define *jsg-Reference-Error* #unspecified)
+(define *js-Reference-Error-orig* (lambda () 'to-be-replaced))
 
-(define *js-Syntax-Error* #unspecified)
-(define *js-Syntax-Error-orig* #unspecified)
+(define *jsg-Syntax-Error* #unspecified)
+(define *js-Syntax-Error-orig* (lambda () 'to-be-replaced))
 
-(define *js-Type-Error* #unspecified)
-(define *js-Type-Error-orig* #unspecified)
+(define *jsg-Type-Error* #unspecified)
+(define *js-Type-Error-orig* (lambda () 'to-be-replaced))
 
-(define *js-URI-Error* #unspecified)
-(define *js-URI-Error-orig* #unspecified)
+(define *jsg-URI-Error* #unspecified)
+(define *js-URI-Error-orig* (lambda () 'to-be-replaced))
 
 (define (Error-init)
    (define *error-prototype* #unspecified)
@@ -110,42 +109,39 @@
 	 proc))
 
    ;; 15.11
-   (set! *js-Error* (create-Error-class "Error" #f))
-   (set! *js-Error-orig* *js-Error*)
+   (set! *js-Error-orig* (create-Error-class "Error" #f))
+   (set! *jsg-Error* (create-runtime-global "Error" *js-Error-orig*))
 
    ;; 15.11.6.1
-   (set! *js-Eval-Error* (create-Error-class "EvalError" #t))
-   (set! *js-Eval-Error-orig* *js-Eval-Error*)
+   (set! *js-Eval-Error-orig* (create-Error-class "EvalError" #t))
+   (set! *jsg-Eval-Error* (create-runtime-global "EvalError"
+						 *js-Eval-Error-orig*))
 
    ;; 15.11.6.2
-   (set! *js-Range-Error* (create-Error-class "RangeError" #t))
-   (set! *js-Range-Error-orig* *js-Range-Error*)
+   (set! *js-Range-Error-orig* (create-Error-class "RangeError" #t))
+   (set! *jsg-Range-Error* (create-runtime-global "RangeError"
+						  *js-Range-Error-orig*))
 
    ;; 15.11.6.3
-   (set! *js-Reference-Error* (create-Error-class "ReferenceError" #t))
-   (set! *js-Reference-Error-orig* *js-Reference-Error*)
+   (set! *js-Reference-Error-orig* (create-Error-class "ReferenceError" #t))
+   (set! *jsg-Reference-Error*
+	 (create-runtime-global "ReferenceError"
+				*js-Reference-Error-orig*))
 
    ;; 15.11.6.4
-   (set! *js-Syntax-Error* (create-Error-class "SyntaxError" #t))
-   (set! *js-Syntax-Error-orig* *js-Syntax-Error*)
+   (set! *js-Syntax-Error-orig* (create-Error-class "SyntaxError" #t))
+   (set! *jsg-Syntax-Error*
+	 (create-runtime-global "SyntaxError" *js-Syntax-Error-orig*))
 
    ;; 15.11.6.5
-   (set! *js-Type-Error* (create-Error-class "TypeError" #t))
-   (set! *js-Type-Error-orig* *js-Type-Error*)
+   (set! *js-Type-Error-orig* (create-Error-class "TypeError" #t))
+   (set! *jsg-Type-Error* (create-runtime-global "TypeError"
+						 *js-Type-Error-orig*))
 
    ;; 15.11.6.6
-   (set! *js-URI-Error* (create-Error-class "URIError" #t))
-   (set! *js-URI-Error-orig* *js-URI-Error*)
-
-   (globals-tmp-add!
-    (lambda ()
-       (global-runtime-add! 'Error *js-Error*)
-       (global-runtime-add! 'EvalError *js-Eval-Error*)
-       (global-runtime-add! 'RangeError *js-Range-Error*)
-       (global-runtime-add! 'ReferenceError *js-Reference-Error*)
-       (global-runtime-add! 'SyntaxError *js-Syntax-Error*)
-       (global-runtime-add! 'TypeError *js-Type-Error*)
-       (global-runtime-add! 'URIError *js-URI-Error*))))
+   (set! *js-URI-Error-orig* (create-Error-class "URIError" #t))
+   (set! *jsg-URI-Error* (create-runtime-global "URIError"
+						     *js-URI-Error-orig*)))
 
 
 (define-method (js-class-name::bstring o::Js-Error)

@@ -1,45 +1,44 @@
 (module jsre-Date
    (include "macros.sch")
-   (import jsre-object
-	   jsre-Error
-	   jsre-Object
-	   jsre-Function
-	   jsre-String
-	   jsre-Number
-	   jsre-Bool
-	   jsre-natives
-	   jsre-primitives
-	   jsre-conversion
-	   jsre-global-object
-	   jsre-scope-object
-	   jsre-globals-tmp
-	   )
+   (import jsre-natives)
+   (use jsre-object
+	jsre-Error
+	jsre-Object
+	jsre-Function
+	jsre-String
+	jsre-Number
+	jsre-Bool
+	jsre-primitives
+	jsre-conversion
+	jsre-global-object
+	jsre-scope-object
+	)
    (include "date-impl.scm")
-   (export *js-Date* ;; can be modified by user -> can't be ::procedure
+   (export *jsg-Date*
 	   (class Js-Date::Js-Object
 	      t::double
 	      (cached-t::double (default 0.0))
 	      (dst::double (default 0.0)))
 	   (Date-init)))
 
-(define *js-Date* #unspecified)
-(define *js-Date-prototype*::Js-Object (js-undeclared))
+(define *jsg-Date* #unspecified)
+(define *js-Date-prototype*::Js-Object (js-null))
 
 (define-method (js-class-name::bstring o::Js-Date)
    "Date")
 
 (define (Date-init)
-   (set! *js-Date* (Date-lambda))
-   (globals-tmp-add! (lambda () (global-runtime-add! 'Date *js-Date*)))
-   (let ((date-object (create-function-object *js-Date*
-					      (Date-new)
-					      Date-construct
-					      "TODO [native]"))
-	 (prototype (instantiate::Js-Date    ;; 15.9.5
-		       (props (make-props-hashtable))
-		       (proto (js-object-prototype))
-		       (t +nan.0))))
+   (let* ((date-fun (Date-lambda))
+	  (date-object (create-function-object date-fun
+					       (Date-new)
+					       Date-construct
+					       "TODO [native]"))
+	  (prototype (instantiate::Js-Date    ;; 15.9.5
+			(props (make-props-hashtable))
+			(proto (js-object-prototype))
+			(t +nan.0))))
 
+      (set! *jsg-Date* (create-runtime-global "Date" date-fun))
       (set! *js-Date-prototype* prototype)
 
       (js-property-generic-set! date-object       ;; 15.9.4
@@ -64,7 +63,7 @@
 
       (js-property-generic-set! prototype         ;; 15.9.5.1
 				"constructor"
-				*js-Date*
+				date-fun
 				(constructor-attributes))
       (js-property-generic-set! prototype         ;; 15.9.5.2
 				"toString"
@@ -240,7 +239,7 @@
 (define (Date-lambda) ;; 15.9.2.1
    (js-fun-lambda #f #f #f
     ()
-    (let ((d (js-new *js-Date*)))
+    (let ((d (js-new (global-read *jsg-Date*))))
        (js-method-call d "toString"))))
 
 (define (Date-new) ;; 15.9.3

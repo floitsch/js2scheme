@@ -245,3 +245,28 @@
 	  (if (any->bool ,tmp)
 	      ,tmp
 	      ,e2))))
+
+;; should be in object.scm
+(define-macro (get-Attributes . Lattrs)
+   (cond
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-enum Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(readOnly-dontEnum-dontDelete-attributes))
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-enum Lattrs))
+       '(readOnly-dontEnum-attributes))
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(readOnly-dontDelete-attributes))
+      ((memq 'read-only Lattrs)
+       '(readOnly-attributes))
+      ((and (memq 'dont-enum Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(dontEnum-dontDelete-attributes))
+      ((memq 'dont-enum Lattrs)
+       '(dontEnum-attributes))
+      ((memq 'dont-delete Lattrs)
+       '(dontDelete-attributes))
+      (else
+       '(no-attributes))))

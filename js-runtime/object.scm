@@ -1,19 +1,20 @@
 (module jsre-object
+   (include "macros.sch")
    (export
     (inline mangle-false val)
     (inline unmangle-false val)
-    (class Attributes
-       read-only::bool
-       deletable::bool
-       enumerable::bool)
-    (class Property-entry
+    (final-class Attributes
+       (read-only::bool read-only)
+       (deletable::bool read-only)
+       (enumerable::bool read-only))
+    (final-class Property-entry
        val
        attr::Attributes)
     (class Js-Object
        (props read-only) ;; hashtable
        (proto::Js-Object read-only)) ;; prototype
     (generic js-property-one-level-contains?::bool o::Js-Object prop::bstring)
-    (generic js-property-is-enumerable? o::Js-Object prop::bstring)
+    (generic js-property-is-enumerable?::bool o::Js-Object prop::bstring)
     (generic js-property-contains o::Js-Object prop::bstring)
     (generic js-property-generic-set!
 	     o::Js-Object prop::bstring
@@ -26,7 +27,6 @@
     (js-for-in-properties-list::pair-nil o::Js-Object)
     (inline make-props-hashtable)
 
-    (macro get-Attributes)
     (length-attributes::Attributes)
     (built-in-attributes::Attributes)
     (constructor-attributes::Attributes)
@@ -55,30 +55,6 @@
    (make-hashtable))
 (define-inline (make-props-hashtable)
    (make-hashtable))
-
-(define-macro (get-Attributes . Lattrs)
-   (cond
-      ((and (memq 'read-only Lattrs)
-	    (memq 'dont-enum Lattrs)
-	    (memq 'dont-delete Lattrs))
-       '(readOnly-dontEnum-dontDelete-attributes))
-      ((and (memq 'read-only Lattrs)
-	    (memq 'dont-enum Lattrs))
-       '(readOnly-dontEnum-attributes))
-      ((and (memq 'read-only Lattrs)
-	    (memq 'dont-delete Lattrs))
-       '(readOnly-dontDelete-attributes))
-      ((memq 'read-only Lattrs)
-       '(readOnly-attributes))
-      ((and (memq 'dont-enum Lattrs)
-	    (memq 'dont-delete Lattrs))
-       '(dontEnum-dontDelete-attributes))
-      ((memq 'dont-enum Lattrs)
-       '(dontEnum-attributes))
-      ((memq 'dont-delete Lattrs)
-       '(dontDelete-attributes))
-      (else
-       '(no-attributes))))
 
 (define-macro (define-attributes)
    (define (concat-name n n2)
@@ -172,22 +148,23 @@
 					  new-value attributes)
    ;(print "set!: " prop " <- " new-value)
    (with-access::Js-Object o (props)
-      (hashtable-update!
-       props
-       prop
-       (lambda (entry)
-	  (with-access::Property-entry entry (val attr)
-	     (if attributes
-		 (begin
-		    (set! attr attributes)
-		    (set! val new-value))
-		 (with-access::Attributes attr (read-only)
-		    (unless read-only
-		       (set! val new-value)))))
-	     entry) ;; put old entry back in.
-       (instantiate::Property-entry
-	  (val new-value)
-	  (attr (or attributes (default-attributes)))))))
+      ;; hashtable-update! is evil! not only is its return value different,
+      ;; when weak hashtables are used, it always creates the 'new' entry.
+      ;; -> every set automatically creates a new entry. bad bad bad.
+      (let ((entry (hashtable-get props prop)))
+	 (if (not entry)
+	     (let ((entry (instantiate::Property-entry
+			     (val new-value)
+			     (attr (or attributes (default-attributes))))))
+		(hashtable-put! props prop entry))
+	     (with-access::Property-entry entry (val attr)
+		(if attributes
+		    (begin
+		       (set! attr attributes)
+		       (set! val new-value))
+		    (with-access::Attributes attr (read-only)
+		       (unless read-only
+			  (set! val new-value)))))))))
 
 (define-generic (js-property-safe-delete!::bool o::Js-Object prop::bstring)
    (with-access::Js-Object o (props)
