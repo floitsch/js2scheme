@@ -215,7 +215,8 @@
 		       (begin
 			  (hashtable-remove! props prop)
 			  (when (Js-Global-Box? entry)
-			     (with-access::Js-Global-Box entry (declared?)
+			     (with-access::Js-Global-Box entry (declared? val)
+				(set! val #f) ;; release memory
 				(set! declared? #f)))
 			  #t)
 		       #f)))))))

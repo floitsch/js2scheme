@@ -2,20 +2,11 @@
    (include "macros.sch")
    (use jsre-object
 	jsre-natives) ;; undefined, null, ...
-   (export (inline primitive? v)
-	   (inline js-property-get o::Js-Object prop::bstring)
+   (export (inline js-property-get o::Js-Object prop::bstring)
 	   ;; returns the given value
 	   (inline js-property-set! o::Js-Object prop::bstring new-val)
-	   (js-property-update! o::Js-Object prop::bstring new-val)
-	   (inline +infinity?::bool v)
-	   (inline -infinity?::bool v)
-	   (inline NaN?::bool v)))
+	   (js-property-update! o::Js-Object prop::bstring new-val)))
 
-(define-inline (primitive? v) (not (Js-Object? v)))
-
-(define-inline (+infinity? v) (and (flonum? v) (=fl v +inf.0)))
-(define-inline (-infinity? v) (and (flonum? v) (=fl v -inf.0)))
-(define-inline (NaN? v)       (and (flonum? v) (nanfl? v)))
 
 (define-inline (js-property-get o::Js-Object prop::bstring)
    ;(write-circle o)(print)

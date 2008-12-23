@@ -63,9 +63,9 @@
       ((js-undefined? any) #f)
       ((js-null? any) #f)
       ((string? any) (not (string=? any "")))
-      ((flonum? any) ;; TODO
+      ((flonum? any)
        (and (not (=fl any 0.0))
-	    (not (NaN? any))))
+	    (not (nanfl? any))))
       (else #t)))
 
 (define (any->bool::bool any)
@@ -226,6 +226,8 @@
       (else (any->number (any->primitive any 'number)))))
 
 (define (js-object->primitive o::Js-Object hint::symbol)
+   (define (primitive? v) (not (Js-Object? v)))
+
    (define (toString)
       (let ((toString-prop (js-property-contains o "toString")))
 	 (if (procedure? toString-prop)
@@ -274,9 +276,8 @@
 (define (any->integer any)
    (let ((nb (any->number any)))
       (cond
-	 ((NaN? nb) +0.0)
-	 ((or (+infinity? nb)
-	      (-infinity? nb)
+	 ((nanfl? nb) +0.0)
+	 ((or (infinitefl? nb)
 	      (=fl 0.0 nb)) ;; could be -0.0, too.
 	  nb)
 	 (else
@@ -285,9 +286,8 @@
 (define (any->int32 any)
    (let ((nb (any->number any)))
       (cond
-	 ((or (NaN? nb)
-	      (+infinity? nb)
-	      (-infinity? nb)
+	 ((or (nanfl? nb)
+	      (infinitefl? nb)
 	      (=fl 0.0 nb)) ;; could be -0.0, too.
 	  +0.0)
 	 (else
@@ -300,9 +300,8 @@
 (define (any->uint32 any)
    (let ((nb (any->number any)))
       (cond
-	 ((or (NaN? nb)
-	      (+infinity? nb)
-	      (-infinity? nb)
+	 ((or (nanfl? nb)
+	      (infinitefl? nb)
 	      (=fl 0.0 nb)) ;; could be -0.0, too
 	  +0.0)
 	 (else
@@ -313,9 +312,8 @@
 (define (any->uint16 any)
    (let ((nb (any->number any)))
       (cond
-	 ((or (NaN? nb)
-	      (+infinity? nb)
-	      (-infinity? nb)
+	 ((or (nanfl? nb)
+	      (infinitefl? nb)
 	      (=fl 0.0 nb)) ;; could be -0.0, too
 	  +0.0)
 	 (else

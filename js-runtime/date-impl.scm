@@ -290,7 +290,7 @@
 ;; RFC2822 string.
 (define (time->utc-string::bstring t::double)
    (cond
-      ((NaN? t)
+      ((nanfl? t)
        "Invalid Date")
       (else
        (format "~a ~a -0000"
@@ -346,7 +346,7 @@
 
 (define (time->local-string::bstring t::double dst::double)
    (cond
-      ((NaN? t)
+      ((nanfl? t)
        "Invalid Date")
       (else
        (let* ((offset (+fl dst *localTZA*))
@@ -374,7 +374,7 @@
 
 (define (time->date-string::bstring t::double)
    (cond
-      ((NaN? t)
+      ((nanfl? t)
        "Invalid Date")
       (else
        (let* ((w (flonum->fixnum (week-day t)))
@@ -390,7 +390,7 @@
 		  y)))))
 (define (time->utc-date-string::bstring t::double)
    (cond
-      ((NaN? t)
+      ((nanfl? t)
        "Invalid Date")
       (else
        (let* ((w (flonum->fixnum (week-day t)))
@@ -406,7 +406,7 @@
 		  y)))))
 (define (time->time-string::bstring t::double)
    (cond
-      ((NaN? t)
+      ((nanfl? t)
        "Invalid Date")
       (else
        (format "~a:~a:~a"

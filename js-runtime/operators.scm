@@ -102,14 +102,12 @@
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
       (cond
-	 ((or (NaN? n1)
-	      (NaN? n2)
-	      (+infinity? n1)
-	      (-infinity? n1)
-	      ;; TODO: numbers (+- 0)
+	 ((or (nanfl? n1)
+	      (nanfl? n2)
+	      (infinitefl? n1)
 	      (=fl n2 0.0))
 	  +nan.0)
-	 ((=fl n1 0.0) ;; TODO: or (-0)
+	 ((=fl n1 0.0)
 	  n1)
 	 (else
 	  (let ((tmp (truncatefl (/fl n1 n2))))
@@ -128,7 +126,6 @@
 	 (else
 	  (let* ((n1 (any->number lhs))
 		 (n2 (any->number rhs)))
-	     ;; TODO: numbers +- 0
 	     (+fl n1 n2))))))
 
 (define-inline (jsop-- v1 v2)
@@ -172,7 +169,7 @@
 	  (let* ((n1 (any->number p1))
 		 (n2 (any->number p2)))
 	     (cond
-		((or (NaN? n1) (NaN? n2))
+		((or (nanfl? n1) (nanfl? n2))
 		 when-NaN)
 		(else
 		 (<fl n1 n2)))))))
@@ -223,25 +220,22 @@
 
 (define-inline (jsop-== v1 v2)
    (cond
-      ((NaN? v1) #f)
-      ((NaN? v2) #f)
-      ;; TODO:  -0, +0
       ((eq? v1 v2)
        ;; shortcuts undefined, null, some numbers, some strings, booleans,
        ;; functions
        #t)
 
       ;; same types:
-      ((and (flonum? v1)         (flonum? v2))         (=fl v1 v2))
-      ((and (string? v1)       (string? v2))       (string=? v1 v2))
-      ((and (boolean? v1)      (boolean? v2))      #f) ;; eq? covered other case
-      ((and (procedure? v1)    (procedure? v2))    #f) ;; eq? covered other case
+      ((and (flonum? v1)     (flonum? v2))     (=fl v1 v2))
+      ((and (string? v1)     (string? v2))     (string=? v1 v2))
+      ((and (boolean? v1)    (boolean? v2))    #f) ;; eq? covered other case
+      ((and (procedure? v1)  (procedure? v2))  #f) ;; eq? covered other case
 
       ;; different types:
       ((and (js-null? v1)      (js-undefined? v2)) #t)
       ((and (js-undefined? v1) (js-null? v2))      #t)
-      ((and (string? v1)       (flonum? v2))     (=fl (js-string->number v1) v2))
-      ((and (flonum? v1)         (string? v2))   (=fl v1 (js-string->number v2)))
+      ((and (string? v1)       (flonum? v2))   (=fl (js-string->number v1) v2))
+      ((and (flonum? v1)       (string? v2))   (=fl v1 (js-string->number v2)))
 
       ((boolean? v1)
        (if v1 (jsop-== 1.0 v2) (jsop-== 0.0 v2)))
@@ -269,14 +263,13 @@
 
 (define-inline (jsop-=== v1 v2)
    (cond
-      ((eq? v1 v2) #t)
+      ((eq? v1 v2) #t) ;; handles undefined, null, bools and funs
       ((string? v1)
        (and (string? v2)
 	    (string=? v1 v2)))
       ((flonum? v1)
        (and (flonum? v2)
-	    (equal? v1 v2))) ;; TODO: verify. shouldn't eqv? be sufficient
-      ;; TODO: handle +-0
+	    (=fl v1 v2)))
       (else
        #f)))
 

@@ -358,7 +358,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-toString applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
 	       (local-info-update! this)
@@ -371,7 +371,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-toDateString applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
 	       (time->date-string (Js-local-time this))))))
@@ -382,7 +382,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-toTimeString applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
 	       (time->time-string (Js-local-time this))))))
@@ -394,7 +394,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-toLocaleString applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
 	       (local-info-update! this)
@@ -408,7 +408,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-toLocaleDateString applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
 	       (time->date-string (Js-local-time this))))))
@@ -420,7 +420,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-toLocaleTimeString applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
 	       (time->time-string (Js-local-time this))))))
@@ -449,7 +449,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getFullYear applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (year-from-time (Js-local-time this))))))
@@ -460,7 +460,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCFullYear applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (year-from-time (Js-Date-t this))))))
@@ -471,7 +471,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getMonth applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (month-from-time (Js-local-time this))))))
@@ -482,7 +482,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCMonth applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (month-from-time (Js-Date-t this))))))
@@ -493,7 +493,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getDate applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (date-from-time (Js-local-time this))))))
@@ -504,7 +504,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCDate applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (date-from-time (Js-Date-t this))))))
@@ -515,7 +515,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getDay applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (week-day (Js-local-time this))))))
@@ -526,7 +526,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCDay applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (week-day (Js-Date-t this))))))
@@ -537,7 +537,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getHours applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (hours-from-time (Js-local-time this))))))
@@ -548,7 +548,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCHours applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (hours-from-time (Js-Date-t this))))))
@@ -559,7 +559,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getMinutes applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (min-from-time (Js-local-time this))))))
@@ -570,7 +570,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCMinutes applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 		(min-from-time (Js-Date-t this))))))
@@ -581,7 +581,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getSeconds applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (sec-from-time (Js-local-time this))))))
@@ -592,7 +592,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCSeconds applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (sec-from-time (Js-Date-t this))))))
@@ -603,7 +603,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getMilliseconds applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (ms-from-time (Js-local-time this))))))
@@ -614,7 +614,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getUTCMilliseconds applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (ms-from-time (Js-Date-t this))))))
@@ -625,7 +625,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-getTimezoneOffset applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       +nan.0)
 	      (else
 	       (let ((t (Js-Date-t this))
@@ -645,7 +645,7 @@
 		  t)))))
 
 (define (update-time t maybe-h maybe-m maybe-s maybe-ms)
-   (if (NaN? t)
+   (if (nanfl? t)
        t
        (let ((h (or maybe-h (hours-from-time t)))
 	     (m (or maybe-m (min-from-time t)))
@@ -770,7 +770,7 @@
 
 (define (update-date t y m d)
    (cond
-      ((NaN? t)
+      ((nanfl? t)
        t)
       ((and y m d)
        (make-js-date (make-js-day y m d) (time-within-day t)))
@@ -844,7 +844,7 @@
 	       (type-error "Date-setFullYear applied to" this))
 	      (else
 	       (with-access::Js-Date this (t)
-		  (if (NaN? t) (set! t 0.0)))
+		  (if (nanfl? t) (set! t 0.0)))
 	       (update-local-date! this
 				   (any->number y)
 				   (and (>= nb-args 2) (any->number m))
@@ -859,7 +859,7 @@
 	       (type-error "Date-setUTCFullYear applied to" this))
 	      (else
 	       (with-access::Js-Date this (t)
-		  (if (NaN? t) (set! t 0.0)))
+		  (if (nanfl? t) (set! t 0.0)))
 	       (update-UTC-date! this
 				 (any->number y)
 				 (and (>= nb-args 2) (any->number m))
@@ -871,7 +871,7 @@
 	   (cond
 	      ((not (Js-Date? this))
 	       (type-error "Date-toUTCString applied to" this))
-	      ((NaN? (Js-Date-t this))
+	      ((nanfl? (Js-Date-t this))
 	       "Invalid Date")
 	      (else
 	       (with-access::Js-Date this (t)

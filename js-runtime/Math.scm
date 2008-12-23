@@ -244,8 +244,7 @@
 	      (cond
 		 ((and (or (=fl x 1.0)
 			   (=fl x -1.0))
-		       (or (+infinity? y)
-			   (-infinity? y)))
+		       (or (infinitefl? y)))
 		  +nan.0)
 		 (else
 		  (exptfl x y))))))

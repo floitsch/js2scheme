@@ -99,12 +99,10 @@
    (define (eval prog)              ;; 15.1.2.1
       (eval-error prog))
    (define (isNaN number)           ;; 15.1.2.4
-      (NaN? (any->number number)))
+      (nanfl? (any->number number)))
    (define (isFinite number)        ;; 15.1.2.5
       (let ((n (any->number number)))
-	 (not (or (NaN? n)
-		  (+infinity? n)
-		  (-infinity? n)))))
+	 (finitefl? n)))
    (define (parseInt string radix)  ;; 15.1.2.2
       (define (white-space? c)
 	 ;; TODO: not spec-conform

@@ -285,7 +285,7 @@
 	  (len (string-length this-str))
 	  (search-str (any->string search-str-any))
 	  (pos-num (any->number pos-any))
-	  (pos (if (NaN? pos-num)
+	  (pos (if (nanfl? pos-num)
 		   (if find-first? 0 len)
 		   ;; CARE: we use bints here. as strings can't be longer
 		   ;; anyways this should not matter.

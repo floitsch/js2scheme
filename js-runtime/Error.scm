@@ -240,7 +240,7 @@
 			  "Bool<true>"
 			  "Bool<false>"))
       ((Js-Date? any) (format "Date<~a>"
-			      (if (NaN? (Js-Date-t any))
+			      (if (nanfl? (Js-Date-t any))
 				  "invalid"
 				  (seconds->date
 				   (flonum->elong
