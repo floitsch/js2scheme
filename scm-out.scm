@@ -315,22 +315,48 @@
 		     (not (inherits-from? var (node 'This-var))))
 		  this.declared-globals)))
       (if (not in-eval?)
-	  `(let ((this ,tl-this)
-		 ,@(if (config 'function-strings)
-		       (hashtable-map this.function-str-ids-ht
-				      list)
-		       '()))
+	  `(begin
+	      ;; create 'this'
+	      ;; declare global variables (declared and implicit)
+	      ;; create fun-strings (when configured this way)
+	      ;; create 'init-declared', 'init-implicit' and 'run-top-level
+	      ;; if not in module execute these funs. (otherwise somebody else
+	      ;;   needs to invoke them.)
+	      (define this ,tl-this)
 	      ,@(map (lambda (var)
-			`(define ,(var.compiled-id)
-			    (create-declared-global ,(symbol->string var.id))))
+			`(define ,(var.compiled-id) #unspecified))
 		     declared-globals-w/o-this)
 	      ,@(map (lambda (decl)
-			(let ((var decl.var))
-			   `(define ,(var.compiled-id)
-			       (create-implicit-global
-				,(symbol->string var.id)))))
+			`(define ,(decl.var.compiled-id) #unspecified))
 		     this.implicit-globals)
-	      ,(this.body.traverse))
+	      ,@(if (config 'function-strings)
+		    (hashtable-map this.function-str-ids-ht
+				   (lambda (str-id str)
+				      `(define ,str-id ,str)))
+		    '())
+	      (define (js-init-declared)
+		 #unspecified ;; so the fun is never empty
+		 ,@(map (lambda (var)
+			   `(set! ,(var.compiled-id)
+				  (create-declared-global
+				   ,(symbol->string var.id))))
+			declared-globals-w/o-this))
+	      (define (js-init-implicit)
+		 #unspecified ;; so the fun is never empty
+		 ,@(map (lambda (decl)
+			   (let ((var decl.var))
+			      `(set! ,(var.compiled-id)
+				     (create-implicit-global
+				      ,(symbol->string var.id)))))
+			this.implicit-globals))
+	      (define (js-run-top-level)
+		 ,(this.body.traverse))
+	      ,@(if (config 'module)
+		    '()
+		    '((js-init-declared)
+		      (js-init-implicit)
+		      (js-run-top-level))))
+
 	  ;; eval does not do anything for implicit vars.
 	  ;; declared globals: if the var is a declared function, than it
 	  ;; must replace the original entry (including the attributes).
