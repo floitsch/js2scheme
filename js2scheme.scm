@@ -1,6 +1,5 @@
 (module js2scheme
-   (import js2scheme-comp
-	   verbose)
+   (library js2scheme-comp)
    (main js2scheme-prog))
 
 (define *verbose* #f)
@@ -86,8 +85,7 @@
 	  (init-implicit (unique->init-implicit u))
 	  (run-top-level (unique->run-top-level u)))
       (pp `(module ,module-name
-	      (include "macros.sch")
-	      (import jsre-runtime)
+	      (library js2scheme-runtime)
 	      (export (,init-declared)
 		      (,init-implicit)
 		      (,run-top-level)))
@@ -160,8 +158,7 @@
 	 (begin
 	    (pp `(module js-main-linked
 		    (main js-main)
-		    (include "macros.sch")
-		    (import jsre-runtime)
+		    (library js2scheme-runtime)
 		    (import ,@(map unique->module-name tokens)))
 		out-p)
 	    (out-main tokens out-p))

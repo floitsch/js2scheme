@@ -13,7 +13,7 @@ JS2SCHEME_LIB_MODULES = config fun-bindings nodes protobject var \
 		 verbose lexer parser symbol with ewal statements simplify \
                  expand1 label label-resolution simplify-labels bind-exit \
 		 escape liveness let scm-out js2scheme-comp \
-		 symbol-table arguments js-out statements stmt-result
+		 symbol-table arguments js-out stmt-result
 
 JS2SCHEME_BGL_MODULES = js2scheme
 
@@ -24,7 +24,9 @@ JS2SCHEME_LIB_OBJECTS = $(JS2SCHEME_LIB_MODULES:%=o/%.o)
 
 JS2SCHEME_LIB = js2scheme-comp
 JS2SCHEME_HEAP = $(JS2SCHEME_LIB).heap
-JS2SCHEME_LIB_A = lib$(JS2SCHEME_LIB).a
+JS2SCHEME_LIB_VERSION = 1.0
+JS2SCHEME_LIB_A = lib$(JS2SCHEME_LIB)_s-$(JS2SCHEME_LIB_VERSION).a
+JS2SCHEME_LIB_SO = lib$(JS2SCHEME_LIB)_s-$(JS2SCHEME_LIB_VERSION).so
 
 _OBJECTS	= $(_BGL_OBJECTS) $(OBFUSCATOR_BGL_OBJECTS) $(PP_BGL_OBJECTS)
 
@@ -36,15 +38,14 @@ INCLUDES	= nodes.sch protobject.sch
 
 AFILE		= bglafile
 
-all: .afile o
-	$(MAKE) targets
+all: $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) targets
 
 targets: $(TARGETNAMES) #j$(TARGETNAME)
 
 .PHONY: build-afile clean
 
 .afile: $(SOURCES)
-	$(AFILE) $(SOURCES) > $@
+	$(AFILE) -o $@ $(SOURCES)
 
 js-obfuscator: $(OBFUSCATOR_OBJECTS)
 	$(BIGLOO) -o $@ $^
@@ -58,17 +59,23 @@ $(JS2SCHEME_LIB_A): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
 	rm -f $@ && \
 	ar qcv $@ $(JS2SCHEME_LIB_OBJECTS) && \
 	ranlib $@
+$(JS2SCHEME_LIB_SO): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
+	ld -G -o $@ $(JS2SCHEME_LIB_OBJECTS)
 
 js2scheme: $(JS2SCHEME_LIB_A) $(JS2SCHEME_OBJECTS)
-	$(BIGLOO) -o $@ $(JS2SCHEME_OBJECTS) -l$(JS2SCHEME_LIB)
+	$(BIGLOO) -o $@ $(JS2SCHEME_OBJECTS)
 
 o/symbol.o: js-runtime/runtime-variables.sch
 
-o:
-	mkdir o
+o/.keep:
+	mkdir -p o;
+	touch $@;
 
-o/%.o: %.scm $(INCLUDES)
-	$(BIGLOO) -mkaddlib -c -g -o $@ $<
+o/%.o: %.scm $(INCLUDES) .afile o/.keep
+	$(BIGLOO) -copt -fpic -mkaddlib -c -g -o $@ $<
 
 clean:
-	rm -f $(OBJECTS) $(TARGETNAMES) $(JS2SCHEME_LIB_A) $(JS2SCHEME_HEAP) $(BGL_CLASSES) j$(TARGETNAME) *.class .afile;
+	rm -f $(OBJECTS) $(TARGETNAMES) \
+	      $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) $(JS2SCHEME_HEAP) \
+	      $(BGL_CLASSES) j$(TARGETNAME) \
+	      *.class .afile;

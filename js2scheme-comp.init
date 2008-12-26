@@ -1,0 +1,3 @@
+(declare-library! 'js2scheme-comp
+		  :version "1.0"
+		  :module-init 'js2scheme-comp)

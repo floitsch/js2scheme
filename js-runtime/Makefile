@@ -41,7 +41,7 @@ extract-macros: extract-macros.scm
 	$(BIGLOO) -g -o $@ $^
 
 runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
-	cat $(RUNTIME_SOURCES) macros.sch | ./extract-globals > $@
+	cat $(RUNTIME_SOURCES) | ./extract-globals > $@
 
 macros.sch: extract-macros $(RUNTIME_SOURCES)
 	./extract-macros -o $@ $(RUNTIME_SOURCES)
