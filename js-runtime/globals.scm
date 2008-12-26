@@ -1,5 +1,4 @@
 (module jsre-globals
-   (include "macros.sch")
    (use jsre-object
 	jsre-natives ;; undefined, null, ...
 	jsre-primitives

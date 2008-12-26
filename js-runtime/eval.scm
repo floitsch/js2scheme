@@ -1,5 +1,5 @@
 (module jsre-eval
-;   (library js2scheme-comp)
+   (library js2scheme-comp)
    (use jsre-Eval-env
 	jsre-global-object
 	jsre-scope-object
@@ -7,6 +7,21 @@
 	jsre-Error)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
 	   (js-Function-eval src::bstring)))
+
+;; TODO: currently we just include the macros. That's clearly not the best
+;; solution. but at least it works, and is simple.
+
+(define-macro (read-macros)
+   (with-input-from-file "macros.sch"
+      (lambda ()
+	 (let loop ((ms '()))
+	    (let ((e (read)))
+	       (if (eof-object? e)
+		   (list 'quote ms)
+		   (loop (cons e ms))))))))
+
+(define *macros* (read-macros))
+(define *eval-init-done?* #f)
 
 ;; js-eval needs several things:
 ;; - the program prog (obvious)
@@ -27,17 +42,22 @@
 			 (hashtable-put! ht 'function-strings #t)
 			 ;(hashtable-put! ht 'verbose #t)
 			 ht))
-	      (p (open-input-string prog))
-	      (scm-prog (js2scheme-eval p
-					config
-					top-level-obj
-					(instantiate::Js-Eval-env
-					   (objs Lenvs)
-					   (next-env next-env))
-					top-level-this))
-	      (res (eval scm-prog)))
-	  (close-input-port p)
-	  res)))
+	      (p (open-input-string prog)))
+	  (unwind-protect
+	     (let ((scm-prog (js2scheme-eval p
+					     config
+					     top-level-obj
+					     (instantiate::Js-Eval-env
+						(objs Lenvs)
+						(next-env next-env))
+					     top-level-this)))
+;		(eval `(module ,(gensym 'eval)
+;			  (library js2scheme-runtime)))
+		(unless *eval-init-done?*
+		   (eval `(begin ,@*macros*))
+		   (set! *eval-init-done?* #t))
+		(eval scm-prog))
+	     (close-input-port p)))))
 
 (define (js-Function-eval src)
    (with-handler
@@ -48,13 +68,18 @@
 			(hashtable-put! ht 'function-strings #t)
 			;(hashtable-put! ht 'verbose #t)
 			ht))
-	     (p (open-input-string src))
-	     (scm-prog (js2scheme-eval p
-				       config
-				       *js-global-object*
-				       *js-global-env*
-				       ;; we could use *js-global-this* too
-				       *js-global-object*))
-	     (res (eval scm-prog)))
-	 (close-input-port p)
-	 res)))
+	     (p (open-input-string src)))
+	 (unwind-protect
+	    (let ((scm-prog (js2scheme-eval p
+					    config
+					    *js-global-object*
+					    *js-global-env*
+					    ;; we could use *js-global-this* too
+					    *js-global-object*)))
+;	       (eval `(module ,(gensym 'fun-eval)
+;			 (library js2scheme-runtime)))
+	       (unless *eval-init-done?*
+		  (eval `(begin ,@*macros*))
+		  (set! *eval-init-done?* #t))
+	       (eval scm-prog))
+	    (close-input-port p)))))

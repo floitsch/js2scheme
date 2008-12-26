@@ -1,5 +1,4 @@
 (module jsre-primitives
-   (include "macros.sch")
    (use jsre-object
 	jsre-natives) ;; undefined, null, ...
    (export (inline js-property-get o::Js-Object prop::bstring)

@@ -20,7 +20,6 @@
        *nb-frozen-layers*::bint
        *rev-pushed-states*::pair-nil)
     ))
-(define-macro (receive . L) `(multiple-value-bind ,@L))
 (define *debug* #f)
 
 ;; for a description of the process look at RegExp-fsm

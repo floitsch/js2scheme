@@ -1,5 +1,4 @@
 (module jsre-operators
-   (include "macros.sch")
    (use jsre-object
 	jsre-natives ;; undefined, null, ...
 	jsre-primitives
@@ -50,7 +49,19 @@
 
 	   (inline jsop-any->object expr)
 	   (inline jsop-any->number expr)
-	   ))
+	   )
+   (export (macro jsop-&&)
+	   (macro jsop-OR)))
+
+(define-macro (jsop-&& e1 e2)
+   `(and (any->bool ,e1) ,e2))
+
+(define-macro (jsop-OR e1 e2)
+   (let ((tmp (gensym 'tmp)))
+      `(let ((,tmp ,e1))
+	  (if (any->bool ,tmp)
+	      ,tmp
+	      ,e2))))
 
 (define-inline (jsop-delete base prop)
    ;; mostly similar to js-property-get

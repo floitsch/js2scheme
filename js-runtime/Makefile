@@ -1,75 +1,80 @@
 CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
-TARGETNAMES	= repl
+AFILE		= bglafile
 
+# basically all modules that are included in 'runtime.scm' and thus exported
+# from the library.
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
 			natives object global-object globals \
-			primitives runtime operators scope-object \
-			RegExp RegExp-parse RegExp-fsm RegExp-classes \
+			primitives operators scope-object \
+			RegExp
+
+ALL_RUNTIME_BGL_MODULES = $(RUNTIME_BGL_MODULES) \
+			RegExp-parse RegExp-fsm RegExp-classes \
 			RegExp-dot RegExp-match RegExp-state RegExp-char-set \
-			mset multi-top-level double
+			mset multi-top-level double runtime
 
-RUNTIME_BGL_INCLUDES = macros.sch
-
-REPL_BGL_MODULES = repl
-
-RUNTIME_OBJECTS = $(RUNTIME_BGL_MODULES:%=o/%.o)
+RUNTIME_OBJECTS = $(ALL_RUNTIME_BGL_MODULES:%=o/%.o)
 RUNTIME_SOURCES = $(RUNTIME_BGL_MODULES:%=%.scm)
-REPL_OBJECTS = $(REPL_BGL_MODULES:%=o/%.o)
 
-OBJECTS	= $(RUNTIME_OBJECTS) $(REPL_OBJECTS)
-SOURCES		= $(OBJECTS:o/%.o=%.scm)
+OBJECTS	= $(RUNTIME_OBJECTS)
+SOURCES	= $(OBJECTS:o/%.o=%.scm)
 
-INCLUDES	= macros.sch
+JS2SCHEME_RT_LIB = js2scheme-runtime
+JS2SCHEME_RT_HEAP = $(JS2SCHEME_RT_LIB).heap
+JS2SCHEME_RT_VERSION = 1.0
+JS2SCHEME_RT_LIB_A = lib$(JS2SCHEME_RT_LIB)_s-$(JS2SCHEME_RT_VERSION).a
+JS2SCHEME_RT_LIB_SO = lib$(JS2SCHEME_RT_LIB)_s-$(JS2SCHEME_RT_VERSION).so
+JS2SCHEME_RT_LIB_OBJECTS = $(RUNTIME_OBJECTS)
 
-AFILE		= bglafile
-
-all: .afile o
-	$(MAKE) targets
-	$(MAKE) runtime-variables.sch
-
-targets: $(TARGETNAMES) #j$(TARGETNAME)
+all: runtime-variables.sch $(JS2SCHEME_RT_LIB).init $(JS2SCHEME_RT_LIB_A) $(JS2SCHEME_RT_LIB_SO)
 
 .PHONY: build-afile clean
 
 .afile: $(SOURCES)
-	$(AFILE) $(SOURCES) > $@
+	$(AFILE) -o $@ $(SOURCES)
 
 extract-globals: extract-globals.scm
 	$(BIGLOO) -g -o $@ $^
+extract-macros: extract-macros.scm
+	$(BIGLOO) -g -o $@ $^
 
-runtime-variables.sch: extract-globals $(RUNTIME_SOURCES) macros.sch
+runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
 	cat $(RUNTIME_SOURCES) macros.sch | ./extract-globals > $@
 
-repl: $(RUNTIME_OBJECTS) $(REPL_OBJECTS)
-	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
+macros.sch: extract-macros $(RUNTIME_SOURCES)
+	./extract-macros -o $@ $(RUNTIME_SOURCES)
+
+$(JS2SCHEME_RT_LIB).init: $(JS2SCHEME_RT_LIB).init.in macros.sch
+	sed 's/JS2SCHEME_RT_VERSION/$(JS2SCHEME_RT_VERSION)/' $@.in > $@
+	cat macros.sch >> $@
 
 o/runtime.o: $(RUNTIME_SOURCES)
-o/repl.o: $(RUNTIME_SOURCES)
 
-o:
-	mkdir o
+o/.keep:
+	mkdir -p o;
+	touch $@;
 
-o/eval.o: eval.scm $(RUNTIME_BIGL_INCLUDES)
-	$(BIGLOO) -c -g  -L .. -library js2scheme-comp -o $@ $<
+o/%.o: %.scm .afile o/.keep
+	$(BIGLOO) -copt -fpic -mkaddlib -c -g -o $@ $< -L ..
 
-o/%.o: %.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -c -g -o $@ $<
 # must not use -g for match...
-#o/RegExp-match.o: RegExp-match.scm $(RUNTIME_BGL_INCLUDES)
+#o/RegExp-match.o: RegExp-match.scm
 #	$(BIGLOO) -c -O3 -o $@ $<
-o/RegExp-match.o: RegExp-match.scm $(RUNTIME_BGL_INCLUDES)
-	$(BIGLOO) -c -g -o $@ $<
-
-# for js2scm-comp script
-%.exe: $(RUNTIME_OBJECTS) o/%.o
-	$(BIGLOO) -o $@ $^ -L .. -ljs2scheme-comp
+o/RegExp-match.o: RegExp-match.scm
+	$(BIGLOO) -copt -fpic -mkaddlib -c -o $@ $<
 
 clean:
 	rm -f $(OBJECTS) $(REGEXP_OBJECTS) \
-              $(REPL_OBJECTS) $(TARGETNAMES) \
-              extract-globals extract-globals.o .afile;
+              extract-globals extract-globals.o \
+	      extract-macros  extract-macros.o \
+	      $(JS2SCHEME_RT_HEAP) \
+	      $(JS2SCHEME_RT_LIB_A) \
+	      $(JS2SCHEME_RT_LIB_SO) \
+	      $(JS2SCHEME_RT_LIB).init \
+	      macros.sch \
+	      .afile;
 
 REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot \
                   RegExp-match RegExp-state RegExp-char-set mset multi-top-level
@@ -80,10 +85,23 @@ regexp: .afile $(REGEXP_OBJECTS) RegExp-KMP.scm RegExp-constant-classes.scm
 	$(BIGLOO) -o $@ $(REGEXP_OBJECTS)
 
 REGEXP_JVM_OBJECTS = $(REGEXP_MODULES:%=%.class)
-%.class: %.scm $(RUNTIME_BGL_INCLUDES)
+%.class: %.scm
 	$(BIGLOO) -jvm -g -o $@ $<
 regexp.jvm: .afile $(REGEXP_JVM_OBJECTS) RegExp-KMP.scm RegExp-constant-classes.scm
 	$(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS)
+
+$(JS2SCHEME_RT_HEAP): make-lib.scm runtime.scm .afile
+	bigloo -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_RT_LIB) $< -addheap $@
+$(JS2SCHEME_RT_LIB_A): $(JS2SCHEME_RT_HEAP) $(JS2SCHEME_RT_LIB_OBJECTS)
+	rm -f $@ && \
+	ar qcv $@ $(JS2SCHEME_RT_LIB_OBJECTS) && \
+	ranlib $@
+$(JS2SCHEME_RT_LIB_SO): $(JS2SCHEME_RT_HEAP) $(JS2SCHEME_RT_LIB_OBJECTS)
+	ld -G -o $@ $(JS2SCHEME_RT_LIB_OBJECTS)
+
+# for js2scm-comp script
+%.exe: o/%.o $(JS2SCHEME_RT_LIB_A)
+	$(BIGLOO) -o $@ $< -L .. -L . -ljs2scheme-comp -ljs2scheme-runtime
 
 #-- explicit deps
 o/RegExp-match.o: RegExp-KMP.scm RegExp-constant-classes.scm
@@ -93,3 +111,4 @@ o/RegExp-parse.o: RegExp-KMP.scm RegExp-constant-classes.scm
 o/RegExp-classes.o: RegExp-KMP.scm RegExp-constant-classes.scm
 o/RegExp-dot.o: RegExp-KMP.scm RegExp-constant-classes.scm
 o/Date.o: date-impl.scm
+o/eval.o: macros.sch

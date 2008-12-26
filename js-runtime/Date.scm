@@ -1,5 +1,4 @@
 (module jsre-Date
-   (include "macros.sch")
    (import jsre-natives)
    (use jsre-object
 	jsre-Error

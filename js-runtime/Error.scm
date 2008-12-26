@@ -1,5 +1,4 @@
 (module jsre-Error
-   (include "macros.sch")
    (use jsre-object
 	jsre-Function
 	jsre-Array

@@ -1,5 +1,4 @@
 (module jsre-Number
-   (include "macros.sch")
    (import jsre-natives
 	   jsre-double)
    (use jsre-object

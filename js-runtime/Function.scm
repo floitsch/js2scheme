@@ -1,5 +1,4 @@
 (module jsre-Function
-   (include "macros.sch")
    (import jsre-natives)
    (use jsre-object
 	jsre-eval
@@ -16,6 +15,13 @@
 	jsre-global-object
 	jsre-scope-object
 	)
+   (export
+    (macro js-call)
+    (macro js-method-call)
+    (macro js-fun-lambda)
+    (macro js-fun)
+    (macro js-new))
+   (include "call-convention.sch")
    (export
     *jsg-Function*
     (class Js-Function::Js-Object

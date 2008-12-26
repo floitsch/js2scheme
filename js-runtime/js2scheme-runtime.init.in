@@ -1,0 +1,3 @@
+(declare-library! 'js2scheme-runtime
+		  :version "JS2SCHEME_RT_VERSION"
+		  :module-init 'jsre-runtime)

@@ -1,5 +1,4 @@
 (module jsre-global-object
-   (include "macros.sch")
    (import jsre-natives)
    (use jsre-object
 	jsre-natives ;; undefined, null, ...
@@ -22,15 +21,56 @@
 	      id::bstring
 	      declared?::bool)
 	   (global-object-init)
-	   (macro create-declared-global)
-	   (macro create-implicit-global)
-	   (macro create-special-global)
-	   (macro create-runtime-global)
-	   (macro global-read)
-	   (macro global-typeof-read)
-	   (macro global-set!)
+ 	   (macro create-declared-global)
+ 	   (macro create-implicit-global)
+ 	   (macro create-special-global)
+ 	   (macro create-runtime-global)
+ 	   (macro global-read)
+ 	   (macro global-typeof-read)
+ 	   (macro global-set!)
 	   (create-global::Js-Global-Box id::bstring
 					 attributes declared? . Linit-val)))
+
+;; should be in global-object.scm
+(define-macro (create-declared-global id . Linit-val)
+   (if (null? Linit-val)
+       `(create-global ,id (declared-attributes) #t)
+       `(create-global ,id (declared-attributes) #t ,(car Linit-val))))
+
+(define-macro (create-implicit-global id)
+   `(create-global ,id (implicit-attributes) #f))
+
+(define-macro (create-special-global id attributes . Linit-val)
+   (if (null? Linit-val)
+       `(create-global ,id ,attributes #t)
+       `(create-global ,id ,attributes #t ,(car Linit-val))))
+
+(define-macro (create-runtime-global id . Linit-val)
+   (if (null? Linit-val)
+       `(create-global ,id (runtime-attributes) #t)
+       `(create-global ,id (runtime-attributes) #t ,(car Linit-val))))
+
+(define-macro (global-read v)
+   `(begin
+       (when (not (Js-Global-Box-declared? ,v))
+	  (undeclared-error (Js-Global-Box-id ,v)))
+       (unmangle-false (Js-Global-Box-val ,v))))
+
+(define-macro (global-typeof-read v)
+   `(if (not (Js-Global-Box-declared? ,v))
+	(js-undefined)
+	(unmangle-false (Js-Global-Box-val ,v))))
+
+;; always returns the set value.
+(define-macro (global-set! v val)
+   (let ((tmp-val (gensym 'tmp-val)))
+      `(let ((,tmp-val ,val))
+	  (if (not (Js-Global-Box-declared? ,v))
+	      (js-property-generic-set! *js-global-this*
+					(Js-Global-Box-id ,v)
+					(mangle-false ,tmp-val) #f)
+	      (Js-Global-Box-val-set! ,v (mangle-false ,tmp-val)))
+	  ,tmp-val)))
 
 (define-method (object-display o::Js-Global . Lport)
    (if (null? Lport)
@@ -87,46 +127,6 @@
 		(unless (null? Lnewval)
 		   (set! val (car Lnewval))))
 	     box))))
-
-(define-macro (create-declared-global id . Linit-val)
-   (if (null? Linit-val)
-       `(create-global ,id (declared-attributes) #t)
-       `(create-global ,id (declared-attributes) #t ,(car Linit-val))))
-
-(define-macro (create-implicit-global id)
-   `(create-global ,id (implicit-attributes) #f))
-
-(define-macro (create-special-global id attributes . Linit-val)
-   (if (null? Linit-val)
-       `(create-global ,id ,attributes #t)
-       `(create-global ,id ,attributes #t ,(car Linit-val))))
-
-(define-macro (create-runtime-global id . Linit-val)
-   (if (null? Linit-val)
-       `(create-global ,id (runtime-attributes) #t)
-       `(create-global ,id (runtime-attributes) #t ,(car Linit-val))))
-
-(define-macro (global-read v)
-   `(begin
-       (when (not (Js-Global-Box-declared? ,v))
-	  (undeclared-error (Js-Global-Box-id ,v)))
-       (unmangle-false (Js-Global-Box-val ,v))))
-
-(define-macro (global-typeof-read v)
-   `(if (not (Js-Global-Box-declared? ,v))
-	(js-undefined)
-	(unmangle-false (Js-Global-Box-val ,v))))
-
-;; always returns the set value.
-(define-macro (global-set! v val)
-   (let ((tmp-val (gensym 'tmp-val)))
-      `(let ((,tmp-val ,val))
-	  (if (not (Js-Global-Box-declared? ,v))
-	      (js-property-generic-set! *js-global-this*
-					(Js-Global-Box-id ,v)
-					(mangle-false ,tmp-val) #f)
-	      (Js-Global-Box-val-set! ,v (mangle-false ,tmp-val)))
-	  ,tmp-val)))
 
 
 (define (global-object-init)

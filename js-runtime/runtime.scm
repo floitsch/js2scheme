@@ -1,5 +1,4 @@
 (module jsre-runtime
-   (include "macros.sch")
    (import jsre-object
 	   jsre-natives
 	   jsre-Error

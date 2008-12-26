@@ -1,5 +1,4 @@
 (module jsre-Eval-env
-   (include "macros.sch")
    (use jsre-object
 	jsre-global-object
 	jsre-scope-object

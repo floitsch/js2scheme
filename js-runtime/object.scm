@@ -1,5 +1,4 @@
 (module jsre-object
-   (include "macros.sch")
    (export
     (inline mangle-false val)
     (inline unmangle-false val)
@@ -42,6 +41,7 @@
     (dontEnum-attributes::Attributes)
     (dontDelete-attributes::Attributes)
     (no-attributes::Attributes))
+   (export (macro get-Attributes))
     )
 
 (define-inline (mangle-false val)
@@ -97,6 +97,30 @@
 		   (+fx i 1))))))
 
 (define-attributes)
+
+(define-macro (get-Attributes . Lattrs)
+   (cond
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-enum Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(readOnly-dontEnum-dontDelete-attributes))
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-enum Lattrs))
+       '(readOnly-dontEnum-attributes))
+      ((and (memq 'read-only Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(readOnly-dontDelete-attributes))
+      ((memq 'read-only Lattrs)
+       '(readOnly-attributes))
+      ((and (memq 'dont-enum Lattrs)
+	    (memq 'dont-delete Lattrs))
+       '(dontEnum-dontDelete-attributes))
+      ((memq 'dont-enum Lattrs)
+       '(dontEnum-attributes))
+      ((memq 'dont-delete Lattrs)
+       '(dontDelete-attributes))
+      (else
+       '(no-attributes))))
 
 ;; ECMA 15
 (define (length-attributes)   (get-Attributes read-only dont-delete dont-enum))

@@ -1,5 +1,4 @@
 (module jsre-scope-object
-   (include "macros.sch")
    (use jsre-object
 	jsre-global-object
 	jsre-natives ;; undefined, null, ...
@@ -21,7 +20,22 @@
 	   (js-create-activation-object::Js-Activation-Object)
 	   *js-deleted-token*
 	   (inline js-deleted?::bool v))
+   (export (macro scope-var-add))
    (eval (class Ref)))
+
+(define-macro (scope-var-add scope-object
+			     id v attributes)
+   (let ((str-id (gensym 'str-id))
+	 (ref (gensym 'ref))
+	 (new-val (gensym 'new-val)))
+      `(let ((,str-id (if (symbol? ,id) (symbol->string ,id) ,id))
+	     (,ref (instantiate::Ref
+		      (getter (lambda () ,v))
+		      (setter (lambda (,new-val) (set! ,v ,new-val))))))
+	  (js-property-generic-set! ,scope-object
+				    ,str-id
+				    ,ref
+				    ,attributes))))
 
 (define *js-deleted-token* (cons 'deleted 'deleted))
 (define-inline (js-deleted? v) (eq? v *js-deleted-token*))

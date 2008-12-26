@@ -1,5 +1,4 @@
 (module jsre-Object
-   (include "macros.sch")
    (import jsre-natives)
    (use jsre-object
 	jsre-Function
