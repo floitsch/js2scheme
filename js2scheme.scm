@@ -3,7 +3,7 @@
    (main js2scheme-prog))
 
 (define *verbose* #f)
-(define *in-files* '())
+(define *rev-in-files* '())
 (define *out-file* #f)
 (define *fun-strings?* #t)
 (define *module?* #f)
@@ -33,15 +33,15 @@
       (("-o" ?file         (help "Output file"))
        (set! *out-file* file))
       (else
-       (set! *in-files* (cons else *in-files*))))
-   (when (null? *in-files*)
+       (set! *rev-in-files* (cons else *rev-in-files*))))
+   (when (null? *rev-in-files*)
       (error 'js2scheme
 	     "No input file given"
 	     #f))
-   (when (and *module?* (not (null? (cdr *in-files*))))
+   (when (and *module?* (not (null? (cdr *rev-in-files*))))
       (error 'js2scheme
 	     "-c flag only works with one input-file"
-	     *in-files*))
+	     *rev-in-files*))
    (when (and (not *out-file*)
 	      (not *module?*))
       (error 'js2scheme
@@ -49,12 +49,12 @@
 	     #f))
    (when (and (not *out-file*)
 	      *module?*
-	      (string=? (car *in-files*) "-"))
+	      (string=? (car *rev-in-files*) "-"))
       (error 'js2scheme
 	     "with input from std-in an output file (can be '-') must be given."
 	     #f))
    (when (not *out-file*)
-      (set! *out-file* (string-append (prefix (basename (car *in-files*)))
+      (set! *out-file* (string-append (prefix (basename (car *rev-in-files*)))
 				      ".scm"))))
 
 
@@ -101,9 +101,9 @@
       (hashtable-put! config-ht 'verbose *verbose*)
       (hashtable-put! config-ht 'function-strings *fun-strings?*)
       (hashtable-put! config-ht 'module #t)
-      (let ((in-p (if (string=? (car *in-files*) "-")
+      (let ((in-p (if (string=? (car *rev-in-files*) "-")
 		      (current-input-port)
-		      (open-input-file (car *in-files*)))))
+		      (open-input-file (car *rev-in-files*)))))
 	 (unwind-protect
 	    (let ((res (js2scheme in-p config-ht)))
 	       (let ((out-p (if (string=? *out-file* "-")
@@ -118,11 +118,11 @@
 ;; ===========linked creation
 
 (define (create-linked)
-   (let loop ((files *in-files*)
-	      (rev-tokens '()))
-      (if (null? files)
-	  (out-linked-module (reverse! rev-tokens))
-	  (let ((file (car files)))
+   (let loop ((rev-files *rev-in-files*)
+	      (tokens '()))
+      (if (null? rev-files)
+	  (out-linked-module tokens)
+	  (let ((file (car rev-files)))
 	     (unless (file-exists? file)
 		(error 'js2scheme
 		       "file not found"
@@ -146,14 +146,15 @@
 			    (error 'js2scheme
 				   "file is not a js2scheme-module"
 				   file))
-			 (loop (cdr files)
+			 (loop (cdr rev-files)
 			       (cons (substring m-name-str
 						(string-length *module-prefix*)
 						(string-length m-name-str))
-				     rev-tokens))))
+				     tokens))))
 		   (close-input-port in-p)))))))
 
 (define (out-linked-module tokens)
+   (tprint tokens)
    (let ((out-p (open-output-file *out-file*)))
       (unwind-protect
 	 (begin

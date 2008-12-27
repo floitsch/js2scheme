@@ -53,7 +53,7 @@ js-obfuscator: $(OBFUSCATOR_OBJECTS)
 js-pp: $(PP_OBJECTS)
 	$(BIGLOO) -o $@ $^
 
-$(JS2SCHEME_HEAP): make-lib.scm js2scheme-comp.scm
+$(JS2SCHEME_HEAP): make-lib.scm js2scheme-comp.scm .afile
 	bigloo -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_LIB) $< -addheap $@
 $(JS2SCHEME_LIB_A): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
 	rm -f $@ && \

@@ -28,5 +28,9 @@ echo "include Makefile.include" >> $TMPMK
 make -f $TMPMK -C $JS2SCHEME_BUILD dirs
 make -f $TMPMK -C $JS2SCHEME_BUILD
 
-#EXIT_STATUS=$?
-#exit $EXIT_STATUS
+EXIT_STATUS=$?
+if [ $EXIT_STATUS = 0 ]; then
+  exit $EXIT_STATUS;
+else
+  exit 3;
+fi

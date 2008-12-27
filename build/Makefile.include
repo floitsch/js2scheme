@@ -12,23 +12,23 @@ LD_PATHS_ENV = env LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD/$(JS2SCHEME_DIR):$$PW
 all.include: run
 
 dirs:
-	for f in $(SOURCES); do mkdir -p `dirname "$$f"`; done
+	@ for f in $(SOURCES); do mkdir -p `dirname "$$f"`; done
 
 %.scm: %.js
-	mkdir -p `dirname "$@"`;
-	$(LD_PATHS_ENV) $(JS2SCHEME) -c -o $@ $^
+	@ mkdir -p `dirname "$@"`;
+	@ $(LD_PATHS_ENV) $(JS2SCHEME) -c -o $@ $^
 
 $(TARGET).exe.scm: $(SCM_SOURCES)
-	$(LD_PATHS_ENV) $(JS2SCHEME) -o $@ $^
+	@ $(LD_PATHS_ENV) $(JS2SCHEME) -o $@ $^
 
 $(TARGET).afile: $(SCM_SOURCES)
-	$(AFILE) -o $@ $^
+	@ $(AFILE) -o $@ $^
 
 %.o: %.scm | $(TARGET).afile
-	$(BIGLOO) -afile $(TARGET).afile -c -o $@ $< -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR)
+	@ $(BIGLOO) -g -afile $(TARGET).afile -c -o $@ $< -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR)
 
 $(TARGET).exe: $(TARGET).exe.o $(OBJS)
-	$(BIGLOO) -afile $(TARGET).afile -o $@ $^ -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -library js2scheme-comp
+	@ $(BIGLOO) -g -afile $(TARGET).afile -o $@ $^ -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -library js2scheme-comp
 
 run: $(TARGET).exe
 	$(LD_PATHS_ENV) $<
