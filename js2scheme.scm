@@ -59,6 +59,7 @@
 
 
 (define (js2scheme-prog args)
+   (seed-random! (llong->fixnum (current-microseconds)))
    (parse-arguments (cdr args))
    (if *module?*
        (create-module)

@@ -1,40 +1,32 @@
 #!/bin/bash
 
-RM_SCM=true
+RM_MK=true
 
 if [ "x$1" = "x-d" ]; then
-    unset RM_SCM;
+    unset RM_MK;
     shift;
 fi;
 
-TMPFILE=`mktemp /tmp/js2scheme.XXXXX`  || exit 1
-
 JS2SCHEME_PATH=/home/flo/programming/js/js-tools
 JS2SCHEME_RUNTIME_PATH=$JS2SCHEME_PATH/js-runtime
+JS2SCHEME_BUILD=$JS2SCHEME_PATH/build
 
-SCMTMPFILE=`mktemp $JS2SCHEME_RUNTIME_PATH/js2scheme.XXXXX`  || exit 1
+mkdir -p $JS2SCHEME_BUILD/exes
+mkdir -p $JS2SCHEME_BUILD/Makefiles
+TMPMK=`mktemp $JS2SCHEME_PATH/build/Makefiles/Makefile.XXXXX`  || exit 1
+TARGET=`mktemp $JS2SCHEME_PATH/build/exes/run.XXXXX`  || exit 1
 
-echo "TMPFILE: " $TMPFILE
-echo "SCMTMPFILE: " $SCMTMPFILE.scm
-echo "TARGET: " `basename $SCMTMPFILE`
+echo "Makefile: " $TMPMK
+echo "Target: " $TARGET
 
-TARGET=`basename $SCMTMPFILE`.exe
+echo "SOURCE_DIR = " $PWD > $TMPMK
+echo "SOURCES = " $* >> $TMPMK
+echo "TARGET = " $TARGET >> $TMPMK
+echo "VPATH = " $PWD >> $TMPMK
+echo "include Makefile.include" >> $TMPMK
 
-echo '(error #f "compilation-error" #f)' > $TMPFILE.scm
-cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && \
- cat $JS2SCHEME_RUNTIME_PATH/MODULE_HEAD $TMPFILE $JS2SCHEME_RUNTIME_PATH/MODULE_TAIL > $SCMTMPFILE.scm && \
- cd $JS2SCHEME_RUNTIME_PATH && \
- make $TARGET && \
- echo "Executing:" && \
- ./$TARGET
+make -f $TMPMK -C $JS2SCHEME_BUILD dirs
+make -f $TMPMK -C $JS2SCHEME_BUILD
 
-EXIT_STATUS=$?
-
-rm -f $TMPFILE
-if [ $RM_SCM ]; then rm -f $SCMTMPFILE.scm; fi;
-rm -f $SCMTMPFILE.exe
-rm -f $JS2SCHEME_RUNTIME_PATH/o/`basename $SCMTMPFILE`.o
-rm -f $SCMTMPFILE
-
-exit $EXIT_STATUS
-#cat $* | $JS2SCHEME_PATH/js2scheme > $TMPFILE && cat $JS2SCHEME_RUNTIME_PATH/MODULE_HEAD $TMPFILE $JS2SCHEME_RUNTIME_PATH/MODULE_TAIL > $JS2SCHEME_RUNTIME_PATH/test.scm && cd $JS2SCHEME_RUNTIME_PATH && make test && echo "Executing:" && ./test
+#EXIT_STATUS=$?
+#exit $EXIT_STATUS

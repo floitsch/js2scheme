@@ -1,0 +1,40 @@
+JS2SCHEME_DIR = ..
+RUNTIME_DIR = ../js-runtime
+JS2SCHEME = $(JS2SCHEME_DIR)/js2scheme
+BIGLOO = bigloo
+AFILE = bglafile
+
+SCM_SOURCES = $(SOURCES:%.js=%.scm)
+OBJS = $(SOURCES:%.js=%.o)
+
+LD_PATHS_ENV = env LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD/$(JS2SCHEME_DIR):$$PWD/$(RUNTIME_DIR)
+
+all.include: run
+
+dirs:
+	for f in $(SOURCES); do mkdir -p `dirname "$$f"`; done
+
+%.scm: %.js
+	mkdir -p `dirname "$@"`;
+	$(LD_PATHS_ENV) $(JS2SCHEME) -c -o $@ $^
+
+$(TARGET).exe.scm: $(SCM_SOURCES)
+	$(LD_PATHS_ENV) $(JS2SCHEME) -o $@ $^
+
+$(TARGET).afile: $(SCM_SOURCES)
+	$(AFILE) -o $@ $^
+
+%.o: %.scm | $(TARGET).afile
+	$(BIGLOO) -afile $(TARGET).afile -c -o $@ $< -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR)
+
+$(TARGET).exe: $(TARGET).exe.o $(OBJS)
+	$(BIGLOO) -afile $(TARGET).afile -o $@ $^ -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -library js2scheme-comp
+
+run: $(TARGET).exe
+	$(LD_PATHS_ENV) $<
+
+.PHONY: clean run all.include dirs
+
+clean:
+	rm -f *.afile *.o *.scm *.exe
+	for d in *; do if [ -d "$$d" ]; then rm -rf "$$d"; fi; done
