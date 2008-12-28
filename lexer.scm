@@ -13,10 +13,13 @@
 		(cond
 		   ((eq? (car char-l) #\\)
 		    (loop (cddr char-l)
+			  ;; 7.8.4
 			  (cons (case (cadr char-l)
-				   ((#\f) (string-ref "\f" 0))
+				   ((#\b) #a008)
 				   ((#\t) #\tab)
 				   ((#\n) #\newline)
+				   ((#\v) #a011)
+				   ((#\f) #a012)
 				   ((#\r) #\return)
 				   (else (cadr char-l)))
 				rev-res)))
