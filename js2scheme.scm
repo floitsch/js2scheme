@@ -154,7 +154,6 @@
 		   (close-input-port in-p)))))))
 
 (define (out-linked-module tokens)
-   (tprint tokens)
    (let ((out-p (open-output-file *out-file*)))
       (unwind-protect
 	 (begin

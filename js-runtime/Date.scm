@@ -100,6 +100,10 @@
 				"getFullYear"
 				(getFullYear)
 				(built-in-attributes))
+      (js-property-generic-set! prototype         ;; B.2.4
+				"getYear"
+				(getYear)
+				(built-in-attributes))
       (js-property-generic-set! prototype         ;; 15.9.5.11
 				"getUTCFullYear"
 				(getUTCFullYear)
@@ -219,6 +223,10 @@
       (js-property-generic-set! prototype         ;; 15.9.5.40
 				"setFullYear"
 				(setFullYear)
+				(built-in-attributes))
+      (js-property-generic-set! prototype         ;; B.2.5
+				"setYear"
+				(setYear)
 				(built-in-attributes))
       (js-property-generic-set! prototype         ;; 15.9.5.41
 				"setUTCFullYear"
@@ -452,6 +460,18 @@
 	       +nan.0)
 	      (else
 	       (year-from-time (Js-local-time this))))))
+
+(define (getYear)                              ;; B.2.4
+   (js-fun this #f #f "Date.getYear"
+	   ()
+	   (cond
+	      ((not (Js-Date? this))
+	       (type-error "Date-getYear applied to" this))
+	      ((nanfl? (Js-Date-t this))
+	       +nan.0)
+	      (else
+	       (-fl (year-from-time (Js-local-time this))
+		    1900.)))))
 
 (define (getUTCFullYear)                       ;; 15.9.5.11
    (js-fun this #f #f "Date.getFullYear"
@@ -848,6 +868,24 @@
 				   (any->number y)
 				   (and (>= nb-args 2) (any->number m))
 				   (and (>= nb-args 3) (any->number d)))))))
+
+(define (setYear)                                 ;; 15.9.5.40
+   (js-fun this #f (nb-args get-arg)
+	   "Date.setYear"
+	   (year)
+	   (cond
+	      ((not (Js-Date? this))
+	       (type-error "Date-setYear applied to" this))
+	      (else
+	       (with-access::Js-Date this (t)
+		  (if (nanfl? t) (set! t 0.0)))
+	       (let* ((y (any->number year))
+		      (yint (any->integer y)))
+		  (if (and (finitefl? y)
+			   (>=fl yint 0.0)
+			   (<=fl yint 99.0))
+		      (update-local-date! this (+fl 1900.0 yint) #f #f)
+		      (update-local-date! this y #f #f)))))))
 
 (define (setUTCFullYear)                               ;; 15.9.5.41
    (js-fun this #f (nb-args get-arg)
