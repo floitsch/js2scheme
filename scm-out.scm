@@ -224,7 +224,7 @@
 	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
       `(if (js-property-contains ,obj-id ,id-str)
-	   (js-property-safe-delete ,obj-id ,id-str)
+	   (js-property-safe-delete! ,obj-id ,id-str)
 	   ,(intercepted.delete))))
 (define-pmethod (This-var-delete)
    (error "Var-delete"
