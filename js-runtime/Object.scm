@@ -125,7 +125,7 @@
    (js-fun this #f #f "Object.toString"
 	   ()
 	   (string-append "[object "
-			  (js-class-name this)
+			  (js-class-name (safe-js-object this))
 			  "]")))
 
 

@@ -92,29 +92,30 @@
 (define-runtime-globals
    (define (print to-print)
       (print (any->string to-print)))
+
    (define (scmprint to-print)
       (write-circle to-print)
       (print))
+
    (define (eval prog)              ;; 15.1.2.1
       (eval-error prog))
+
    (define (isNaN number)           ;; 15.1.2.4
       (nanfl? (any->number number)))
+
    (define (isFinite number)        ;; 15.1.2.5
       (let ((n (any->number number)))
 	 (finitefl? n)))
+
    (define (parseInt string radix)  ;; 15.1.2.2
-      (define (white-space? c)
-	 ;; TODO: not spec-conform
-	 (char-whitespace? c))
-      
-      (define (parseIntR s i R sign)
+      (define (parseIntR s i R::bint sign::bint)
 	 (let ((str-len (string-length s)))
 	    (let loop ((i i)
-		       (res 0.0)
+		       (res 0)
 		       (found-char #f))
 	       (if (>= i str-len)
 		   (if found-char
-		       (*fl res sign)
+		       (* 1.0 (* res sign)) ;; (* 1.0) -> flonum
 		       +nan.0)
 		   (let* ((c (string-ref s i))
 			  (ci (char->integer (string-ref s i)))
@@ -145,45 +146,55 @@
 				res
 				found-char))))))))
       
+      (define (white-space? c)
+	 ;; TODO: not spec-conform
+	 (char-whitespace? c))
+
+      (define (first-non-white s)
+	 (let ((len (string-length s)))
+	    (let loop ((i 0))
+	       (cond
+		  ((>=fx i len) i)
+		  ((char-whitespace? (string-ref s i))
+		   (loop (+fx i 1)))
+		  (else i)))))
+
+      (define (read-sign s pos)
+	 (cond
+	    ((>=fx pos (string-length s))
+	     (values 1 pos))
+	    ((char=? #\- (string-ref s pos))
+	     (values -1 (+fx pos 1)))
+	    ((char=? #\+ (string-ref s pos))
+	     (values 1 (+fx pos 1)))
+	    (else
+	     (values 1 pos))))
+
+      (define (read-0x s Rfx pos)
+	 (cond
+	    ((and (or (=fx Rfx 0)
+		      (=fx Rfx 16))
+		  (or (substring-at? s "0x" pos)
+		      (substring-at? s "0X" pos)))
+	     (values 16 (+fx pos 2)))
+	    ((=fx Rfx 0)
+	     (values 10 pos))
+	    (else
+	     (values Rfx pos))))
+
       (let* ((s (any->string string))
-	     (sign (if (or (string-null? s)
-			   (not (char=? #\- (string-ref s 0))))
-		       1.0
-		       -1.0))
-	     (i (cond
-		   ((string-null? s) 0)
-		   ((or (char=? #\- (string-ref s 0))
-			(char=? #\+ (string-ref s 0)))
-		    1)
-		   (else 0)))
 	     (tmp-R (any->int32 radix)))
-	 (if (or (<fl tmp-R 2.0)
-		 (>fl tmp-R 36.0))
+	 (if (not (or (=fl tmp-R 0.0)
+		      (and (>=fl tmp-R 2.0)
+			   (<=fl tmp-R 36.0))))
 	     +nan.0
-	     (let* ((fix-R (flonum->fixnum tmp-R))
-		    (R (cond
-			  ((and (zero? fix-R)
-				(or (substring-at? s "0x" i)
-				    (substring-at? s "0X" i)))
-			   ;; i will be increased by 2 at call to parseIntR.
-			   16)
-			  ((zero? fix-R)
-			   10)
-			  (else
-			   fix-R))))
-		(cond
-		   ((<fx R 2)
-		    +nan.0)
-		   ((>fx R 36)
-		    +nan.0)
-		   (else
-		    (parseIntR s
-			       (if (and (=fx R 16)
-					(=fx fix-R 0))
-				   (+fx i 2)
-				   i)
-			       R
-			       sign)))))))
+	     (let ((pos (first-non-white s))
+		   (Rfx (flonum->fixnum tmp-R)))
+		(receive (sign pos)
+		   (read-sign s pos)
+		   (receive (R pos)
+		      (read-0x s Rfx pos)
+		      (parseIntR s pos R sign)))))))
    
    (define (parseFloat string) ;; 15.1.2.3
       (define decimal-char? char-numeric?)

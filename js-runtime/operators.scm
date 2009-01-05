@@ -146,6 +146,7 @@
 
 (define-inline (jsop-<< v1 v2)
    ;; 11.7.1
+   ;; TODO: we need a 32bit datatype! '<<'
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (any->uint32 v2))
 	  (by (bit-and #x1F (flonum->fixnum n2))))
@@ -153,6 +154,7 @@
 
 (define-inline (jsop->> v1 v2)
    ;; 11.7.2
+   ;; TODO: we need a 32bit datatype! '>>'
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (any->uint32 v2))
 	  (by (bit-and #x1F (flonum->fixnum n2))))
@@ -160,6 +162,7 @@
 
 (define-inline (jsop->>> v1 v2)
    ;; 11.7.3
+   ;; TODO: we need a 32bit datatype! '>>>'
    (let* ((v1_32 (any->uint32 v1))
 	  (n1 (flonum->elong v1_32))
 	  (n2 (any->uint32 v2))
@@ -231,6 +234,13 @@
 
 (define-inline (jsop-== v1 v2)
    (cond
+      ;; we have to test nan before we make the 'eq?' test, as
+      ;;  (let ((v +nan.0)) (print (eq? v v)))
+      ;; prints #t
+      ((or (and (flonum? v1) (nanfl? v1))
+	   (and (flonum? v2) (nanfl? v2)))
+       #f)
+
       ((eq? v1 v2)
        ;; shortcuts undefined, null, some numbers, some strings, booleans,
        ;; functions

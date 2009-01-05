@@ -526,7 +526,10 @@
 	       (<=fx k 21))
 	  ;; comma number. Just insert a '.' at the correct
 	  ;; location.
-	  (string-shift! buffer k (+fx k 1) (-fx nb-digits k))
+	  (string-shift! buffer
+			 (+fx pos k)
+			 (+fx pos (+fx k 1))
+			 (-fx nb-digits k))
 	  (string-set! buffer (+fx pos k) #\.)
 	  (+fx pos (+fx nb-digits 1)))
 	 ((and (<fx -6 k)

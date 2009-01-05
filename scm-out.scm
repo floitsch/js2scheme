@@ -454,7 +454,8 @@
 	    ((null? (cdr clauses))
 	     (cons (list (clause-body-id (car clauses))
 			 `(lambda ()
-			     ,(clause-body (car clauses))))
+			     (let ((fall-through (lambda () #unspecified)))
+				,(clause-body (car clauses)))))
 		   rev-result))
 	    (else
 	     (loop (cdr clauses)
@@ -776,8 +777,8 @@
 	  (hex? (or (string-prefix? "0x" str)
 		    (string-prefix? "0X" str)))
 	  (nb (if hex?
-		  (llong->flonum
-		   (string->llong
+		  (bignum->flonum
+		   (string->bignum
 		    (substring str 2 (string-length str)) 16))
 		  (string->real str))))
       (cond

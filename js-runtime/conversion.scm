@@ -283,6 +283,8 @@
 	  (finite->integer nb)))))
 
 (define (any->int32 any)
+   ;; TODO: would be much faster and better with 32bit datatype
+   ;; TODO: broken any->uint16: must take modulo.
    (let ((nb (any->number any)))
       (cond
 	 ((or (nanfl? nb)
@@ -297,6 +299,8 @@
 		 (llong->flonum uint32)))))))
 
 (define (any->uint32 any)
+   ;; TODO: would be much faster and better with u32bit datatype
+   ;; TODO: broken any->uint16: must take modulo.
    (let ((nb (any->number any)))
       (cond
 	 ((or (nanfl? nb)
@@ -309,6 +313,8 @@
 	      (bit-andllong tmp #lxffffffff))))))) ;; 32 bits
    
 (define (any->uint16 any)
+   ;; TODO: would be much faster and better with u32bit datatype
+   ;; TODO: broken any->uint16: must take modulo.
    (let ((nb (any->number any)))
       (cond
 	 ((or (nanfl? nb)

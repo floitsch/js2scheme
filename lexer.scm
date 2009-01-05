@@ -107,8 +107,8 @@
 (define *JS-grammar*
    (regular-grammar
 	 ;; TODO: are a010 and a013 really correct?
-	 ((blank        (in #\Space #\Tab #a010 #a012 #a013 #\Newline))
-	  (blank_no_lt  (in #\Space #\Tab #a012))
+	 ((blank        (in #\Space #\Tab #a010 #a011 #a012 #a013 #\Newline))
+	  (blank_no_lt  (in #\Space #\Tab #a011 #a012))
 	  (lt           (in #a013 #\Newline))
 	  (nonzero-digit   (in ("19")))
 	  (id_start     (or alpha #\$ #\_))
