@@ -789,9 +789,34 @@
 		 "could not transform to number:"
 		 str)))))
 
-(define-pmethod (String-out)
+(define (unescaped-minus-quotes s)
    ;; TODO: fix strings. (escaping always correct?)
-   this.val)
+   (define (unescape str)
+      (let ((char-l (string->list str)))
+	 (let loop ((char-l char-l)
+		    (rev-res '()))
+	    (if (null? char-l)
+		(list->string (reverse rev-res))
+		(cond
+		   ((eq? (car char-l) #\\)
+		    (loop (cddr char-l)
+			  ;; 7.8.4
+			  (cons (case (cadr char-l)
+				   ((#\b) #a008)
+				   ((#\t) #\tab)
+				   ((#\n) #\newline)
+				   ((#\v) #a011)
+				   ((#\f) #a012)
+				   ((#\r) #\return)
+				   (else (cadr char-l)))
+				rev-res)))
+		   (else
+		    (loop (cdr char-l)
+			  (cons (car char-l) rev-res))))))))
+   (unescape (substring s 1 (-fx (string-length s) 1))))
+
+(define-pmethod (String-out)
+   (unescaped-minus-quotes this.val))
 
 (define-pmethod (Array-out)
    `(js-array-literal

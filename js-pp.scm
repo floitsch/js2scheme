@@ -7,7 +7,6 @@
 	   protobject
 	   nodes
 	   var
-	   statements
 	   verbose
 	   js-out)
    (main js-pp))
@@ -15,7 +14,7 @@
 (define *in-file* #f)
 (define *out-file* #f)
 
-(define *version* "20060606")
+(define *version* "20090124")
 (define (handle-args args)
    (args-parse (cdr args)
       (section "Help")
@@ -60,7 +59,6 @@
 		     (current-output-port)
 		     (open-output-file *out-file*)))
 	  (ast (parse in-p)))
-      (statements ast)
       (js-out ast out-p)
       (if (not (string=? *in-file* "-"))
 	  (close-input-port in-p))

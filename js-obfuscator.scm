@@ -11,7 +11,6 @@
 	   fun-bindings
 	   symbol
 	   simplify
-	   statements
 	   verbose
 	   js-out)
    (main js-obfuscator))
@@ -108,7 +107,6 @@
       (symbol-resolution! ast imported-vars)
       (set! *integrate-Var-decl-lists* #f)
       (simplify! ast)
-      (statements ast)
       (obfuscate-ids! ast)
 ;      (with-output-to-port out-p
 ;	 (lambda () (pobject-dot-out ast)))

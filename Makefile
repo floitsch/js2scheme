@@ -3,14 +3,14 @@ BIGLOO = bigloo -cc $(CC)
 TARGETNAMES	= js-obfuscator js-pp js2scheme
 
 OBFUSCATOR_BGL_MODULES	= config fun-bindings nodes protobject var js-obfuscator js-out \
-		 verbose lexer parser symbol with ewal statements obfuscate-ids simplify \
+		 verbose lexer parser symbol with ewal obfuscate-ids simplify \
 		 html symbol-table
 
 PP_BGL_MODULES	= config nodes protobject js-pp js-out var \
-		 verbose lexer parser statements
+		 verbose lexer parser
 
 JS2SCHEME_LIB_MODULES = config fun-bindings nodes protobject var \
-		 verbose lexer parser symbol with ewal statements simplify \
+		 verbose lexer parser symbol with ewal simplify \
                  expand1 label label-resolution simplify-labels bind-exit \
 		 escape liveness let scm-out js2scheme-comp \
 		 symbol-table arguments js-out stmt-result

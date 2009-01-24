@@ -97,24 +97,24 @@
       (if body-block?
 	  (begin
 	     (space-out)
-	     (body.traverse #f indent #f #f newline-after?)
+	     (body.traverse #f indent #t #f
+			    #f newline-after?)
 	     #t)
 	  (begin
 	     (if (and (config 'compress?)
 		      needs-separation?)
 		 (display " ")
-		 (newline-out))
-	     (body.traverse #f (indent+ indent) #f)
+		 (newline-out)) ;; compress?==#t -> newline-out does nothing
+	     (body.traverse #f (indent+ indent) #t #f)
 	     #f))))
 
 (define-macro (check-expr . Lbody)
-   `(let* ((stmt? this.stmt?)
-	   (this-priority (this.priority))
+   `(let* ((this-priority (this.priority))
 	   (needs-parentheses? (and (not stmt?)
 				    this-priority
 				    priority
 				    (< this-priority priority)))
-	   (in-for-in? (and (not needs-parentheses?) in-for-in?)))
+	   (in-for-init? (and (not needs-parentheses?) in-for-init?)))
        (if stmt? (indent! indent))
        (if needs-parentheses? (display "("))
        ,@Lbody
@@ -130,9 +130,9 @@
 				  in-for-init?)
    (if (inherits-from? stmt (node 'Block))
        (for-each (lambda (n)
-		    (n.traverse #f indent #f))
+		    (n.traverse #f indent #t #f))
 		 stmt.els)
-       (stmt.traverse #f indent #f)))
+       (stmt.traverse #f indent #t #f)))
 
 (define (stmt->block stmt)
    (cond
@@ -145,12 +145,12 @@
 
 ;; priority is only for expressions.
 ;; indent only for statements.
-(define-pmethod (Node-out priority indent in-for-in?)
+(define-pmethod (Node-out priority indent stmt? in-for-init?)
    (error "Node-out"
 	  "forgot node type: "
 	  (pobject-name this)))
 
-(define-pmethod (Program-out priority indent in-for-in?)
+(define-pmethod (Program-out priority indent stmt? in-for-init?)
    (Block-out-without-braces this.body
 			     #f
 			     0
@@ -158,70 +158,65 @@
    (when *generate-function-strings?*
       (set! this.function-str-ids-ht *function-strings-ht*)))
 
-(define-pmethod (Sequence-out priority indent in-for-in?)
+(define-pmethod (Sequence-out priority indent stmt? in-for-init?)
    (check-expr
     (let ((els this.els))
-       ((car els).traverse this-priority indent in-for-in?)
+       ((car els).traverse this-priority indent #f in-for-init?)
        (for-each (lambda (n)
 		    (display ",")
 		    (space-out)
-		    (n.traverse this-priority indent in-for-in?))
+		    (n.traverse this-priority indent #f in-for-init?))
 		 (cdr els)))))
 
-(define-pmethod (Block-out priority indent in-for-in? . Lflags)
-   (let ((indent? (if (null? Lflags)
-		      #t
-		      (car Lflags)))
-	 (new-line-after? (if (null? Lflags)
-			      #t
-			      (cadr Lflags))))
-
-      (if indent? (indent! indent))
-      (display "{")
-      (newline-out)
-      (for-each (lambda (n)
-		   (n.traverse #f (indent+ indent) #f))
-		this.els)
-      (indent! indent)
-      (display "}")
-      (if new-line-after? (newline-out))))
+(define-pmethod (Block-out priority indent stmt? in-for-init?
+			   #!optional (indent? #t) (new-line-after? #t))
+   (if indent? (indent! indent))
+   (display "{")
+   (newline-out)
+   (for-each (lambda (n)
+		(n.traverse #f (indent+ indent)  #t #f))
+	     this.els)
+   (indent! indent)
+   (display "}")
+   (if new-line-after? (newline-out)))
 
 (define-pmethod (Var-out)
    (display (or this.generated
 		this.id)))
 
-(define-pmethod (Var-decl-list-out priority indent in-for-in?)
+(define-pmethod (Var-decl-list-out priority indent stmt? in-for-init?)
    (check-expr
     (display "var ")
     (let ((els this.els))
-       ((car els).traverse 1 indent #f)
+       ((car els).traverse 1 indent #f #f)
        (for-each (lambda (n)
 		    (display ",")
 		    (space-out)
-		    (n.traverse 1 indent #f))
+		    (n.traverse 1 indent #f #f))
 		 (cdr els)))))
 
-(define-pmethod (Var-ref-out priority indent in-for-in?)
+(define-pmethod (Var-ref-out priority indent stmt? in-for-init?)
    (check-expr
     (if this.var
 	(this.var.out)
 	(display this.id))))
 
-(define-pmethod (NOP-out priority indent in-for-in?)
+(define-pmethod (NOP-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display ";")
    (newline-out))
 
-(define-pmethod (If-out priority indent in-for-in?)
+(define-pmethod (If-out priority indent stmt? in-for-init?
+			#!optional (indent? #t))
    (if (and (inherits-from? this.then (node 'If)) ;; nested if
 	    (inherits-from? this.then.else (node 'NOP)) ;; has no else-branch
 	    (not (inherits-from? this.else (node 'NOP)))) ;; but we have one
        (set! this.then (new-node Block (list this.then)))) ;; protect our else
-   (indent! indent)
+   (when indent? (indent! indent))
    (display "if")
    (space-out)
    (display "(")
-   (this.test.traverse #f indent #f)
+   (this.test.traverse #f indent #f #f)
    (display ")")
    (let* ((else-branch? (not (inherits-from? this.else (node 'NOP))))
 	  (then-block? (block-body this.then indent #f (not else-branch?))))
@@ -230,33 +225,37 @@
 	     (space-out)
 	     (indent! indent))
 	 (display "else")
-	 (block-body this.else indent #t #t))))
+	 (if (inherits-from? this.else (node 'If))
+	     (begin
+		(display #\space)
+		(this.else.traverse #f indent #t #f #f))
+	     (block-body this.else indent #t #t)))))
 
-(define-pmethod (For-out priority indent in-for-in?)
+(define-pmethod (For-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "for")
    (space-out)
    (display "(")
-   (when this.init (this.init.traverse #f (indent+ indent) #f))
+   (when this.init (this.init.traverse #f (indent+ indent) #f #t))
    (display ";")
    (space-out)
-   (when this.test (this.test.traverse #f (indent+ indent) #f))
+   (when this.test (this.test.traverse #f (indent+ indent) #f #f))
    (display ";")
    (space-out)
-   (when this.incr (this.incr.traverse #f (indent+ indent) #f))
+   (when this.incr (this.incr.traverse #f (indent+ indent) #f #f))
    (display ")")
    (block-body this.body indent #f #t))
 
-(define-pmethod (While-out priority indent in-for-in?)
+(define-pmethod (While-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "while")
    (space-out)
    (display "(")
-   (this.test.traverse #f (indent+ indent) #f)
+   (this.test.traverse #f (indent+ indent) #f #f)
    (display ")")
    (block-body this.body indent #f #t))
 
-(define-pmethod (Do-out priority indent in-for-in?)
+(define-pmethod (Do-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "do")
    (if (block-body this.body indent #t #f)
@@ -265,90 +264,90 @@
    (display "while")
    (space-out)
    (display "(")
-   (this.test.traverse #f (indent+ indent) #f)
+   (this.test.traverse #f (indent+ indent) #f #f)
    (display ");")
    (newline-out))
 
-(define-pmethod (For-in-out priority indent in-for-in?)
+(define-pmethod (For-in-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "for")
    (space-out)
    (display "(")
-   (this.lhs.traverse #f (indent+ indent) #t)
+   (this.lhs.traverse #f (indent+ indent) #f #t)
    (display " in ")
-   (this.obj.traverse #f (indent+ indent) #f)
+   (this.obj.traverse #f (indent+ indent) #f #f)
    (display ")")
    (block-body this.body indent #f #t))
 
-(define-pmethod (Continue-out priority indent in-for-in?)
+(define-pmethod (Continue-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "continue")
    (when this.id (display* " " this.id))
    (display ";")
    (newline-out))
 
-(define-pmethod (Break-out priority indent in-for-in?)
+(define-pmethod (Break-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "break")
    (when this.id (display* " " this.id))
    (display ";")
    (newline-out))
 
-(define-pmethod (Return-out priority indent in-for-in?)
+(define-pmethod (Return-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "return ")
-   (this.expr.traverse #f (indent+ indent) #f)
+   (this.expr.traverse #f (indent+ indent) #f #f)
    (display ";")
    (newline-out))
 
-(define-pmethod (With-out priority indent in-for-in?)
+(define-pmethod (With-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "with")
    (space-out)
    (display "(")
-   (this.obj.traverse #f (indent+ indent) #f)
+   (this.obj.traverse #f (indent+ indent) #f #f)
    (display ")")
    (block-body this.body indent #f #t))
 
-(define-pmethod (Switch-out priority indent in-for-in?)
+(define-pmethod (Switch-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "switch")
    (space-out)
    (display "(")
-   (this.key.traverse #f (indent+ indent) #f)
+   (this.key.traverse #f (indent+ indent) #f #f)
    (display ")")
    (space-out)
    (display "{")
    (newline-out)
    (for-each (lambda (n)
-		(n.traverse #f indent #f))
+		(n.traverse #f indent #t #f))
 	     this.cases)
    (indent! indent)
    (display "}")
    (newline-out))
 
-(define-pmethod (Case-out priority indent in-for-in?)
+(define-pmethod (Case-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "case ")
-   (this.expr.traverse #f (indent+ indent) #f)
+   (this.expr.traverse #f (indent+ indent) #f #f)
    (display ":")
    (newline-out)
    (Block-out-without-braces this.body #f (indent+ indent) #f))
 
-(define-pmethod (Default-out priority indent in-for-in?)
+(define-pmethod (Default-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "default:")
    (newline-out)
    (Block-out-without-braces this.body #f (indent+ indent) #f))
 
-(define-pmethod (Throw-out priority indent in-for-in?)
+(define-pmethod (Throw-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "throw ")
-   (this.expr.traverse #f (indent+ indent) #f)
+   (this.expr.traverse #f (indent+ indent) #f #f)
    (display ";")
    (newline-out))
 
-(define-pmethod (Try-out priority indent in-for-in?)
+(define-pmethod (Try-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display "try")
    (let ((block? (block-body this.body indent #t #f)))
@@ -356,7 +355,7 @@
 	  (space-out)
 	  (indent! indent))
       (if this.catch
-	  (this.catch.traverse #f indent #f))
+	  (this.catch.traverse #f indent #f #f))
       (if this.finally
 	  (begin
 	     (space-out)
@@ -364,14 +363,14 @@
 	     (block-body (stmt->block this.finally) indent #t #t))
 	  (newline-out))))
 
-(define-pmethod (Catch-out priority indent in-for-in?)
+(define-pmethod (Catch-out priority indent stmt? in-for-init?)
    (space-out)
    (display "catch(")
-   (this.decl.traverse #f indent #f)
+   (this.decl.traverse #f indent #f #f)
    (display ")")
    (block-body (stmt->block this.body) indent #f #t))
 
-(define-pmethod (Labelled-out priority indent in-for-in?)
+(define-pmethod (Labelled-out priority indent stmt? in-for-init?)
    (indent! indent)
    (display* this.id ":")
    (block-body this.body indent #f #t))
@@ -381,11 +380,11 @@
    (if (null? params)
        'do-nothing
        (begin
-	  ((car params).traverse 1 indent #f)
+	  ((car params).traverse 1 indent #f #f)
 	  (for-each (lambda (param)
 		       (display ",")
 		       (space-out)
-		       (param.traverse 1 indent #f))
+		       (param.traverse 1 indent #f #f))
 		    (cdr params))))
    (display ")"))
 
@@ -395,7 +394,7 @@
       (if name
 	  (begin
 	     (display " ")
-	     (name.traverse #f indent #f)))
+	     (name.traverse #f indent #f #f)))
       (parameter-display fun.params indent)
       (block-body (stmt->block fun.body)
 		  indent #f #f))
@@ -426,84 +425,84 @@
       (else
        (do-function-out))))
 
-(define-pmethod (Fun-binding-out priority indent in-for-in?)
+(define-pmethod (Fun-binding-out priority indent stmt? in-for-init?)
    (indent! indent)
    (function-out this.val this.lhs indent)
    (newline-out))
 
-(define-pmethod (Named-fun-out priority indent in-for-in?)
+(define-pmethod (Named-fun-out priority indent stmt? in-for-init?)
    (check-expr
     (function-out this.body this.decl indent)))
 
-(define-pmethod (Fun-out priority indent in-for-in?)
+(define-pmethod (Fun-out priority indent stmt? in-for-init?)
    (check-expr
     (function-out this #f indent)))
 
-(define-pmethod (Vassig-out priority indent in-for-in?)
+(define-pmethod (Vassig-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.lhs.traverse this-priority indent in-for-in?)
+    (this.lhs.traverse this-priority indent #f in-for-init?)
     (space-out)
     (display "=")
     (space-out)
-    (this.val.traverse this-priority indent in-for-in?)))
+    (this.val.traverse this-priority indent #f in-for-init?)))
 
-(define-pmethod (Vassig-op-out priority indent in-for-in?)
+(define-pmethod (Vassig-op-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.lhs.traverse this-priority indent in-for-in?)
+    (this.lhs.traverse this-priority indent #f in-for-init?)
     (space-out)
     (display* (op->string this.op.id) "=")
     (space-out)
-    (this.val.traverse this-priority indent in-for-in?)))
+    (this.val.traverse this-priority indent #f in-for-init?)))
 
-(define-pmethod (Accsig-out priority indent in-for-in?)
+(define-pmethod (Accsig-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.lhs.traverse this-priority indent in-for-in?)
+    (this.lhs.traverse this-priority indent #f in-for-init?)
     (space-out)
     (display "=")
     (space-out)
-    (this.val.traverse this-priority indent in-for-in?)))
+    (this.val.traverse this-priority indent #f in-for-init?)))
 
-(define-pmethod (Accsig-op-out priority indent in-for-in?)
+(define-pmethod (Accsig-op-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.lhs.traverse this-priority indent in-for-in?)
+    (this.lhs.traverse this-priority indent #f in-for-init?)
     (space-out)
     (display* (op->string this.op.id) "=")
     (space-out)
-    (this.val.traverse this-priority indent in-for-in?)))
+    (this.val.traverse this-priority indent #f in-for-init?)))
 
-(define-pmethod (Cond-out priority indent in-for-in?)
+(define-pmethod (Cond-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.test.traverse this-priority indent in-for-in?)
+    (this.test.traverse this-priority indent #f in-for-init?)
     (display "?")
     (space-out)
-    (this.then.traverse this-priority indent #f)
+    (this.then.traverse this-priority indent #f #f)
     (display ":")
     (space-out)
-    (this.else.traverse this-priority indent #t)))
+    (this.else.traverse this-priority indent #f #t)))
 
-(define-pmethod (Call-out priority indent in-for-in?)
+(define-pmethod (Call-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.op.traverse this-priority indent in-for-in?)
+    (this.op.traverse this-priority indent #f in-for-init?)
     (display "(")
     (unless (null? this.args)
-       ((car this.args).traverse 1 indent #f)
+       ((car this.args).traverse 1 indent #f #f)
        (for-each (lambda (arg)
 		    (display ",")
 		    (space-out)
-		    (arg.traverse 1 indent #f))
+		    (arg.traverse 1 indent #f #f))
 		 (cdr this.args)))
     (display ")")))
 
 (define *max-priority* 100)
 
-(define-pmethod (Binary-out priority indent in-for-in?)
+(define-pmethod (Binary-out priority indent stmt? in-for-init?)
    ;; force parenthesis if we are in a for-in
-   (let ((priority (if (and in-for-in?
+   (let ((priority (if (and in-for-init?
 			    (eq? this.op.id 'in))
 		       *max-priority*
 		       priority)))
       (check-expr
-       ((car this.args).traverse this-priority indent in-for-in?)
+       ((car this.args).traverse this-priority indent #f in-for-init?)
        (case this.op.id
 	  ((in instanceof) (display " ") (display this.op.id) (display " "))
 	  (else (space-out) (display (op->string this.op.id)) (space-out)))
@@ -531,79 +530,80 @@
 				      "missed binary operator"
 				      this.op.id)))))
 	  ((cadr this.args).traverse rhs-priority
-			   indent in-for-in?)))))
+			   indent #f in-for-init?)))))
    
-(define-pmethod (Unary-out priority indent in-for-in?)
+(define-pmethod (Unary-out priority indent stmt? in-for-init?)
    (check-expr
     (display this.op.id)
     (case this.op.id
        ((delete void typeof) (display " "))
        (else 'do-nothing))
-    ((car this.args).traverse this-priority indent in-for-in?)))
+    ((car this.args).traverse this-priority indent #f in-for-init?)))
 
-(define-pmethod (Postfix-out priority indent in-for-in?)
+(define-pmethod (Postfix-out priority indent stmt? in-for-init?)
    (check-expr
-    ((car this.args).traverse this-priority indent in-for-in?)
+    ((car this.args).traverse this-priority indent #f in-for-init?)
     (display this.op.id)))
 
-(define-pmethod (New-out priority indent in-for-in?)
+(define-pmethod (New-out priority indent stmt? in-for-init?)
    (check-expr
     (display "new ")
-    (this.class.traverse this-priority indent in-for-in?)
+    (this.class.traverse this-priority indent #f in-for-init?)
     (display "(")
     (unless (null? this.args)
-       ((car this.args).traverse 1 indent #f)
+       ((car this.args).traverse 1 indent #f #f)
        (for-each (lambda (arg)
 		    (display ",")
 		    (space-out)
-		    (arg.traverse 1 indent #f))
+		    (arg.traverse 1 indent #f #f))
 		 (cdr this.args)))
     (display ")")))
 
-(define-pmethod (Access-out priority indent in-for-in?)
+(define-pmethod (Access-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.obj.traverse this-priority indent in-for-in?)
+    (this.obj.traverse this-priority indent #f in-for-init?)
     (display "[")
-    (this.field.traverse this-priority indent #f)
+    (this.field.traverse this-priority indent #f #f)
     (display "]")))
 
-(define-pmethod (Dot-out priority indent in-for-in?)
+(define-pmethod (Dot-out priority indent stmt? in-for-init?)
    (check-expr
-    (this.obj.traverse this-priority indent in-for-in?)
+    (this.obj.traverse this-priority indent #f in-for-init?)
     (display ".")
     (display this.field.val)))
 
-(define-pmethod (This-out priority indent in-for-in?)
+(define-pmethod (This-out priority indent stmt? in-for-init?)
    (check-expr
     (display "this")))
 
-(define-pmethod (Literal-out priority indent in-for-in?)
+(define-pmethod (Literal-out priority indent stmt? in-for-init?)
    (error "Literal-out" "forgot literal type" this.val))
 
-(define-pmethod (Undefined-out priority indent in-for-in?)
+(define-pmethod (Undefined-out priority indent stmt? in-for-init?)
    (check-expr
     (display "undefined")))
 
-(define-pmethod (Null-out priority indent in-for-in?)
+(define-pmethod (Null-out priority indent stmt? in-for-init?)
    (check-expr
     (display "null")))
 
-(define-pmethod (Bool-out priority indent in-for-in?)
+(define-pmethod (Bool-out priority indent stmt? in-for-init?)
    (check-expr
     (if this.val
 	(display "true")
 	(display "false"))))
 
-(define-pmethod (Number-out priority indent in-for-in?)
+(define-pmethod (Number-out priority indent stmt? in-for-init?)
    (check-expr
     (display this.val)))
 
-(define-pmethod (String-out priority indent in-for-in?)
-   ;; TODO: escape string
+(define-pmethod (String-out priority indent stmt? in-for-init?)
    (check-expr
-    (display* this.val))) ;"\"" (string-for-read this.val) "\"")))
+    ;; the string is the original one, that had been read. Therefore the
+    ;; escaping... is the same as originally and can't be wrong.gg
+    (display this.val)))
 
-(define-pmethod (Array-out priority indent in-for-in?)
+(define-pmethod (Array-out priority indent stmt? in-for-init?)
    (check-expr
     (display "[")
     (let loop ((i 0)
@@ -616,22 +616,22 @@
 	      (loop (+ i 1)
 		    els)
 	      (begin
-		 ((car els).expr.traverse 1 indent in-for-in?)
+		 ((car els).expr.traverse 1 indent #f in-for-init?)
 		 (loop (+ i 1)
 		       (cdr els))))))
     (display "]")))
 
-(define-pmethod (Obj-init-out priority indent in-for-in?)
+(define-pmethod (Obj-init-out priority indent stmt? in-for-init?)
    (check-expr
     (display "{")
     (for-each (lambda (prop)
 		 (display* "\"" prop.name.val "\":")
 		 (space-out)
-		 (prop.val.traverse #f indent #f))
+		 (prop.val.traverse #f indent #f #f))
 	      this.props)
     (display "}")))
 
-(define-pmethod (Reg-exp-out priority indent in-for-in?)
+(define-pmethod (Reg-exp-out priority indent stmt? in-for-init?)
    (check-expr
     (display this.pattern)))
 
@@ -702,4 +702,4 @@
 		(overload out out (Var)
 			  (with-output-to-port p
 			     (lambda ()
-				(tree.traverse #f 0 #f))))))))
+				(tree.traverse #f 0 #t #f))))))))

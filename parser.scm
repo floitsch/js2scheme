@@ -133,15 +133,9 @@
 		      (error "var-decl-list"
 			     "unexpected token: "
 			     "in"))
-		     ((or (null? rev-vars)
-			  (not (null? (cdr rev-vars))))
-		      (error "var-decl-list"
-			     "for (var ... in ...) must contain *one* variable"
-			     #f))
 		     (else
 		      (new-node Var-decl-list rev-vars))))
 	    (else (if (and (not in-for-init?)
-			   (not (null? rev-vars))
 			   (or (at-new-line-token?)
 			       (eq? (peek-token-type) 'EOF)))
 		      (new-node Var-decl-list (reverse! rev-vars))
