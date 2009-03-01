@@ -105,7 +105,7 @@
 	  (set! *obfuscation-mapping-p* (open-output-file *obfuscation-mapping-file*)))
       (fun-bindings! ast)
       (symbol-resolution! ast imported-vars)
-      (set! *integrate-Var-decl-lists* #f)
+      (set! *integrate-Var-decl-lists* #f) ;; HACK.
       (simplify! ast)
       (obfuscate-ids! ast)
 ;      (with-output-to-port out-p

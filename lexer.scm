@@ -3,12 +3,8 @@
 	   *care-future-reserved*
 	   *Reg-exp-grammar*))
 
-(define-struct coord
-   fname  ;; string  : the file of the coord
-   pos)   ;; integer : the number of the character of the coord
-
 (define (the-coord input-port)
-   (coord (input-port-name input-port) (input-port-position input-port)))
+   (list 'at (input-port-name input-port) (input-port-position input-port)))
 
 (define *care-future-reserved* #t)
 

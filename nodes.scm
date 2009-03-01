@@ -109,7 +109,12 @@
 
 
 (define (node n)
-   (hashtable-get (thread-parameter '*nodes*) n))
+   (let ((res (hashtable-get (thread-parameter '*nodes*) n)))
+      (when (not res)
+	 (error "nodes"
+		"tried to get bad node"
+		n))
+      res))
 
 ;; === nodes-init =====
 (define (nodes-init!)

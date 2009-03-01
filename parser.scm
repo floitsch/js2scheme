@@ -5,8 +5,19 @@
    (import lexer
 	   protobject
 	   nodes
-	   verbose)
+	   verbose
+	   config)
    (export (parse::pobject port)))
+
+(define (my-error msg obj token)
+   (if token
+       (error/source "parser"
+		     msg
+		     obj
+		     token)
+       (error "parser"
+	      msg
+	      obj)))
 
 (define (parse port)
    ;; fun-body at bottom of file
@@ -18,10 +29,10 @@
    
    (define (read-regexp intro-token)
       (let ((token (read/rp *Reg-exp-grammar* *input-port*)))
-	 (if (eq? (car token) 'EOF)
-	     (error #f "unfinished regular expression literal" #f))
-	 (if (eq? (car token) 'ERROR)
-	     (error #f "bad regular-expression literal" (cdr token)))
+	 (when (eq? (car token) 'EOF)
+	    (my-error "unfinished regular expression literal" #f token))
+	 (when (eq? (car token) 'ERROR)
+	    (my-error "bad regular-expression literal" (cdr token) token))
 	 (string-append (symbol->string intro-token) (cdr token))))
    
    (define (peek-token)
@@ -51,9 +62,9 @@
       (let ((token (consume-any!)))
 	 (if (eq? (car token) type)
 	     (cdr token)
-	     (error token
-		    (format "unexpected token. expected ~a got: " type)
-		    (car token)))))
+	     (my-error (format "unexpected token. expected ~a got: " type)
+		       (car token)
+		       token))))
    
    (define (consume-statement-semicolon!)
       (cond
@@ -64,7 +75,7 @@
 	      (eq? (peek-token-type) 'EOF))
 	  'do-nothing)
 	 (else
-	  (error #f "unexpected token: " (peek-token)))))
+	  (my-error "unexpected token: " (peek-token) (peek-token)))))
    
    (define (consume-any!)
       (let ((res (peek-token)))
@@ -88,7 +99,9 @@
    (define (source-element)
       (case (peek-token-type)
 	 ((function) (function-declaration))
-	 ((ERROR EOF) (error #f "eof or error" (cdr (consume-any!))))
+	 ((ERROR EOF)
+	  (let ((t (consume-any!)))
+	     (my-error "eof or error" t t)))
 	 (else (statement))))
    
    (define (statement)
@@ -105,6 +118,9 @@
 	 ((switch) (switch))
 	 ((throw) (throw))
 	 ((try) (trie))
+	 ((function) (if (config 'strict-fun-decls)
+			 (my-error "function keyword at bad position" #f (peek-token))
+			 (function-declaration)))
 	 ((ID) (labelled-or-expr))
 	 ;; errors will be handled in the expr-clause.
 	 (else (expression-statement))))
@@ -130,18 +146,19 @@
 		     (loop (cons (var in-for-init?) rev-vars)))
 	    ((in) (cond
 		     ((not in-for-init?)
-		      (error "var-decl-list"
-			     "unexpected token: "
-			     "in"))
+		      (my-error "bad token:"
+				"in"
+				(peek-token)))
 		     (else
 		      (new-node Var-decl-list rev-vars))))
 	    (else (if (and (not in-for-init?)
 			   (or (at-new-line-token?)
 			       (eq? (peek-token-type) 'EOF)))
 		      (new-node Var-decl-list (reverse! rev-vars))
-		      (error #f
-			     "unexpected token, error or EOF"
-			     (cdr (consume-any!))))))))
+		      (let ((t (consume-any!)))
+			 (my-error "unexpected token, error or EOF"
+				   (cdr (consume-any!))
+				   t)))))))
    
    (define (var in-for-init?)
       (let ((id (consume! 'ID)))
@@ -204,29 +221,26 @@
    ;; for (lhs/var x in obj)
    (define (for-in lhs)
       ;; TODO: weed out bad lhs
-      (consume! 'in)
-      (let ((obj (expression #f))
-	    (ignore-RPAREN (consume! 'RPAREN))
-	    (body (statement)))
+      (let* ((error-token (peek-token))
+	     (dummy (consume! 'in))
+	     (obj (expression #f))
+	     (ignore-RPAREN (consume! 'RPAREN))
+	     (body (statement)))
 	 (cond
 	    ((inherits-from? lhs (node 'Var-decl-list))
 	     (let ((lhs-vars lhs.els))
 		(unless (null? (cdr lhs-vars))
-		   (error #f
-			  "Only one variable allowed in 'for ... in' loop"
-			  (cadr lhs-vars).id))
-		(new-node For-in (car lhs-vars) obj body)))
-	    ((or (inherits-from? lhs (node 'Sequence))
-		 (inherits-from? lhs (node 'Assig))
-		 (inherits-from? lhs (node 'Binary))
-		 (inherits-from? lhs (node 'Unary))
-		 (inherits-from? lhs (node 'Postfix)))
-	     (error #f
-		    "Bad left-hand side in 'for ... in' loop construct"
-		    (pobject-name lhs)))
+		   (my-error "Only one variable allowed in 'for-in' loop"
+			     (cadr lhs-vars).id
+			     error-token))
+		(new-node For-in lhs obj body)))
+	    ((or (inherits-from? lhs (node 'Var-ref))
+		 (inherits-from? lhs (node 'Access)))
+	     (new-node For-in lhs obj body))
 	    (else
-	     (new-node For-in lhs obj body)))))
-   
+	     (my-error "Bad left-hand side in 'for-in' loop construct"
+		       (pobject-name lhs) error-token)))))
+
    (define (while)
       (consume! 'while)
       (consume! 'LPAREN)
@@ -304,8 +318,9 @@
 	    ((case) (loop (cons (case-clause) rev-cases)
 			  default-case-done?))
 	    ((default) (if default-case-done?
-			   (error #f "Only one default-clause allowed"
-				  (peek-token))
+			   (my-error "Only one default-clause allowed"
+				     (peek-token)
+				     (peek-token))
 			   (loop (cons (default-clause) rev-cases)
 				 #t))))))
    
@@ -331,7 +346,7 @@
    (define (throw)
       (consume! 'throw)
       (if (at-new-line-token?)
-	  (error #f "throw must have a value" #f))
+	  (my-error "throw must have a value" #f (peek-token)))
       (let ((expr (expression #f)))
 	 (consume-statement-semicolon!)
 	 (new-node Throw expr)))
@@ -364,7 +379,6 @@
    (define (labelled-or-expr)
       (let* ((id-token (consume-any!))
 	     (next-token-type (peek-token-type)))
-	 ;; TODO: following 2 lines should be assert.
 	 [assert (id-token) (eq? (car id-token) 'ID)]
 	 (token-push-back! id-token)
 	 (if (eq? next-token-type  ':)
@@ -603,7 +617,7 @@
 	 ((true false) (new-node Bool (eq? (car (consume-any!)) 'true)))
 	 ((NUMBER) (new-node Number (consume! 'NUMBER))) ;; still as string!
 	 ((STRING) (new-node String (consume! 'STRING)))
-	 ((EOF) (error #f "unexpected end of file" #f))
+	 ((EOF) (my-error "unexpected end of file" #f (peek-token)))
 	 ((/ /=) (let ((reg-exp (read-regexp (peek-token-type))))
 		    ;; consume-any *must* be after having read the reg-exp,
 		    ;; so that the read-regexp works. Only then can we remove
@@ -611,7 +625,8 @@
 		    (consume-any!) ;; the / or /=
 		    (new-node Reg-exp reg-exp)))
 	 (else
-	  (error #f "unexpected token: " (consume-any!)))))
+	  (let ((t (peek-token)))
+	     (my-error "unexpected token: " t t)))))
    
    (define (array-literal)
       (consume! 'LBRACKET)
@@ -635,7 +650,11 @@
    (define (object-literal)
       (define (property-name)
 	 (case (peek-token-type)
-	    ((ID) (consume! 'ID))
+	    ((ID) (new-node String
+			    ;; on the fly conversion to string.
+			    (string-append "\""
+					   (symbol->string (consume! 'ID))
+					   "\"")))
 	    ((STRING) (new-node String (consume! 'STRING)))
 	    ((NUMBER) (new-node Number (consume! 'NUMBER)))))
       

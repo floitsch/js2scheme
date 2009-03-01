@@ -8,6 +8,7 @@
 (define *fun-strings?* #t)
 (define *module?* #f)
 (define *module-token* #f)
+(define *strict-fun-decls* #t)
 
 (define (parse-arguments args)
    (args-parse args
@@ -19,6 +20,9 @@
       (section "Misc")
       ((("--no-fun-source") (help "Do not include the source of functions."))
        (set! *fun-strings?* #f))
+      ((("--stmt-funs")
+	(help "Allow function declarations at all statement-positions."))
+       (set! *strict-fun-decls* #f))
       ((("-v" "--verbose") (help "Verbose output"))
        (set! *verbose* #t))
       (("-c" (help "Create module file."))
@@ -101,6 +105,7 @@
       (hashtable-put! config-ht 'verbose *verbose*)
       (hashtable-put! config-ht 'function-strings *fun-strings?*)
       (hashtable-put! config-ht 'module #t)
+      (hashtable-put! config-ht 'strict-fun-decls *strict-fun-decls*)
       (let ((in-p (if (string=? (car *rev-in-files*) "-")
 		      (current-input-port)
 		      (open-input-file (car *rev-in-files*)))))

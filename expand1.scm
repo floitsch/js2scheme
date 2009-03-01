@@ -20,7 +20,7 @@
 ;; - delete X is transformed to
 ;;    * delete o f (Delete-property-call) if X is of form o[f]
 ;;    * delete v   (Delete-call) otherwise
-;; - For-in if lhs is Access replace it with temporary variable, and put
+;; - For-in if lhs is not an identifier replace it with temporary variable, and put
 ;;   assignment into loop.
 ;; - replace ++x with tmp = x; x = x+1; tmp  (same for --) 11.4.4, 11.4.5
 ;; - replace x++ with x = x+1;  (same for --) 11.3.1, 11.3.2
@@ -83,17 +83,39 @@
 	 break-labelled)))
 
 (define-pmethod (For-in-expand!)
-   (when (inherits-from? this.lhs (node 'Access))
-      (let* ((tmp (Decl-of-new-Var (gensym 'tmp)))
-	     (tmp-var tmp.var)
-	     (old-lhs this.lhs))
-	 (set! this.lhs tmp)
-	 (set! this.body (new-node Block
-				   (list (new-node Accsig
-						   old-lhs
-						   (tmp-var.reference))
-					 this.body)))))
-   (pcall this While-expand!))
+   (let ((lhs this.lhs))
+      (cond
+	 ((inherits-from? lhs (node 'Var-ref))
+	  (pcall this While-expand!))
+	 ((inherits-from? lhs (node 'Access))
+	  (let* ((tmp (Decl-of-new-Var (gensym 'tmp)))
+		 (tmp-var tmp.var)
+		 (old-lhs this.lhs))
+	     (set! this.lhs tmp)
+	     (set! this.body (new-node Block
+				       (list (new-node Accsig
+						       old-lhs
+						       (tmp-var.reference))
+					     this.body))))
+	  (pcall this While-expand!))
+	 ((and (inherits-from? lhs (node 'Var-decl-list))
+	       (inherits-from? (car lhs.els) (node 'Vassig)))
+	  ;; put the assignment outside the For-in (it must be evaluated only
+	  ;; once).
+	  ;; we are dropping the var-decl-list in the process
+	  (let* ((assig (car lhs.els))
+		 (var assig.lhs.var))
+	     (set! this.lhs (var.reference))
+	     ((new-node Block
+			(list assig
+			      this)).traverse!)))
+	 ((inherits-from? lhs (node 'Var-decl-list))
+	  ;; just drop the Var-decl-list
+	  (set! this.lhs (car lhs.els))
+	  (pcall this While-expand!))
+	 (else (error "expand1"
+		      "forgot something in For-in"
+		      #f)))))
 
 (define-pmethod (Switch-clause-expand!)
    (this.traverse0!)
