@@ -629,23 +629,27 @@
 	     (my-error "unexpected token: " t t)))))
    
    (define (array-literal)
+      ;; basically: every array-element finishes with a ','.
+      ;;   however. the very last one can be avoided if the array-el is not an
+      ;;   ellision.
+      ;; In other words: [a,] and [a] are equivalent. but [,] and [] are not.
+      ;; Whenever we find an (non-empty) array-el, we automatically consume the
+      ;; ',' (if it exists).
       (consume! 'LBRACKET)
       (let loop ((rev-els '())
 		 (length 0))
 	 (case (peek-token-type)
 	    ((RBRACKET) (consume-any!)
 			(new-node Array (reverse! rev-els) length))
-	    ((COMMA) (loop rev-els (+fx length 1)))
-	    (else (let ((array-el (new-node Array-element length (assig-expr #f))))
-		     (if (eq? (peek-token-type) 'COMMA)
-			 (begin
-			    (consume-any!)
-			    (loop (cons array-el rev-els)
-				  (+fx length 1)))
-			 (begin
-			    (consume! 'RBRACKET)
-			    (new-node Array (reverse! (cons array-el rev-els))
-				      (+fx length 1)))))))))
+	    ((COMMA) (consume-any!)
+		     (loop rev-els (+fx length 1)))
+	    (else (let ((array-el (new-node Array-element
+					    length
+					    (assig-expr #f))))
+		     (unless (eq? (peek-token-type) 'RBRACKET)
+			(consume! 'COMMA))
+		     (loop (cons array-el rev-els)
+			   (+fx length 1)))))))
    
    (define (object-literal)
       (define (property-name)

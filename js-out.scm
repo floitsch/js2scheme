@@ -115,6 +115,9 @@
 		    #t)
       (else #t)))
 
+(define (no-requirement n)
+   #t)
+
 (define (indent+ indent)
    (+ indent 3))
 
@@ -250,7 +253,9 @@
    (display "for")
    (space-out)
    (display "(")
-   (when this.init (expr-out this.init (indent+ indent) expr? #t #f))
+   ;; no requirement, as init could be a var-init too.
+   (when this.init (expr-out this.init (indent+ indent)
+			     no-requirement #t #f))
    (display ";")
    (when this.test
       (space-out)
@@ -289,12 +294,9 @@
    (display "for")
    (space-out)
    (display "(")
-   ;; in theory 'lhs?' should not be necessary. If it wasn't a lhs the program
-   ;; would be invalid anyways.
-   ;; ex: for ((bad-expr) in ...) ...
-   ;; in other words. simply by putting parenthesis around the expr it will
-   ;; pass the parser, but wouldn't be valid.
-   (expr-out this.lhs (indent+ indent) lhs-expr? #t #f)
+   ;; no-requirement as lhs could be a var-decl-list too.
+   ;; note that we set 'in-for-in?' flag to true.
+   (expr-out this.lhs (indent+ indent) no-requirement #t #f)
    (display " in ")
    (expr-out this.obj (indent+ indent) expr? #f #f)
    (display ")")
@@ -677,29 +679,57 @@
        (display this.id)))
 
 (define-pmethod (Array-expr-out indent in-for-init? stmt-begin?)
+   ;; basically: we may avoid a "," at the last pos, if the was an el.
+   ;; so [1] and [1,] are the same, but [,] and [] are not, as there is
+   ;; no el.
    (display "[")
    (let loop ((i 0)
 	      (els this.els))
-      (unless (>= i this.length)
-	 (unless (= i 0) (display ","))
-	 (if (or (null? els)
-		 (not (= (car els).index i)))
-	     (loop (+ i 1) els)
-	     (begin
-		(unless (= i 0) (display " "))
-		(expr-out (car els).expr indent assig-expr? #f #f)
-		(loop (+ i 1)
-		      (cdr els))))))
+      (cond
+	 ((>=fx i this.length) 'done)
+	 ((or (null? els)
+	      (not (= (car els).index i)))
+	  ;; empty el. just print the ',' which is always needed.
+	  (display ",")
+	  (loop (+fx i 1) els))
+	 (else
+	  (unless (=fx i 0) (space-out))
+	  (expr-out (car els).expr indent assig-expr? #f #f)
+	  (unless (=fx (+fx i 1) this.length)
+	     ;; this is the optim. last element does not need a ','
+	     (display ","))
+	  (loop (+ i 1)	(cdr els)))))
     (display "]"))
 
 (define-pmethod (Obj-init-expr-out indent in-for-init? stmt-begin?)
+   (define (id-chars? str)
+      ;; skip first and last '"'
+      (let ((stop (-fx (string-length str) 1)))
+	 (let loop ((i 1))
+	    (cond
+	       ((>=fx i stop) #t)
+	       ((or (char-alphabetic? (string-ref str i))
+		    (char-numeric? (string-ref str i)))
+		(loop (+fx i 1)))
+	       (else #f)))))
+
    (display "{")
    (let loop ((props this.props)
 	      (first? #t))
       (unless (null? props)
 	 (let ((prop (car props)))
-	    (unless first? (display* ", "))
-	    (display prop.name.val)
+	    (unless first?
+	       (display ",")
+	       (space-out))
+	    (cond
+	       ((inherits-from? prop.name (node 'Number))
+		(display prop.name.val))
+	       ;; String
+	       ((id-chars? prop.name.val)
+		(let ((str prop.name.val))
+		   (display (substring str 1 (-fx (string-length str) 1)))))
+	       (else
+		(display prop.name.val)))
 	    (display ":")
 	    (space-out)
 	    (expr-out prop.val indent assig-expr? #f #f)
