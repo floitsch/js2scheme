@@ -424,12 +424,17 @@
 		(,loop)))))
 
 (define-pmethod (For-in-out)
-   (let ((prop (gensym 'prop)))
-      `(for-each (lambda (,prop)
-		    ,(this.lhs.var.set! prop)
-		    ,(this.body.traverse))
-		 (js-for-in-properties-list (jsop-any->object
-					     ,(this.obj.traverse))))))
+   (let ((prop (gensym 'prop))
+	 (val (gensym 'val))
+	 (read-only? (gensym 'ro))
+	 (deletable? (gensym 'del))
+	 (enumerable? (gensym 'enum)))
+      `(js-property-for-each
+	(jsop-any->object ,(this.obj.traverse))
+	(lambda (,prop ,val ,read-only? ,deletable? ,enumerable?)
+	   (when ,enumerable?
+	      ,(this.lhs.var.set! prop)
+	      ,(this.body.traverse))))))
 
 (define-pmethod (With-out)
    ;; the obj is not yet transformed to an object.

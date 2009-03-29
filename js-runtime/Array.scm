@@ -31,7 +31,6 @@
 (define *js-Array-prototype*::Js-Object (js-null))
 
 ;; extracts requested indices from object o and prototypes (if requested).
-;; works, as indices can't be Ref-elements...
 ;; limit must be < max-int (otherwise llong->fixnum will be bad.
 (define (extract-index-els-in-range o ht start::llong end::llong
 				    go-into-prototypes?)
@@ -56,11 +55,10 @@
 			     (+ (*llong res #l10) cv))
 		       #f)))))))
 
-   (let ((enumerables-ht (make-hashtable)))
-      (add-enumerables o enumerables-ht (make-hashtable) go-into-prototypes?)
-      (hashtable-for-each
-       enumerables-ht
-       (lambda (key val)
+   (js-property-for-each
+    o
+    (lambda (key val read-only? deletable? enumerable?)
+       (when enumerable?
 	  (let ((index (key->index key)))
 	     (when (and index
 			(not (hashtable-get ht index)))
@@ -82,12 +80,12 @@
        (exact->inexact (Js-Array-length o))
        (call-next-method)))
 
-(define-method (add-enumerables o::Js-Array enumerables-ht shadowed-ht
-				go-into-prototypes?::bool)
+(define-method (js-property-one-level-for-each o::Js-Array p::procedure)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
-   (hashtable-put! shadowed-ht "length" #t)
-   (call-next-method))
-
+   (with-access::Js-Array o (length)
+      (p "length" (exact->inexact length) #f #f #f)
+      (call-next-method)))
+   
 (define *array-index-limit* 4294967295.0) ;; #xffffffff))
 (define-method (js-property-generic-set! o::Js-Array prop::bstring
 					 new-val attributes)

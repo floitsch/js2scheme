@@ -92,26 +92,23 @@
 		    val))
 	     (js-property-contains proto prop)))))
 
-(define-method (add-enumerables o::Js-Scope-Object enumerables-ht shadowed-ht
-				go-into-prototypes?)
+(define-method (js-property-one-level-for-each o::Js-Scope-Object p::procedure)
    (with-access::Js-Object o (props proto)
       (hashtable-for-each
        props
        (lambda (key obj)
-	  (unless (hashtable-get shadowed-ht key)
-	     (with-access::Property-entry obj (attr val)
-		(with-access::Attributes attr (enumerable)
-		   (unless (and (Ref? val) ;;ignore entries that are deleted
-				(js-deleted? ((Ref-getter val))))
-		      (hashtable-put! shadowed-ht key #t)
-		      (when enumerable
-			 (hashtable-put! enumerables-ht key
-					 (if (Ref? val)
-					     ((Ref-getter val))
-					     val)))))))))
-      (when go-into-prototypes?
-	 ;; no need to test for null. null overloads add-enumerables
-	 (add-enumerables proto enumerables-ht shadowed-ht #t))))
+	  (with-access::Property-entry obj (attr val)
+	     (with-access::Attributes attr (read-only deletable enumerable)
+		(cond
+		   ((Deleted-Property? obj) 'do-nothing)
+		   ((and (Ref? val) ;;ignore entries that are deleted
+			 (js-deleted? ((Ref-getter val))))
+		    'do-nothing)
+		   (else
+		    (let ((tmp (if (Ref? val)
+				   ((Ref-getter val))
+				   val)))
+		       (p key tmp read-only deletable enumerable))))))))))
 	  
 (define-method (js-property-generic-set! o::Js-Scope-Object prop::bstring
 					 new-val attributes)
@@ -168,6 +165,7 @@
 		       ((Ref-setter val) *js-deleted-token*)
 		       #t)
 		      (else
+		       (widen!::Deleted-Property ht-entry)
 		       (hashtable-remove! props prop)
 		       #t))))
 	     (js-property-safe-delete! proto prop)))))

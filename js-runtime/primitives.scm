@@ -1,10 +1,17 @@
 (module jsre-primitives
-   (use jsre-object
+   (use mset
+	jsre-object
 	jsre-natives) ;; undefined, null, ...
    (export (inline js-property-get o::Js-Object prop::bstring)
 	   ;; returns the given value
 	   (inline js-property-set! o::Js-Object prop::bstring new-val)
-	   (js-property-update! o::Js-Object prop::bstring new-val)))
+	   (js-property-update! o::Js-Object prop::bstring new-val)
+
+	   (js-property-for-each o::Js-Object f::procedure)
+
+	   (inline js-hierarchy-for-each o::Js-Object f::procedure)
+	   (js-for-in o::Js-Object f::procedure)))
+	   
 
 
 (define-inline (js-property-get o::Js-Object prop::bstring)
@@ -30,3 +37,29 @@
       (else
        (with-access::Js-Object o (proto)
 	  (js-property-update! proto prop new-value)))))
+
+(define (js-property-for-each start-o::Js-Object p::procedure)
+   (let ((shadowed (make-mset :comp string=?)))
+      (js-hierarchy-for-each
+       start-o
+       (lambda (o)
+	  (js-property-one-level-for-each
+	   o
+	   (lambda (prop val read-only? deletable? enumerable?)
+	      (unless (mset-contains? shadowed prop)
+		 (mset-put! shadowed prop)
+		 (p prop val read-only? deletable? enumerable?))))))))
+   
+(define-inline (js-hierarchy-for-each o::Js-Object f::procedure)
+   (f o)
+   (with-access::Js-Object o (proto)
+      (unless (js-null? proto)
+	 ;; currently the test is not necessary, but I
+	 ;; would like to replace js-null by Js-Object-nil somewhere in the
+	 ;; future.
+	 (js-hierarchy-for-each proto f))))
+
+(define (js-for-in o::Js-Object f::procedure)
+   (js-property-for-each o
+			 (lambda (prop val read-only? enumerable? enumerable?)
+			    (when enumerable? (f prop)))))

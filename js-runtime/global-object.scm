@@ -214,25 +214,25 @@
 		   (if deletable
 		       (begin
 			  (hashtable-remove! props prop)
-			  (when (Js-Global-Box? entry)
-			     (with-access::Js-Global-Box entry (declared? val)
-				(set! val #f) ;; release memory
-				(set! declared? #f)))
+			  (if (Js-Global-Box? entry)
+			      (with-access::Js-Global-Box entry (declared? val)
+				 (set! val #f) ;; release memory
+				 (set! declared? #f))
+			      (widen!::Deleted-Property entry))
 			  #t)
 		       #f)))))))
 
-(define-method (add-enumerables o::Js-Global enumerables-ht shadowed-ht
-				 go-into-prototypes?::bool)
+(define-method (js-property-one-level-for-each o::Js-Global p)
    (with-access::Js-Global o (props proto)
       (hashtable-for-each
        props
        (lambda (key obj)
-	  (unless (hashtable-get shadowed-ht key)
-	     (hashtable-put! shadowed-ht key #t)
+	  (cond
+	     ((Deleted-Property? obj) 'do-nothing)
+	     ((and (Js-Global-Box? obj)
+		   (not (Js-Global-Box-declared? obj)))
+	      'do-nothing)
+	     (else
 	     (with-access::Property-entry obj (attr val)
-		(with-access::Attributes attr (enumerable)
-		   (when enumerable
-		      (hashtable-put! enumerables-ht key val)))))))
-      (when go-into-prototypes?
-	 ;; no need to test for null. null overloads add-enumerables
-	 (add-enumerables proto enumerables-ht shadowed-ht #t))))
+		(with-access::Attributes attr (read-only deletable enumerable)
+		   (p key val read-only deletable enumerable)))))))))

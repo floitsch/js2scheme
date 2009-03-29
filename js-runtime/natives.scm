@@ -36,8 +36,7 @@
    #f)
 (define-method (js-property-is-enumerable? o::Js-Undefined prop::bstring)
    #f)
-(define-method (add-enumerables o::Js-Undefined enumerables-ht shadowed-ht
-				go-into-prototypes?::bool)
+(define-method (js-property-one-level-for-each o::Js-Undefined p)
    'do-nothing)
 (define-method (js-property-contains o::Js-Undefined prop::bstring)
    #f) ;; when null is the prototype, then it should simply return #f
@@ -54,8 +53,7 @@
    #f)
 (define-method (js-property-is-enumerable? o::Js-Null prop::bstring)
    #f)
-(define-method (add-enumerables o::Js-Null enumerables-ht shadowed-ht
-				go-into-prototypes?::bool)
+(define-method (js-property-one-level-for-each o::Js-Null p)
    'do-nothing)
 (define-method (js-property-contains o::Js-Null prop::bstring)
    #f) ;; when null is the prototype, then it should simply return #f

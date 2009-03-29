@@ -9,6 +9,10 @@
     (final-class Property-entry
        val
        attr::Attributes)
+    ;; for-in must not visit properties that have been deleted.
+    ;; using this wide-class we can flag the deleted ones.
+    (wide-class Deleted-Property::Property-entry)
+
     (class Js-Object
        (props read-only) ;; hashtable
        (proto::Js-Object read-only)) ;; prototype
@@ -20,10 +24,9 @@
 	     new-val attributes)
     (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
     (generic js-class-name::bstring o::Js-Object)
-    (generic add-enumerables o::Js-Object enumerables-ht shadowed-ht
-	     go-into-prototypes?::bool)
 
-    (js-for-in-properties-list::pair-nil o::Js-Object)
+    (generic js-property-one-level-for-each o::Js-Object f::procedure)
+
     (inline make-props-hashtable)
 
     (length-attributes::Attributes)
@@ -42,7 +45,7 @@
     (dontDelete-attributes::Attributes)
     (no-attributes::Attributes))
    (export (macro get-Attributes))
-    )
+   )
 
 (define-inline (mangle-false val)
    (or val 'false))
@@ -199,6 +202,7 @@
 		(with-access::Attributes attr (deletable)
 		   (if deletable
 		       (begin
+			  (widen!::Deleted-Property entry)
 			  (hashtable-remove! props prop)
 			  #t)
 		       #f)))))))
@@ -206,24 +210,15 @@
 (define-generic (js-class-name::bstring o::Js-Object)
    "Object")
 
-(define-generic (add-enumerables o::Js-Object enumerables-ht shadowed-ht
-				 go-into-prototypes?::bool)
+;; calls f with prop::string val read-only? deletable? enumerable?
+;; guarantees that the property still exists when the procedure is called.
+;; The fun can hence be used for the 'for-in' construct.
+(define-generic (js-property-one-level-for-each o::Js-Object p::procedure)
    (with-access::Js-Object o (props proto)
       (hashtable-for-each
        props
        (lambda (key obj)
-	  (unless (hashtable-get shadowed-ht key)
-	     (hashtable-put! shadowed-ht key #t)
+	  (unless (Deleted-Property? obj)
 	     (with-access::Property-entry obj (attr val)
-		(with-access::Attributes attr (enumerable)
-		   (when enumerable
-		      (hashtable-put! enumerables-ht key val)))))))
-      (when go-into-prototypes?
-	 ;; no need to test for null. null overloads add-enumerables
-	 (add-enumerables proto enumerables-ht shadowed-ht #t))))
-
-(define (js-for-in-properties-list::pair-nil o::Js-Object)
-   (let ((enumerables-ht (make-string-hashtable))
-	 (shadowed-ht (make-string-hashtable)))
-      (add-enumerables o enumerables-ht shadowed-ht #t)
-      (hashtable-key-list enumerables-ht)))
+		(with-access::Attributes attr (read-only deletable enumerable)
+		   (p key val read-only deletable enumerable))))))))
