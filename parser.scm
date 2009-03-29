@@ -466,20 +466,25 @@
 		(op (string->symbol s)))
 	    op))
       
-      (let ((expr (cond-expr in-for-init?)))
+      (let* ((error-token (peek-token))
+	     (expr (cond-expr in-for-init?)))
 	 (if (assig-operator? (peek-token-type))
-	     (let* ((op (car (consume-any!))) ;; ops are in car
+	     (let* ((op (car (consume-any!)))      ;; ops are in car
 		    (rhs (assig-expr in-for-init?)))
-		;; TODO: weed out bad lhs exprs
 		(cond
 		   ((and (eq? op '=) (inherits-from? expr (node 'Access)))
 		    (new-node Accsig expr rhs))
-		   ((eq? op '=)
+		   ((and (eq? op '=) (inherits-from? expr (node 'Var-ref)))
 		    (new-node Vassig expr rhs))
+		   ((eq? op '=)
+		    (my-error "bad assignment" #f error-token))
 		   ((inherits-from? expr (node 'Access))
-		    (new-node Accsig-op expr (new-node Var-ref (with-out-= op)) rhs))
+		    (new-node Accsig-op expr
+			      (new-node Var-ref (with-out-= op)) rhs))
+		   ((inherits-from? expr (node 'Var-ref))
+		    (new-node Vassig-op expr (new-node Var-ref (with-out-= op)) rhs))
 		   (else
-		    (new-node Vassig-op expr (new-node Var-ref (with-out-= op)) rhs))))
+		    (my-error "bad assignment" #f error-token))))
 	     expr)))
    
    (define (cond-expr in-for-init?)
@@ -606,9 +611,9 @@
 	 ((this) (consume-any!)
 		 (new-node This))
 	 ((ID) (new-node Var-ref (consume! 'ID)))
-	 ((LPAREN) (let ((ignore (consume-any!))
-			 (expr (expression #f))
-			 (ignore-too (consume! 'RPAREN)))
+	 ((LPAREN) (let* ((ignore (consume-any!))
+			  (expr (expression #f))
+			  (ignore-too (consume! 'RPAREN)))
 		      expr))
 	 ((LBRACKET) (array-literal))
 	 ((LBRACE) (object-literal))
