@@ -476,7 +476,10 @@
 
 (define-node (Dot obj field)
    (set! this.obj obj)
-   (set! this.field (new String (symbol->string field))))
+   (set! this.field (new String
+			 (string-append "'"
+					(symbol->string field)
+					"'"))))
 (set! Dot.proto (empty-pobject Access))
 (proto-traverses Dot obj field)
 
