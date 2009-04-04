@@ -1,5 +1,5 @@
 (module jsre-Number
-   (import jsre-object
+   (import jsre-base-object
 	   jsre-double)
    (use jsre-natives
 	jsre-Error

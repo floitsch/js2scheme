@@ -1,5 +1,5 @@
 (module jsre-Math
-   (import jsre-object)
+   (import jsre-base-object)
    (use jsre-Error
 	jsre-Object
 	jsre-Date

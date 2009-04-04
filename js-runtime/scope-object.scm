@@ -1,5 +1,5 @@
 (module jsre-scope-object
-   (import jsre-object)
+   (import jsre-base-object)
    (use jsre-global-object
 	jsre-natives ;; undefined
 	jsre-Error

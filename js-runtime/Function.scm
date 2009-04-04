@@ -1,5 +1,5 @@
 (module jsre-Function
-   (import jsre-object)
+   (import jsre-base-object)
    (use jsre-natives
 	jsre-eval
 	jsre-Object

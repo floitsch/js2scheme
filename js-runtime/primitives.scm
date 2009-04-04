@@ -1,6 +1,6 @@
 (module jsre-primitives
    (use mset
-	jsre-object
+	jsre-base-object
 	jsre-natives) ;; undefined
    (export (js-property-get o::Js-Object prop::bstring)
 	   ;; returns the given value

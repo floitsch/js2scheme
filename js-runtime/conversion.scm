@@ -1,5 +1,5 @@
 (module jsre-conversion
-   (use jsre-object
+   (use jsre-base-object
 	jsre-natives ;; undefined
 	jsre-Error
 	jsre-primitives

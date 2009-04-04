@@ -1,4 +1,4 @@
-(module jsre-object
+(module jsre-base-object
    (export
     (inline mangle-false val)
     (inline unmangle-false val)

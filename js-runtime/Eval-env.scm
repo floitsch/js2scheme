@@ -1,5 +1,5 @@
 (module jsre-Eval-env
-   (use jsre-object
+   (use jsre-base-object
 	jsre-global-object
 	jsre-scope-object
 	jsre-natives ;; undefined

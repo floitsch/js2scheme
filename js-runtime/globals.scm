@@ -1,5 +1,5 @@
 (module jsre-globals
-   (use jsre-object
+   (use jsre-base-object
 	jsre-natives ;; undefined
 	jsre-primitives
 	jsre-Error

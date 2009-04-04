@@ -1,5 +1,5 @@
 (module jsre-Object
-   (import jsre-object
+   (import jsre-base-object
 	   jsre-natives)
    (use jsre-Function
 	jsre-Date

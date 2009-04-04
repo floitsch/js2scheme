@@ -1,5 +1,5 @@
 (module jsre-Bool
-   (import jsre-object)
+   (import jsre-base-object)
    (use jsre-natives
 	jsre-Object
 	jsre-Date

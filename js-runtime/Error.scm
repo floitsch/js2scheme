@@ -1,5 +1,5 @@
 (module jsre-Error
-   (import jsre-object)
+   (import jsre-base-object)
    (use jsre-Function
 	jsre-Array
 	jsre-Math

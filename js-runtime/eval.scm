@@ -3,7 +3,7 @@
    (use jsre-Eval-env
 	jsre-global-object
 	jsre-scope-object
-	jsre-object
+	jsre-base-object
 	jsre-Error)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
 	   (js-Function-eval src::bstring)))
