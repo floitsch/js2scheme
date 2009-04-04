@@ -1,7 +1,7 @@
 (module jsre-Number
-   (import jsre-natives
+   (import jsre-object
 	   jsre-double)
-   (use jsre-object
+   (use jsre-natives
 	jsre-Error
 	jsre-Object
 	jsre-Date

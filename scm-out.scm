@@ -627,8 +627,8 @@
        ;; assign fun-binding to top-level object and not to current
        ;; environment. (Rhino 1.7 release 1 Pre 2007 11 25 has this bug)
        `(js-property-set! ,(thread-parameter 'top-level-object)
-			       ,(symbol->string this.lhs.var.id)
-			       ,(this.val.traverse))
+			  ,(symbol->string this.lhs.var.id)
+			  ,(this.val.traverse))
        (pcall this Vassig-out)))
 
 (define-pmethod (Accsig-out)
@@ -645,8 +645,8 @@
 	       (string? traversed-field))
 	  `(let* ((,tmp-object-o (jsop-any->object ,traversed-obj)))
 	      (js-property-set! ,tmp-object-o
-				     ,traversed-field
-				     ,traversed-val))
+				,traversed-field
+				,traversed-val))
 	  ;; we need all these tmp-variables, to ensure the correct order of
 	  ;; evaluation.
 	  `(let* ((,tmp-o ,traversed-obj)
@@ -654,8 +654,8 @@
 		  (,tmp-object-o (jsop-any->object ,tmp-o))
 		  (,tmp-string-field (any->string ,tmp-field)))
 	      (js-property-set! ,tmp-object-o
-				     ,tmp-string-field
-				     ,(this.val.traverse))))))
+				,tmp-string-field
+				,(this.val.traverse))))))
 
 (define (Operator-out this)
    (cond

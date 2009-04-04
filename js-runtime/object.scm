@@ -13,6 +13,8 @@
     ;; using this wide-class we can flag the deleted ones.
     (wide-class Deleted-Property::Property-entry)
 
+    (inline js-null::Js-Object)
+    (inline js-null? v)
     (class Js-Object
        (props read-only) ;; hashtable
        (proto::Js-Object read-only)) ;; prototype
@@ -46,6 +48,9 @@
     (no-attributes::Attributes))
    (export (macro get-Attributes))
    )
+
+(define-inline (js-null) (Js-Object-nil))
+(define-inline (js-null? v) (eq? v (Js-Object-nil)))
 
 (define-inline (mangle-false val)
    (or val 'false))
@@ -162,8 +167,11 @@
    (with-access::Js-Object o (props proto)
       (let* ((ht-entry (hashtable-get props prop))
 	     (entry (and ht-entry (Property-entry-val ht-entry))))
-	 (or entry
-	     (js-property-contains proto prop)))))
+	 (cond
+	    (entry entry)
+	    ((js-null? proto) #f)
+	    (else
+	     (js-property-contains proto prop))))))
 
 ;; if attributes are given, then the original attributes are not used and
 ;; the original value is replaced (obviously the attributes too).
@@ -194,10 +202,11 @@
 			  (set! val new-value)))))))))
 
 (define-generic (js-property-safe-delete!::bool o::Js-Object prop::bstring)
-   (with-access::Js-Object o (props)
+   ;; 11.4.1
+   (with-access::Js-Object o (props proto)
       (let ((entry (hashtable-get props prop)))
-	 (if (not entry)
-	     #t
+	 (cond
+	    (entry
 	     (with-access::Property-entry entry (attr)
 		(with-access::Attributes attr (deletable)
 		   (if deletable
@@ -205,7 +214,11 @@
 			  (widen!::Deleted-Property entry)
 			  (hashtable-remove! props prop)
 			  #t)
-		       #f)))))))
+		       #f))))
+	    ((js-null? proto)
+	     #t) ;; if no element coulde be found return #t.
+	    (else
+	     (js-property-safe-delete! proto prop))))))
 
 (define-generic (js-class-name::bstring o::Js-Object)
    "Object")
@@ -214,7 +227,7 @@
 ;; guarantees that the property still exists when the procedure is called.
 ;; The fun can hence be used for the 'for-in' construct.
 (define-generic (js-property-one-level-for-each o::Js-Object p::procedure)
-   (with-access::Js-Object o (props proto)
+   (with-access::Js-Object o (props)
       (hashtable-for-each
        props
        (lambda (key obj)

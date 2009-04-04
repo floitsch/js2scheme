@@ -10,14 +10,19 @@
    (export (parse::pobject port)))
 
 (define (my-error msg obj token)
-   (if token
-       (error/source "parser"
-		     msg
-		     obj
-		     token)
+   (cond
+      ((not token)
        (error "parser"
 	      msg
-	      obj)))
+	      obj))
+      ((epair? token)
+       (match-case (cer token)
+	  ((at ?fname ?loc)
+	   (error/location "parser" msg obj fname loc))
+	  (else
+	   (my-error msg obj #f))))
+      (else
+       (my-error msg obj #f))))
 
 (define (parse port)
    ;; fun-body at bottom of file

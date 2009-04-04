@@ -1,6 +1,6 @@
 (module jsre-conversion
    (use jsre-object
-	jsre-natives ;; undefined, null, ...
+	jsre-natives ;; undefined
 	jsre-Error
 	jsre-primitives
 	jsre-Object
@@ -43,8 +43,8 @@
 ;; otherwise the Js-Object
 (define (js-object any)
    (cond
-      ((or (eq? any *js-Null*)
-	   (eq? any *js-Undefined*))
+      ((or (js-null? any)
+	   (js-undefined? any))
        #f)
       ((Js-Object? any) any)
       ((procedure? any) (procedure-object any))
@@ -330,8 +330,8 @@
    (define (any->string2::bstring any)
       (cond
 	 ((string? any) any)
-	 ((eq? any *js-Null*) "null")
-	 ((eq? any *js-Undefined*) "undefined")
+	 ((js-null? any) "null")
+	 ((js-undefined? any) "undefined")
 	 ((boolean? any) (if any "true" "false"))
 	 ((flonum? any) (double->string any 'shortest 0))
 	 (else
@@ -340,8 +340,8 @@
 
    (cond
       ((string? any) any)
-      ((eq? any *js-Null*) "null")
-      ((eq? any *js-Undefined*) "undefined")
+      ((js-null? any) "null")
+      ((js-undefined? any) "undefined")
       ((boolean? any) (if any "true" "false"))
       ((flonum? any) (double->string any 'shortest 0))
       (else
@@ -350,8 +350,8 @@
 ;; converts 'any' to a JS-object. -> might return a procedure too!
 (define (any->object any)
    (cond
-      ((or (eq? any *js-Null*)
-	   (eq? any *js-Undefined*))
+      ((or (js-null? any)
+	   (js-undefined? any))
        (type-error "can't convert to object" any))
       ((Js-Object? any) any)
       ((string? any) (js-new *js-String-orig* any))

@@ -1,6 +1,6 @@
 (module jsre-operators
    (use jsre-object
-	jsre-natives ;; undefined, null, ...
+	jsre-natives ;; undefined
 	jsre-primitives
 	jsre-Error
 	jsre-Object

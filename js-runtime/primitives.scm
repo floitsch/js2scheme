@@ -1,10 +1,10 @@
 (module jsre-primitives
    (use mset
 	jsre-object
-	jsre-natives) ;; undefined, null, ...
-   (export (inline js-property-get o::Js-Object prop::bstring)
+	jsre-natives) ;; undefined
+   (export (js-property-get o::Js-Object prop::bstring)
 	   ;; returns the given value
-	   (inline js-property-set! o::Js-Object prop::bstring new-val)
+	   (js-property-set! o::Js-Object prop::bstring new-val)
 	   (js-property-update! o::Js-Object prop::bstring new-val)
 
 	   (js-property-for-each o::Js-Object f::procedure)
@@ -14,7 +14,7 @@
 	   
 
 
-(define-inline (js-property-get o::Js-Object prop::bstring)
+(define (js-property-get o::Js-Object prop::bstring)
    ;(write-circle o)(print)
    ;(write-circle prop)(print)
    (let ((res (js-property-contains o prop)))
@@ -24,7 +24,7 @@
 	  (js-undefined))))
 
 ;; non-generic. but js-property-generic-set! is.
-(define-inline (js-property-set! o::Js-Object prop::bstring new-value)
+(define (js-property-set! o::Js-Object prop::bstring new-value)
    (js-property-generic-set! o prop (mangle-false new-value) #f)
    new-value)
 
@@ -54,9 +54,6 @@
    (f o)
    (with-access::Js-Object o (proto)
       (unless (js-null? proto)
-	 ;; currently the test is not necessary, but I
-	 ;; would like to replace js-null by Js-Object-nil somewhere in the
-	 ;; future.
 	 (js-hierarchy-for-each proto f))))
 
 (define (js-for-in o::Js-Object f::procedure)

@@ -15,11 +15,21 @@
    (let ((out-p (if (not *output*)
 		    (current-output-port)
 		    (open-output-file *output*))))
-      (unwind-protect
-	 (for-each (lambda (f)
-		      (extract-exported-macros f out-p))
-		   *in-files*)
-	 (close-output-port out-p))))
+      (with-handler
+	 (lambda (e)
+	    (when *output*
+	       (delete-file *output*))
+	    (raise e))
+	 (unwind-protect
+	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	    (for-each (lambda (f)
+			 (extract-exported-macros f out-p))
+		      *in-files*)
+	    (close-output-port out-p)))))
 
 (define (extract-exported-macros f out-p)
    (print "extracting: " f)

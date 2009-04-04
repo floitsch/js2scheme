@@ -1,6 +1,6 @@
 (module jsre-Array
-   (import jsre-natives)
-   (use jsre-object
+   (import jsre-object)
+   (use jsre-natives
 	jsre-Object
 	jsre-Date
 	jsre-Function
@@ -28,7 +28,7 @@
 
 (define *jsg-Array* #unspecified)
 (define *js-Array-orig* (lambda () 'to-be-replaced))
-(define *js-Array-prototype*::Js-Object (js-null))
+(define *js-Array-prototype* (js-null))
 
 ;; extracts requested indices from object o and prototypes (if requested).
 ;; limit must be < max-int (otherwise llong->fixnum will be bad.
@@ -278,8 +278,8 @@
 	     a
 	     (begin
 		(js-property-set! a
-				       (integer->string i)
-				       (car els))
+				  (integer->string i)
+				  (car els))
 		(loop (cdr els)
 		      (+fx i 1)))))))
 
@@ -371,8 +371,8 @@
 				     (flonum->llong (Js-Array-length a)))))
 		    (let ((str (any->string a)))
 		       (js-property-set! new-a
-					      (llong->string new-length)
-					      str)
+					 (llong->string new-length)
+					 str)
 		       (loop (+fx array-counter 1)
 			     (+llong new-length #l1)))))))))
 
@@ -405,8 +405,8 @@
 			 (res (js-property-get this len-str)))
 		     (js-property-safe-delete! this len-str)
 		     (js-property-set! this
-					    "length"
-					    (-fl len 1.0))
+				       "length"
+				       (-fl len 1.0))
 		     res)))))
 
 (define (push)
@@ -422,8 +422,8 @@
 			flolen)
 		     (begin
 			(js-property-set! this
-					       (llong->string llen)
-					       (get-arg i))
+					  (llong->string llen)
+					  (get-arg i))
 			(loop (+fx i 1)
 			      (+llong llen #l1))))))))
 
@@ -552,8 +552,8 @@
 					(cdr key/val)
 					#f)))
 	  (js-property-set! new-a
-				 "length"
-				 (-fl end start))
+			    "length"
+			    (-fl end start))
 	  new-a)))
 
 (define (array-sort)
@@ -670,11 +670,11 @@
 		 (let loop ((i 0))
 		    (unless (>= i (-fx nb-args 2))
 		       (js-property-set! this
-					      (llong->string (+ lstart i))
-					      (get-arg (+fx i 2)))
+					 (llong->string (+ lstart i))
+					 (get-arg (+fx i 2)))
 		       (loop (+fx i 1))))
 		 (js-property-set! this "length"
-					(-fl len (llong->flonum diff)))
+				   (-fl len (llong->flonum diff)))
 		 new-a))))))
 
 (define (unshift)

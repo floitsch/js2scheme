@@ -1,7 +1,6 @@
 (module jsre-global-object
-   (import jsre-natives)
-   (use jsre-object
-	jsre-natives ;; undefined, null, ...
+   (import jsre-object)
+   (use jsre-natives ;; undefined
 	jsre-Error
 	jsre-primitives
 	jsre-Object
@@ -167,8 +166,10 @@
    (with-access::Js-Global o (props proto)
       (let* ((ht-entry (hashtable-get props prop))
 	     (entry (and ht-entry (Property-entry-val ht-entry))))
-	 (or entry
-	     (js-property-contains proto prop)))))
+	 (cond
+	    (entry            entry)
+	    ((js-null? proto) #f)
+	    (else             (js-property-contains proto prop))))))
 
 (define-method (js-property-generic-set! o::Js-Global prop::bstring
 					  new-value attributes)
@@ -223,7 +224,7 @@
 		       #f)))))))
 
 (define-method (js-property-one-level-for-each o::Js-Global p)
-   (with-access::Js-Global o (props proto)
+   (with-access::Js-Global o (props)
       (hashtable-for-each
        props
        (lambda (key obj)

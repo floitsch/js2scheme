@@ -1,6 +1,6 @@
 (module jsre-String
-   (import jsre-natives)
-   (use jsre-object
+   (import jsre-object)
+   (use jsre-natives
 	jsre-Object
 	jsre-Date
 	jsre-Array
@@ -356,10 +356,10 @@
 			   (let ((start-index (car match))
 				 (final-index (cadr match)))
 			      (js-property-set! res-a
-						     (integer->string a-index)
-						     (substring s
-								start-index
-								final-index))
+						(integer->string a-index)
+						(substring s
+							   start-index
+							   final-index))
 			      (loop (if (=fx final-index s-pos)
 					(+fx s-pos 1)
 					final-index)
@@ -382,11 +382,11 @@
 	  ;; the array is nearly good.
 	  ;; we just need to add the offset and the string itself
 	  (js-property-set! match
-				 (integer->string l-i)
-				 (fixnum->flonum from))
+			    (integer->string l-i)
+			    (fixnum->flonum from))
 	  (js-property-set! match
-				 (integer->string (+fx l-i 1))
-				 this-str)
+			    (integer->string (+fx l-i 1))
+			    this-str)
 	  ;; TODO: do not call 'apply' from prototype as it could have been
 	  ;; replaced.
 	  (js-method-call replaceValue "apply" (js-null) match)))))
@@ -472,7 +472,7 @@
 		(if (=fl last-index new-last-index)
 		    (begin
 		       (js-property-set! re "lastIndex"
-					      (+fl last-index 1.0))
+					 (+fl last-index 1.0))
 		       (loop (cons m rev-ms)
 			     (+fl last-index 1.0)))
 		    (loop (cons m rev-ms) new-last-index))))))))
@@ -656,7 +656,7 @@
 		  a)
 		 (else
 		  (js-property-set! a (integer->string i)
-					 (cached-char-string (string-ref s i)))
+				    (cached-char-string (string-ref s i)))
 		  (loop (+fx i 1))))))
 	  ((and (string? separator)
 		(orig-Js-Array?)) ;; we can optimize this case.
@@ -672,14 +672,14 @@
 		  (lambda (pos)
 		     (let ((sep-len (string-length separator)))
 			(js-property-set! a
-					       (integer->string array-pos)
-					       (substring s last-pos pos))
+					  (integer->string array-pos)
+					  (substring s last-pos pos))
 			(loop (+fx array-pos 1)
 			      (+fx pos sep-len)))))
 		 (else
 		  (js-property-set! a
-					 (integer->string array-pos)
-					 (substring s last-pos len))
+				    (integer->string array-pos)
+				    (substring s last-pos len))
 		  a))))
 	  (else ;; regexp or array is not really array.
 	   ;; completely fucked up:

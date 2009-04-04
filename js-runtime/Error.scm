@@ -1,6 +1,6 @@
 (module jsre-Error
-   (use jsre-object
-	jsre-Function
+   (import jsre-object)
+   (use jsre-Function
 	jsre-Array
 	jsre-Math
 	jsre-Arguments
@@ -161,8 +161,7 @@
    (js-fun-lambda this #f #f
 		  (msg)
 		  (unless (js-undefined? msg)
-		     (js-property-set! this "message"
-					    (any->safe-string msg)))
+		     (js-property-set! this "message" (any->safe-string msg)))
 		  this))
 
 (define (Error-construct::Js-Error f-o::Js-Function)

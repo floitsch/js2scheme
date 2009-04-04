@@ -1,7 +1,7 @@
 (module jsre-scope-object
-   (use jsre-object
-	jsre-global-object
-	jsre-natives ;; undefined, null, ...
+   (import jsre-object)
+   (use jsre-global-object
+	jsre-natives ;; undefined
 	jsre-Error
 	jsre-primitives
 	jsre-Object
@@ -78,6 +78,12 @@
 		enumerable)))
        #f))
 (define-method (js-property-contains o::Js-Scope-Object prop::bstring)
+   (define (call-proto)
+      (with-access::Js-Object o (proto)
+	 (if (js-null? proto)
+	     #f
+	     (js-property-contains proto prop))))
+
    (with-access::Js-Object o (props proto)
       (let ((ht-entry (hashtable-get props prop)))
 	 (if ht-entry
@@ -87,10 +93,10 @@
 		    (let ((ref-val ((Ref-getter val))))
 		       (if (js-deleted? ref-val)
 			   ;; as if the ht-entry didn't exist.
-			   (js-property-contains proto prop)
+			   (call-proto)
 			   (mangle-false ref-val)))
 		    val))
-	     (js-property-contains proto prop)))))
+	     (call-proto)))))
 
 (define-method (js-property-one-level-for-each o::Js-Scope-Object p::procedure)
    (with-access::Js-Object o (props proto)
@@ -149,7 +155,13 @@
 	  (attr (or attributes (default-attributes)))))))
    
 (define-method (js-property-safe-delete! o::Js-Scope-Object prop::bstring)
-   (with-access::Js-Object o (props proto)
+   (define (proto-delete!)
+      (with-access::Js-Object o (proto)
+	 (if (js-null? proto)
+	     #t
+	     (js-property-safe-delete! proto prop))))
+
+   (with-access::Js-Object o (props)
       (let ((ht-entry (hashtable-get props prop)))
 	 (if ht-entry
 	     (with-access::Property-entry ht-entry (val attr)
@@ -158,7 +170,7 @@
 		      ((and (Ref? val)
 			    (js-deleted? ((Ref-getter val))))
 		       ;; as if we weren't here.
-		       (js-property-safe-delete! proto prop))
+		       (proto-delete!))
 		      ((not deletable)
 		       #f)
 		      ((Ref? val)
@@ -168,4 +180,4 @@
 		       (widen!::Deleted-Property ht-entry)
 		       (hashtable-remove! props prop)
 		       #t))))
-	     (js-property-safe-delete! proto prop)))))
+	     (proto-delete!)))))

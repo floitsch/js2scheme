@@ -1,7 +1,7 @@
 (module jsre-Object
-   (import jsre-natives)
-   (use jsre-object
-	jsre-Function
+   (import jsre-object
+	   jsre-natives)
+   (use jsre-Function
 	jsre-Date
 	jsre-String
 	jsre-Number

@@ -2,7 +2,7 @@
    (use jsre-object
 	jsre-global-object
 	jsre-scope-object
-	jsre-natives ;; undefined, null, ...
+	jsre-natives ;; undefined
 	jsre-Error
 	jsre-primitives
 	jsre-Object

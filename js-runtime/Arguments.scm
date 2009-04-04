@@ -1,6 +1,6 @@
 (module jsre-Arguments
+   (import jsre-scope-object)
    (use jsre-object
-	jsre-scope-object
 	jsre-natives)
    (export (class Js-Arguments::Js-Scope-Object))
    (export (macro make-arguments))

@@ -1,6 +1,6 @@
 (module jsre-Bool
-   (import jsre-natives)
-   (use jsre-object
+   (import jsre-object)
+   (use jsre-natives
 	jsre-Object
 	jsre-Date
 	jsre-Function

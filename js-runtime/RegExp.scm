@@ -1,6 +1,6 @@
 (module jsre-RegExp
-   (import jsre-natives)
-   (use jsre-object
+   (import jsre-object)
+   (use jsre-natives
 	jsre-Object
 	jsre-Function
 	jsre-String
@@ -217,8 +217,7 @@
 			 (substring s start-index final-index))
 			(loop (+fx i 1)))
 		       ((not (vector-ref clusters (*fx (-fx i 1) 2)))
-			(js-property-set! a (integer->string i)
-					       (js-undefined))
+			(js-property-set! a (integer->string i) (js-undefined))
 			(loop (+fx i 1)))
 		       (else
 			(js-property-set!
@@ -259,7 +258,7 @@
 	      (if match
 		  (begin
 		     (js-property-set! this "lastIndex"
-					    (fixnum->flonum (cadr match)))
+				       (fixnum->flonum (cadr match)))
 		     #t)
 		  (begin
 		     (js-property-set! this "lastIndex" 0.0)

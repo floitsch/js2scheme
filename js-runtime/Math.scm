@@ -1,6 +1,6 @@
 (module jsre-Math
-   (use jsre-object
-	jsre-Error
+   (import jsre-object)
+   (use jsre-Error
 	jsre-Object
 	jsre-Date
 	jsre-Function
