@@ -194,9 +194,9 @@
 		 (exit 3))
 	      ,@(map (lambda (u) `(,(unique->run-top-level u)))
 		     linked-tokens)
-	      (let ((js-main (js-property-get *js-global-this* "main")))
+	      (let ((js-main (js-property-get *js-global-this* (STR "main"))))
 		 (if (procedure? js-main)
-		     (let ((tmp (js-method-call js-main "apply"
+		     (let ((tmp (js-method-call js-main (STR "apply")
 						*js-global-this*
 						(scm-list->js-array args))))
 			(if (flonum? tmp)

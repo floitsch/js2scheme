@@ -1,5 +1,6 @@
 (module jsre-scope-object
-   (import jsre-base-object)
+   (import jsre-base-object
+	   jsre-base-string)
    (use jsre-global-object
 	jsre-natives ;; undefined
 	jsre-Error
@@ -23,17 +24,17 @@
    (export (macro scope-var-add))
    (eval (class Ref)))
 
+;; id (the variable) must be of type Js-Base-String
 (define-macro (scope-var-add scope-object
 			     id v attributes)
-   (let ((str-id (gensym 'str-id))
-	 (ref (gensym 'ref))
+   (let ((ref (gensym 'ref))
 	 (new-val (gensym 'new-val)))
-      `(let ((,str-id (if (symbol? ,id) (symbol->string ,id) ,id))
-	     (,ref (instantiate::Ref
+      `(let ((,ref (instantiate::Ref
 		      (getter (lambda () ,v))
 		      (setter (lambda (,new-val) (set! ,v ,new-val))))))
+	  [assert (,id) (Js-Base-String? ,id)]
 	  (js-property-generic-set! ,scope-object
-				    ,str-id
+				    ,id
 				    ,ref
 				    ,attributes))))
 
@@ -52,8 +53,8 @@
       (props (make-props-hashtable))
       (proto (js-null))))
 
-(define-method (js-class-name::bstring o::Js-Scope-Object)
-   "scope-object should never be seen")
+(define-method (js-class-name::Js-Base-String o::Js-Scope-Object)
+   (utf8->js-string "scope-object should never be seen"))
 
 
 (define (js-scope-property-one-level-contains? scope-object id)
@@ -67,17 +68,17 @@
 			(not (js-deleted? ref-val)))
 		     #t))))))
 (define-method (js-property-one-level-contains? o::Js-Scope-Object
-						prop::bstring)
+						prop::Js-Base-String)
    (js-scope-property-one-level-contains? o prop))
 (define-method (js-property-is-enumerable? o::Js-Scope-Object
-					   prop::bstring)
+					   prop::Js-Base-String)
    (if (js-scope-property-one-level-contains? o prop)
        (with-access::Js-Object o (props)
 	  (with-access::Property-entry (hashtable-get props prop) (attr)
 	     (with-access::Attributes attr (enumerable)
 		enumerable)))
        #f))
-(define-method (js-property-contains o::Js-Scope-Object prop::bstring)
+(define-method (js-property-contains o::Js-Scope-Object prop::Js-Base-String)
    (define (call-proto)
       (with-access::Js-Object o (proto)
 	 (if (js-null? proto)
@@ -116,7 +117,7 @@
 				   val)))
 		       (p key tmp read-only deletable enumerable))))))))))
 	  
-(define-method (js-property-generic-set! o::Js-Scope-Object prop::bstring
+(define-method (js-property-generic-set! o::Js-Scope-Object prop::Js-Base-String
 					 new-val attributes)
 ;   (print "setting " prop)
    (with-access::Js-Object o (props)
@@ -154,7 +155,7 @@
 	  (val new-val)
 	  (attr (or attributes (default-attributes)))))))
    
-(define-method (js-property-safe-delete! o::Js-Scope-Object prop::bstring)
+(define-method (js-property-safe-delete! o::Js-Scope-Object prop::Js-Base-String)
    (define (proto-delete!)
       (with-access::Js-Object o (proto)
 	 (if (js-null? proto)

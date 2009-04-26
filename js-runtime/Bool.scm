@@ -1,5 +1,6 @@
 (module jsre-Bool
-   (import jsre-base-object)
+   (import jsre-base-object
+	   jsre-base-string)
    (use jsre-natives
 	jsre-Object
 	jsre-Date
@@ -22,14 +23,14 @@
 (define *js-Bool-orig* (lambda () 'to-be-replaced))
 (define *js-Bool-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::bstring o::Js-Bool)
-   "Boolean")
+(define-method (js-class-name::Js-Base-String o::Js-Bool)
+   (STR "Boolean"))
 
 (define (Bool-init)
    (set! *js-Bool-orig* (Bool-lambda))
-   (set! *jsg-Bool* (create-runtime-global "Boolean" *js-Bool-orig*))
+   (set! *jsg-Bool* (create-runtime-global (STR "Boolean") *js-Bool-orig*))
 
-   (let* ((text-repr "function(v) { /* native Boolean */ throw 'native'; }")
+   (let* ((text-repr (STR "function(v) { /*native Boolean*/ throw 'native'; }"))
 	  (bool-object (create-function-object *js-Bool-orig*
 					       (Bool-new)
 					       Bool-construct
@@ -42,25 +43,25 @@
       (set! *js-Bool-prototype* prototype)
 
       (js-property-generic-set! bool-object ;; 15.6.3
-				"length"
+				(STR "length")
 				1.0
 				(length-attributes))
       (js-property-generic-set! bool-object ;; 15.6.3.1
-				"prototype"
+				(STR "prototype")
 				prototype
 				(get-Attributes dont-enum
 						dont-delete read-only))
 
       (js-property-generic-set! prototype    ;; 15.6.4.1
-				"constructor"
+				(STR "constructor")
 				*js-Bool-orig*
 				(constructor-attributes))
       (js-property-generic-set! prototype    ;; 15.6.4.2
-				"toString"
+				(STR "toString")
 				(toString)
 				(built-in-attributes))
       (js-property-generic-set! prototype    ;; 15.6.4.3
-				"valueOf"
+				(STR "valueOf")
 				(valueOf)
 				(built-in-attributes))))
 
@@ -84,17 +85,17 @@
 
 (define (toString)
    ;; 15.6.4.1
-   (js-fun this #f #f "Boolean.toString"
+   (js-fun this #f #f (STR "Boolean.toString")
 	   ()
 	   (if (not (Js-Bool? this))
-	       (type-error "Bool-toString applied to" this)
+	       (type-error (STR "Bool-toString applied to") this)
 	       (let ((val (Js-Bool-val this)))
-		  (if val "true" "false")))))
+		  (if val (STR "true") (STR "false"))))))
 
 (define (valueOf)
    ;; 15.6.4.3
-   (js-fun this #f #f "Boolean.valueOf"
+   (js-fun this #f #f (STR "Boolean.valueOf")
 	   ()
 	   (if (not (Js-Bool? this))
-	       (type-error "Bool-valueOf applied to" this)
+	       (type-error (STR "Bool-valueOf applied to") this)
 	       (Js-Bool-val this))))

@@ -1,11 +1,12 @@
 (module jsre-RegExp-match
+   (import jsre-base-string)
    (import jsre-RegExp-classes
 	   jsre-RegExp-fsm
 	   jsre-RegExp-dot
 	   jsre-RegExp-state)
    (import multi-top-level)
-   (export (regexp-match fsm::FSM str::bstring start-index::bint)
-	   (regexp-test fsm::FSM str::bstring start-index::bint)
+   (export (regexp-match fsm::FSM str::Js-Base-String start-index::bint)
+	   (regexp-test fsm::FSM str::Js-Base-String start-index::bint)
 	   *debug*) ;; only for now...
    (static
     (wide-class FSM-opt-disjunction::FSM-disjunction
@@ -229,7 +230,7 @@
 	    ((FSM-final? (FSM-state-node (car new-states)))
 	     ;; first state in priority-list is final. Can't get any better...
 	     (car new-states))
-	    ((>=fx new-index (string-length str))
+	    ((>=fx new-index (js-string-length str))
 	     ;; end of string. If there's a state pointing to the final-node we
 	     ;; have a winner.
 	     (let ((winner (any (lambda (state)
@@ -302,12 +303,12 @@
 
 
 (define (propagate-check n::FSM-node state::FSM-state
-			 str::bstring index::bint)
+			 str::Js-Base-String index::bint)
    (unless (forbidden? n)
       (propagate n state str index)))
 
 (define-generic (propagate n::FSM-node state::FSM-state
-			   str::bstring index::bint)
+			   str::Js-Base-String index::bint)
    (error "FSM-match"
 	  "forgot node-type"
 	  n))
@@ -524,8 +525,8 @@
 		    (start (vector-ref backref-clusters tmp))
 		    (stop (vector-ref backref-clusters (+fx tmp 1)))
 		    (prefix? (if case-sensitive?
-				 string-prefix?
-				 string-prefix-ci?)))
+				 js-string-prefix?
+				 js-string-prefix-ci?)))
 		;; as the start is only updated when there is a stop
 		;; (see FSM-backref-cluster-exit) then there must be a stop
 		;; if there's a start.
@@ -534,7 +535,7 @@
 			(not stop)
 			(=fx start stop)) ;; empty string
 		    (propagate-check next state str index))
-		   ((>=fx index (string-length str))
+		   ((>=fx index (js-string-length str))
 		    ;; can't match, but string-prefix? would crash
 		    'do-nothing)
 		   ((prefix? str str start stop index)
@@ -661,7 +662,7 @@
 	    ;; but I don't care...
 	    (with-access::FSM-state my-state (node)
 	       (set! node entry)
-	       
+
 	       (if (or negative?
 		       (not contains-clusters?))
 		   (let ((matched? (fresh-recursive-test *fsm* my-state
@@ -685,7 +686,7 @@
       (push-state! state)))
 
 ;; 'advance' may _not_ change a state! we have propagate for that...
-(define (advance n::FSM-node state::FSM-state str::bstring index::bint)
+(define (advance n::FSM-node state::FSM-state str::Js-Base-String index::bint)
    (let ((next (consume n state str index)))
       (when next
 	 (wait-at next state))))
@@ -694,7 +695,8 @@
 ;; otherwise returns the target where the state should go.
 ;; allows for instance for dispatching nodes.
 ;; must _not_ change a state! we have propagate for that...
-(define-generic (consume n::FSM-node state::FSM-state str::bstring index::bint)
+(define-generic (consume n::FSM-node state::FSM-state
+			 str::Js-Base-String index::bint)
    (error "FSM-match"
 	  "forgot node-type"
 	  n))
@@ -759,7 +761,7 @@
 
 (define-method (consume n::FSM-char state str index)
    (with-access::FSM-char n (next c)
-      (and (char=? c (string-ref str index))
+      (and (char=? c (js-string-ref str index))
 	   next)))
 
 (define-method (consume n::FSM-everything state str index)
@@ -768,7 +770,7 @@
 
 (define-method (consume n::FSM-class state str index)
    (with-access::FSM-class n (next class)
-      (and (RegExp-class-match class (string-ref str index))
+      (and (RegExp-class-match class (js-string-ref str index))
 	   next)))
 )
 

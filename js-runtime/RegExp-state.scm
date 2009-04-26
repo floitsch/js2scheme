@@ -1,5 +1,6 @@
 (module jsre-RegExp-state
-   (import jsre-RegExp-classes
+   (import jsre-base-string
+	   jsre-RegExp-classes
 	   jsre-RegExp-fsm
 	   jsre-RegExp-dot)
    (export

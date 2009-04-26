@@ -1,5 +1,6 @@
 (module jsre-Array
-   (import jsre-base-object)
+   (import jsre-base-object
+	   jsre-base-string)
    (use jsre-natives
 	jsre-Object
 	jsre-Date
@@ -16,7 +17,7 @@
    (export
     *jsg-Array*
     (class Js-Array::Js-Object
-       length::real) ;; TODO: really not optimal :(
+       length::double) ;; TODO: really not optimal :(
     (Array-init)
     (js-array-literal length::bint els::pair-nil)
     (scm-list->js-array::Js-Array els::pair-nil)
@@ -35,19 +36,19 @@
 (define (extract-index-els-in-range o ht start::llong end::llong
 				    go-into-prototypes?)
    (define (key->index key)
-      (let ((str-len (string-length key)))
+      (let ((str-len (js-string-length key)))
 	 (let loop ((i 0)
 		    (res #l0))
 	    (cond
 	       ((>=llong res end)
 		#f)
-	       ((and (>=llong i str-len)
+	       ((and (>=fx i str-len)
 		     (>=llong res start))
 		res)
-	       ((>=llong i str-len)
+	       ((>=fx i str-len)
 		#f)
 	       (else
-		(let ((cv (-fx (char->integer (string-ref key i))
+		(let ((cv (-fx (char->integer (js-string-ref key i))
 			       (char->integer #\0))))
 		   (if (and (>= cv 0)
 			    (< cv 10))
@@ -65,38 +66,37 @@
 		(hashtable-put! ht index
 				(cons key val))))))))
    
-(define-method (js-property-one-level-contains? o::Js-Array prop::bstring)
+(define-method (js-property-one-level-contains? o::Js-Array prop)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
-   (if (string=? prop "length")
+   (if (js-string=? prop (STR "length"))
        #t
        (call-next-method)))
-(define-method (js-property-is-enumerable? o::Js-Array prop::bstring)
+(define-method (js-property-is-enumerable? o::Js-Array prop)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
-   (if (string=? prop "length")
+   (if (js-string=? prop (STR "length"))
        #f
        (call-next-method)))
-(define-method (js-property-contains o::Js-Array prop::bstring)
-   (if (string=? prop "length")
-       (exact->inexact (Js-Array-length o))
+(define-method (js-property-contains o::Js-Array prop)
+   (if (js-string=? prop (STR "length"))
+       (Js-Array-length o)
        (call-next-method)))
 
 (define-method (js-property-one-level-for-each o::Js-Array p::procedure)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (with-access::Js-Array o (length)
-      (p "length" (exact->inexact length) #f #f #f)
+      (p (STR "length") length #f #f #f)
       (call-next-method)))
    
 (define *array-index-limit* 4294967295.0) ;; #xffffffff))
-(define-method (js-property-generic-set! o::Js-Array prop::bstring
-					 new-val attributes)
+(define-method (js-property-generic-set! o::Js-Array prop new-val attributes)
    (define (property-index prop)
       (let ((index (any->uint32 prop)))
-	 (and (string=? (any->string index) prop)
+	 (and (js-string=? (any->js-string index) prop)
 	      (<fl index *array-index-limit*)
 	      index)))
 
    (with-access::Js-Array o (length props)
-      (if (string=? prop "length")
+      (if (js-string=? prop (STR "length"))
 	  (let ((nb-uint32 (any->uint32 new-val)))
 	     (if (=fl new-val nb-uint32)
 		 (begin
@@ -111,26 +111,26 @@
 			   (lambda (index key/val)
 			      (hashtable-remove! props (car key/val))))))
 		    (set! length nb-uint32))
-		 (range-error "invalid array-index" new-val)))
+		 (range-error (STR "invalid array-index") new-val)))
 	  (let ((index (property-index prop)))
 	     (when (and index
 			(>=fl index length))
 		(set! length (+fl index 1.0)))
 	     (call-next-method)))))
 
-(define-method (js-property-safe-delete! o::Js-Array prop::bstring)
+(define-method (js-property-safe-delete! o::Js-Array prop)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
-   (if (string=? prop "length")
+   (if (js-string=? prop (STR "length"))
        #f
        (call-next-method)))
 
-(define-method (js-class-name::bstring o::Js-Array)
-   "Array")
+(define-method (js-class-name o::Js-Array)
+   (STR "Array"))
 
 (define (Array-init)
    (set! *js-Array-orig* (Array-lambda))
-   (set! *jsg-Array* (create-runtime-global "Array" *js-Array-orig*))
-   (let* ((text-repr "function(v) { /* native Array */ throw 'native'; }")
+   (set! *jsg-Array* (create-runtime-global (STR "Array") *js-Array-orig*))
+   (let* ((text-repr (STR "function(v) { /*native Array*/ throw 'native'; }"))
 	  (array-object (create-function-object *js-Array-orig*
 						(Array-new)
 						Array-construct
@@ -143,83 +143,83 @@
       (set! *js-Array-prototype* prototype)
       
       (js-property-generic-set! array-object            ;; 15.4.3
-				"length"
+				(STR "length")
 				1.0
 				(length-attributes))
       (js-property-generic-set! array-object            ;; 15.4.3.1
-				"prototype"
+				(STR "prototype")
 				prototype
 				(get-Attributes dont-enum
 						dont-delete read-only))
       
       (js-property-generic-set! prototype               ;; 15.4.4.1
-				"constructor"
+				(STR "constructor")
 				*js-Array-orig*
 				(constructor-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.2
-				"toString"
+				(STR "toString")
 				(toString)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.3
-				"toLocaleString"
+				(STR "toLocaleString")
 				(toLocaleString)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.4
-				"concat"
+				(STR "concat")
 				(concat)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.5
-				"join"
+				(STR "join")
 				(join)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.6
-				"pop"
+				(STR "pop")
 				(pop)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.7
-				"push"
+				(STR "push")
 				(push)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.8
-				"reverse"
+				(STR "reverse")
 				(reverse)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.9
-				"shift"
+				(STR "shift")
 				(shift)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.10
-				"slice"
+				(STR "slice")
 				(slice)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.11
-				"sort"
+				(STR "sort")
 				(array-sort)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.12
-				"splice"
+				(STR "splice")
 				(splice)
 				(built-in-attributes))
       (js-property-generic-set! prototype               ;; 15.4.4.13
-				"unshift"
+				(STR "unshift")
 				(unshift)
 				(built-in-attributes))))
 
 
 (define (fill-Array a nb-args get-arg)
    ;; 15.4.2.1 && 15.4.2.2
-   ;; HACK: we do not allow to pass more than bint elements to fill-array
+   ;; CARE: we do not allow to pass more than bint elements to fill-array
    ;;       this is due to nb-args being a bint.
    (if (and (= nb-args 1)
 	    (flonum? (get-arg 0)))
        (let ((len (get-arg 0)))
 	  (let ((int-len (any->uint32 len)))
 	     (if (=fl len int-len)
-		 (js-property-set! a "length" len)
-		 (range-error "invalid array-length" len))))
+		 (js-property-set! a (STR "length") len)
+		 (range-error (STR "invalid array-length") len))))
        (let loop ((i 0))
 	  (when (< i nb-args)
-	     (js-property-set! a (integer->string i) (get-arg i))
+	     (js-property-set! a (integer->js-string i) (get-arg i))
 	     (loop (+fx i 1)))))
    a)
 
@@ -253,12 +253,12 @@
 (define (js-array-literal length els)
    ;; HACK: we only allow bint elements. (length is of type bint)
    (let ((a (js-new (global-read *jsg-Array*))))
-      (js-property-set! a "length" (fixnum->flonum length))
+      (js-property-set! a (STR "length") (fixnum->flonum length))
       (for-each (lambda (el)
 		   (let ((index (car el))
 			 (val (cadr el)))
 		      (js-property-set! a
-					(integer->string index)
+					(integer->js-string index)
 					val)))
 		els)
       a))
@@ -278,7 +278,7 @@
 	     a
 	     (begin
 		(js-property-set! a
-				  (integer->string i)
+				  (integer->js-string i)
 				  (car els))
 		(loop (cdr els)
 		      (+fx i 1)))))))
@@ -288,18 +288,18 @@
    (define (join->string el)
       (if (or (js-undefined? el)
 	      (js-null? el))
-	  ""
+	  (STR "")
 	  (el->string el)))
 
-   (let* ((len (any->uint32 (js-property-get a "length")))
+   (let* ((len (any->uint32 (js-property-get a (STR "length"))))
 	  (llen (flonum->llong len))
 	  (sep-str (if (js-undefined? sep)
-		       ","
-		       (any->string sep))))
+		       (STR ",")
+		       (any->js-string sep))))
       (cond
 	 ((=fl len 0.0)
-	  "")
-	 ((string-null? sep-str)
+	  (STR ""))
+	 ((js-string-null? sep-str)
 	  ;; sparse huge arrays are feasible and should not be done in
 	  ;; O(length) but in O(nb-items)
 	  (let ((ht (make-hashtable)))
@@ -311,35 +311,35 @@
 				  (let ((key/val (cadr entry)))
 				     (join->string (cdr key/val))))
 			       sorted-l)))
-		(apply string-append sorted-l))))
+		(apply js-string-append sorted-l))))
 	 (else
-	  (let loop ((res (join->string (js-property-get a "0")))
+	  (let loop ((res (join->string (js-property-get a (STR "0"))))
 		     (i #l1))
 	     (if (=llong i llen)
 		 res
-		 (let* ((el (js-property-get a (llong->string i)))
+		 (let* ((el (js-property-get a (llong->js-string i)))
 			(str (join->string el)))
-		    (loop (string-append res sep-str str)
+		    (loop (js-string-append res sep-str str)
 			  (+llong i #l1)))))))))
    
 (define (toString)
    ;; 15.4.4.2
-   (js-fun this #f #f "Array.toString"
+   (js-fun this #f #f (STR "Array.toString")
 	   ()
 	   (if (not (Js-Array? this))
-	       (type-error "Array-toString applied to" this)
-	       (join-array this (js-undefined) any->string))))
+	       (type-error (STR "Array-toString applied to") this)
+	       (join-array this (js-undefined) any->js-string))))
 
 (define (toLocaleString)
    ;; 15.4.4.3
-   (js-fun this #f #f "Array.toLocaleString"
+   (js-fun this #f #f (STR "Array.toLocaleString")
 	   ()
 	   (if (not (Js-Array? this))
-	       (type-error "Array-toLocaleString applied to" this)
+	       (type-error (STR "Array-toLocaleString applied to") this)
 	       (join-array this
 			   "," ;; locale-specific way of separating elements
 			   (lambda (el)
-			      (js-method-call el "toLocaleString"))))))
+			      (js-method-call el (STR "toLocaleString")))))))
 
 (define (arrays-concat nb-arrays get-array)
    ;; 15.4.4.4
@@ -351,7 +351,7 @@
 	  ht
 	  (lambda (index key/val)
 	     (js-property-generic-set! new-a
-				       (llong->string (+llong offset index))
+				       (llong->js-string (+llong offset index))
 				       (cdr key/val)
 				       #f)))))
    
@@ -369,16 +369,16 @@
 		       (loop (+ array-counter 1)
 			     (+llong new-length
 				     (flonum->llong (Js-Array-length a)))))
-		    (let ((str (any->string a)))
+		    (let ((str (any->js-string a)))
 		       (js-property-set! new-a
-					 (llong->string new-length)
+					 (llong->js-string new-length)
 					 str)
 		       (loop (+fx array-counter 1)
 			     (+llong new-length #l1)))))))))
 
 (define (concat)
    ;; 15.4.4.4
-   (js-fun this #f (nb-args get-arg) "Array.concat"
+   (js-fun this #f (nb-args get-arg) (STR "Array.concat")
 	   (first-arg) ;; so the length is 1 (end of 15.4.4.4)
 	   (arrays-concat (+ nb-args 1)
 			  (lambda (i)
@@ -388,50 +388,50 @@
 
 (define (join)
    ;; 15.4.4.5
-   (js-fun this #f #f "Array.join"
+   (js-fun this #f #f (STR "Array.join")
 	   (sep)
-	   (join-array this sep any->string)))
+	   (join-array this sep any->js-string)))
 
 (define (pop)
    ;; 15.4.4.6
-   (js-fun this #f #f "Array.pop"
+   (js-fun this #f #f (STR "Array.pop")
 	   ()
-	   (let ((len (any->uint32 (js-property-get this "length"))))
+	   (let ((len (any->uint32 (js-property-get this (STR "length")))))
 	      (if (=fl len 0.0)
 		  (begin
-		     (js-property-set! this "length" 0.0)
+		     (js-property-set! this (STR "length") 0.0)
 		     (js-undefined))
-		  (let* ((len-str (llong->string (flonum->llong len)))
+		  (let* ((len-str (llong->js-string (flonum->llong len)))
 			 (res (js-property-get this len-str)))
 		     (js-property-safe-delete! this len-str)
 		     (js-property-set! this
-				       "length"
+				       (STR "length")
 				       (-fl len 1.0))
 		     res)))))
 
 (define (push)
    ;; 15.4.4.7
-   (js-fun this #f (nb-args get-arg) "Array.push"
+   (js-fun this #f (nb-args get-arg) (STR "Array.push")
 	   (first) ;; length == 1
-	   (let ((len (any->uint32 (js-property-get this "length"))))
+	   (let ((len (any->uint32 (js-property-get this (STR "length")))))
 	      (let loop ((i 0)
 			 (llen (flonum->llong len)))
 		 (if (>=fx i nb-args)
 		     (let ((flolen (llong->flonum llen)))
-			(js-property-set! this "length" flolen)
+			(js-property-set! this (STR "length") flolen)
 			flolen)
 		     (begin
 			(js-property-set! this
-					  (llong->string llen)
+					  (llong->js-string llen)
 					  (get-arg i))
 			(loop (+fx i 1)
 			      (+llong llen #l1))))))))
 
 (define (reverse)
    ;; 15.4.4.8
-   (js-fun this #f #f "Array.reverse"
+   (js-fun this #f #f (STR "Array.reverse")
 	   ()
-	   (let* ((len (any->uint32 (js-property-get this "length")))
+	   (let* ((len (any->uint32 (js-property-get this (STR "length"))))
 		  (llen (flonum->llong len))
 		  (ht (make-hashtable)))
 	      (extract-index-els-in-range this ht #l0 llen #t)
@@ -455,7 +455,7 @@
 			      ;; remove 2nd entry so it won't be added again.
 			      (hashtable-remove! ht (car key/val2)))
 			     (key/val1
-			      (let ((other-key (llong->string other)))
+			      (let ((other-key (llong->js-string other)))
 				 (js-property-generic-set! this
 							   other-key
 							   (cdr key/val1)
@@ -470,7 +470,7 @@
 ;; shift to the left or right by given nb starting at given number.
 ;; if by is negative shift is to the right
 (define (shift-from-by a from::llong by::llong)
-   (let* ((len (any->uint32 (js-property-get a "length")))
+   (let* ((len (any->uint32 (js-property-get a (STR "length"))))
 	  (llen (flonum->llong len))
 	  (left-shift? (positivellong? by)) ;; left-shift
 	  ;; when shifting (to the left) we might have to erase elements left
@@ -492,7 +492,7 @@
 	      (unless (hashtable-get ht (+llong index by))
 		 (js-property-safe-delete! a (car key/val))))
 	     (else
-	      (let ((shifted-index-str (llong->string (-llong index by))))
+	      (let ((shifted-index-str (llong->js-string (-llong index by))))
 		 ;; first copy current value
 		 (js-property-generic-set! a shifted-index-str (cdr key/val) #f)
 		 ;; then delete this one (if necessary)
@@ -509,25 +509,25 @@
 (define (shift)
    ;; 15.4.4.9
    (js-fun
-    this #f #f "Array.shift"
+    this #f #f (STR "Array.shift")
     ()
-    (let ((len (any->uint32 (js-property-get this "length"))))
+    (let ((len (any->uint32 (js-property-get this (STR "length")))))
        (if (=fl len 0.0)
 	   (begin
-	      (js-property-set! this "length" 0.0)
+	      (js-property-set! this (STR "length") 0.0)
 	      (js-undefined))
-	   (let ((res (js-property-get this "0")))
+	   (let ((res (js-property-get this (STR "0"))))
 	      (shift-from-by this #l1 #l1)
-	      (js-property-set! this "length" (=fl len 1.0))
+	      (js-property-set! this (STR "length") (=fl len 1.0))
 	      res)))))
 
 (define (slice)
    ;; 15.4.4.10
       (js-fun
-       this #f #f "Array.slice"
+       this #f #f (STR "Array.slice")
        (start-any end-any)
        (let* ((new-a (js-new (global-read *jsg-Array*)))
-	      (len (any->uint32 (js-property-get this "length")))
+	      (len (any->uint32 (js-property-get this (STR "length"))))
 	      (start-int (any->integer start-any))
 	      (start (if (<fl start-int 0.0)
 			 (max-2fl 0.0 (+fl len start-int))
@@ -548,20 +548,20 @@
 	   ht
 	   (lambda (index key/val)
 	      (js-property-generic-set! new-a
-					(llong->string (-llong index lstart))
+					(llong->js-string (-llong index lstart))
 					(cdr key/val)
 					#f)))
 	  (js-property-set! new-a
-			    "length"
+			    (STR "length")
 			    (-fl end start))
 	  new-a)))
 
 (define (array-sort)
    ;; 15.4.4.10
    (js-fun
-    this #f #f "Array.sort"
+    this #f #f (STR "Array.sort")
     (compare-fn)
-    (let* ((len (any->uint32 (js-property-get this "length")))
+    (let* ((len (any->uint32 (js-property-get this (STR "length"))))
 	   (ht (make-hashtable)))
        (extract-index-els-in-range this ht #l0 (flonum->llong len) #t)
        ;; start by deleting all old values.
@@ -576,14 +576,14 @@
 			    (map (lambda (el)
 				    (if (js-undefined? el)
 					(cons #f el)
-					(cons (any->string el) el)))
+					(cons (any->js-string el) el)))
 				 els)
 			    els))
 	      (comp (if no-comp-fun?
 			(lambda (x y)
 			   (cond
 			      ((and (car x) (car y))
-			       (string<? (car x) (car y)))
+			       (js-string<? (car x) (car y)))
 			      ((car x) #t)
 			      ((car y) #f)
 			      (else #f)))
@@ -606,7 +606,7 @@
 		     (sorted sorted))
 	     (unless (null? sorted)
 		(js-property-generic-set! this
-					  (llong->string i)
+					  (llong->js-string i)
 					  (if no-comp-fun?
 					      (cdr (car sorted))
 					      (car sorted))
@@ -618,30 +618,30 @@
 (define (splice)
    ;; 15.4.4.12
    (js-fun
-    this #f (nb-args get-arg) "Array.splice"
+    this #f (nb-args get-arg) (STR "Array.splice")
     (start-any delete-count-any)
     (let* ((new-a (js-new (global-read *jsg-Array*)))
-	   (len (any->uint32 (js-property-get this "length")))
+	   (len (any->uint32 (js-property-get this (STR "length"))))
 	   (start-int (any->integer start-any))
 	   (start (if (<fl start-int 0.0)
 		      (max-2fl 0.0 (+fl len start-int))
 		      (min-2fl start-int len)))
 	   (lstart (flonum->llong start))
 	   (delete-count-int (maxfl (any->integer delete-count-any)
-				  0.0))
+				    0.0))
 	   (end (min-2fl delete-count-int
 			 (-fl len start)))
 	   (lend (flonum->llong end))
 	   (nb-inserted (-fx nb-args 2)))
-       (js-property-set! new-a "length" delete-count-int)
+       (js-property-set! new-a (STR "length") delete-count-int)
        (if (= delete-count-int nb-inserted)
 	   ;; best case...
 	   (let loop ((k 0)
 		      (i lstart))
 	      (if (>=llong i lend)
 		  new-a
-		  (let* ((k-str (integer->string k))
-			 (i-str (llong->string i))
+		  (let* ((k-str (integer->js-string k))
+			 (i-str (llong->js-string i))
 			 (old-val (js-property-contains this i-str))
 			 (new-val (get-arg (+fx k 2))))
 		     (when old-val
@@ -659,7 +659,7 @@
 		     (when (>=llong index start)
 			(js-property-generic-set!
 			 new-a
-			 (llong->string (-llong index start))
+			 (llong->js-string (-llong index start))
 			 (cdr key/val)
 			 #f)))))
 	      ;; (un)shift elements
@@ -670,26 +670,26 @@
 		 (let loop ((i 0))
 		    (unless (>= i (-fx nb-args 2))
 		       (js-property-set! this
-					 (llong->string (+ lstart i))
+					 (llong->js-string (+ lstart i))
 					 (get-arg (+fx i 2)))
 		       (loop (+fx i 1))))
-		 (js-property-set! this "length"
+		 (js-property-set! this (STR "length")
 				   (-fl len (llong->flonum diff)))
 		 new-a))))))
 
 (define (unshift)
    ;; 15.4.4.13
    (js-fun
-    this #f (nb-args get-arg) "Array.unshift"
+    this #f (nb-args get-arg) (STR "Array.unshift")
     (first) ;; len 1
-    (let* ((len (any->uint32 (js-property-get this "length")))
+    (let* ((len (any->uint32 (js-property-get this (STR "length"))))
 	   (new-len (+ len nb-args)))
        (unless (=fl len 0.0)
 	  ;; remember: unshift requires negative 'by'
 	  (shift-from-by this #l0 (fixnum->llong (- nb-args))))
        (let loop ((i 0))
 	  (unless (< i nb-args)
-	     (js-property-set! this (integer->string i) (get-arg i))
+	     (js-property-set! this (integer->js-string i) (get-arg i))
 	     (loop (+fx i 1))))
-       (js-property-set! this "length" new-len)
+       (js-property-set! this (STR "length") new-len)
        new-len)))

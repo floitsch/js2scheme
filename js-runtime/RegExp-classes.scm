@@ -1,5 +1,6 @@
 (module jsre-RegExp-classes
-   (import jsre-RegExp-char-set)
+   (import jsre-RegExp-char-set
+	   jsre-base-string)
    (static
     (final-class RE-class
        (char-set::RE-char-set read-only)
@@ -10,7 +11,7 @@
     (RegExp-class-match re-class c::char)
     (RegExp-class-subset?::bool re-class1 re-class2)
     (RegExp-class-overlap?::bool re-class1 re-class2)
-    (word-boundary str::bstring index::bint)
+    (word-boundary str::Js-Base-String index::bint)
     (terminator-char? c::char))
    (include "RegExp-constant-classes.scm"))
 
@@ -184,18 +185,18 @@
 	  (char-numeric? c)
 	  (char=? c #\_)))
    
-   (let ((len (string-length str)))
+   (let ((len (js-string-length str)))
       (cond
 	 ((zerofx? len)
 	  #f)
 	 ((zerofx? index)
-	  (word-char? (string-ref str index)))
+	  (word-char? (js-string-ref str index)))
 	 ((>=fx index len)
-	  (word-char? (string-ref str (-fx len 1))))
-	 ((word-char? (string-ref str (-fx index 1)))
-	  (not (word-char? (string-ref str index))))
+	  (word-char? (js-string-ref str (-fx len 1))))
+	 ((word-char? (js-string-ref str (-fx index 1)))
+	  (not (word-char? (js-string-ref str index))))
 	 (else ;; index-1 is not word-char
-	  (word-char? (string-ref str index))))))
+	  (word-char? (js-string-ref str index))))))
 
 (define (terminator-char? c)
    (let ((n (char->integer c)))

@@ -1,6 +1,7 @@
 (module jsre-RegExp-parse
+   (import jsre-base-string)
 ;   (main my-main)
-   (export (js-regexp->scm-regexp pattern::bstring)))
+   (export (js-regexp->scm-regexp pattern::Js-Base-String)))
 
 ;; Bigloo's regexp-parser does not feature multi-lines... so we can't reuse it.
 
@@ -16,7 +17,7 @@
    ;; function-body at bottom of fun
 
 (define str js-pattern)
-(define str-len (string-length str))
+(define str-len (js-string-length str))
 (define pos 0)
 
 ;; takes care of #f
@@ -56,7 +57,7 @@
 
 (define (peek-char)
    (if (< pos str-len)
-       (string-ref str pos)
+       (js-string-ref str pos)
        #f))
 
 (define (read-number)
@@ -68,7 +69,7 @@
 	 (let* ((end-pos (current-pos)))
 	    (if (=fx start-pos end-pos)
 		(return #f)
-		(string->integer (substring str start-pos end-pos))))))
+		(js-string->integer (js-substring str start-pos end-pos))))))
    
 
 (define (disjunction)
@@ -268,8 +269,8 @@
 	    (if (not (c-hex? (consume-char!)))
 		(return #f)
 		(loop (+fx i 1)))))
-      (let ((hex-str (substring str start-pos end-pos)))
-	 (integer->char (string->integer hex-str 16)))))
+      (let ((hex-str (js-substring str start-pos end-pos)))
+	 (integer->char (js-string->integer hex-str 16)))))
 
 
 (define (cluster)

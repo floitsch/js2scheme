@@ -1,4 +1,5 @@
 (module jsre-Eval-env
+   (import jsre-base-string)
    (use jsre-base-object
 	jsre-global-object
 	jsre-scope-object
@@ -15,12 +16,12 @@
    (export (class Js-Eval-env
 	      (objs::pair-nil read-only)
 	      (next-env read-only))
-	   (env-get env::Js-Eval-env id::bstring)
-	   (env-get+object env::Js-Eval-env id::bstring)
-	   (env-typeof-get env::Js-Eval-env id::bstring)
+	   (env-get env::Js-Eval-env id::Js-Base-String)
+	   (env-get+object env::Js-Eval-env id::Js-Base-String)
+	   (env-typeof-get env::Js-Eval-env id::Js-Base-String)
 	   ;; returns the given new-val
-	   (env-set! env::Js-Eval-env id::bstring new-val)
-	   (env-delete! env::Js-Eval-env id::bstring)))
+	   (env-set! env::Js-Eval-env id::Js-Base-String new-val)
+	   (env-delete! env::Js-Eval-env id::Js-Base-String)))
 
 (define (env-get env id)
    (with-access::Js-Eval-env env (objs next-env)

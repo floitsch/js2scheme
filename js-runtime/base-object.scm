@@ -1,4 +1,5 @@
 (module jsre-base-object
+   (import jsre-base-string)
    (export
     (inline mangle-false val)
     (inline unmangle-false val)
@@ -18,14 +19,16 @@
     (class Js-Object
        (props read-only) ;; hashtable
        (proto::Js-Object read-only)) ;; prototype
-    (generic js-property-one-level-contains?::bool o::Js-Object prop::bstring)
-    (generic js-property-is-enumerable?::bool o::Js-Object prop::bstring)
-    (generic js-property-contains o::Js-Object prop::bstring)
+    (generic js-property-one-level-contains?::bool o::Js-Object
+	     prop::Js-Base-String)
+    (generic js-property-is-enumerable?::bool o::Js-Object
+	     prop::Js-Base-String)
+    (generic js-property-contains o::Js-Object prop::Js-Base-String)
     (generic js-property-generic-set!
-	     o::Js-Object prop::bstring
+	     o::Js-Object prop::Js-Base-String
 	     new-val attributes)
-    (generic js-property-safe-delete!::bool o::Js-Object prop::bstring)
-    (generic js-class-name::bstring o::Js-Object)
+    (generic js-property-safe-delete!::bool o::Js-Object prop::Js-Base-String)
+    (generic js-class-name::Js-Base-String o::Js-Object)
 
     (generic js-property-one-level-for-each o::Js-Object f::procedure)
 
@@ -59,10 +62,8 @@
        #f
        val))
 
-(define-inline (make-string-hashtable)
-   (make-hashtable))
 (define-inline (make-props-hashtable)
-   (make-hashtable))
+   (create-hashtable :size 10 :hash js-string-hash :eqtest js-string=?))
 
 (define-macro (define-attributes)
    (define (concat-name n n2)
@@ -149,13 +150,11 @@
 (define (runtime-attributes)  (built-in-attributes))
 
 
-(define-generic (js-property-one-level-contains?::bool o::Js-Object
-						       prop::bstring)
+(define-generic (js-property-one-level-contains?::bool o::Js-Object prop)
    (with-access::Js-Object o (props)
       (and (hashtable-get props prop)
 	   #t)))
-(define-generic (js-property-is-enumerable? o::Js-Object
-					    prop::bstring)
+(define-generic (js-property-is-enumerable? o::Js-Object prop)
    (with-access::Js-Object o (props)
       (let ((ht-entry (hashtable-get props prop)))
 	 (if ht-entry
@@ -163,7 +162,7 @@
 		(with-access::Attributes attr (enumerable)
 		   enumerable))
 	     #f))))
-(define-generic (js-property-contains o::Js-Object prop::bstring)
+(define-generic (js-property-contains o::Js-Object prop)
    (with-access::Js-Object o (props proto)
       (let* ((ht-entry (hashtable-get props prop))
 	     (entry (and ht-entry (Property-entry-val ht-entry))))
@@ -179,7 +178,7 @@
 ;; the length-property of an array)
 ;; if no attributes are given, but the value did not yet exist, then the
 ;; default-attributes are used.
-(define-generic (js-property-generic-set! o::Js-Object prop::bstring
+(define-generic (js-property-generic-set! o::Js-Object prop
 					  new-value attributes)
    ;(print "set!: " prop " <- " new-value)
    (with-access::Js-Object o (props)
@@ -201,7 +200,7 @@
 		       (unless read-only
 			  (set! val new-value)))))))))
 
-(define-generic (js-property-safe-delete!::bool o::Js-Object prop::bstring)
+(define-generic (js-property-safe-delete!::bool o::Js-Object prop)
    ;; 11.4.1
    (with-access::Js-Object o (props proto)
       (let ((entry (hashtable-get props prop)))
@@ -220,8 +219,8 @@
 	    (else
 	     (js-property-safe-delete! proto prop))))))
 
-(define-generic (js-class-name::bstring o::Js-Object)
-   "Object")
+(define-generic (js-class-name::Js-Base-String o::Js-Object)
+   (STR "Object"))
 
 ;; calls f with prop::string val read-only? deletable? enumerable?
 ;; guarantees that the property still exists when the procedure is called.

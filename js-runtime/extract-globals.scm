@@ -48,7 +48,8 @@
 	     create-special-global)
 	 ?js-id
 	 . ?-))
-       (list (list (string->symbol js-id) scm-id)))
+       [assert (js-id) (and (pair? js-id) (eq? (car js-id) 'STR))]
+       (list (list (string->symbol (cadr js-id)) scm-id)))
       ((?- . ?-) ;; pair
        (let loop ((expr expr)
 		  (res '()))
@@ -67,10 +68,47 @@
 (define (jsop-symbol? s)
    (starts-with? s "jsop-"))
 
+(define *in-files* '())
+(define *output* #f)
+
+(define (extract-globals files)
+   (let loop ((files files)
+	      (bindings '()))
+      (if (null? files)
+	  bindings
+	  (begin
+	     (display (format "extracting globals from: ~a\n" (car files))
+		      (current-error-port))
+	     (with-input-from-file (car files)
+		(lambda ()
+		   (let liip ((bindings bindings))
+		      (let ((expr (read)))
+			 (if (eof-object? expr)
+			     (loop (cdr files) bindings)
+			     (liip (append (search-for-creations expr)
+					   bindings)))))))))))
+   
 (define (my-main args)
-   (let loop ((bindings '()))
-      (let ((expr (read)))
-	 (if (eof-object? expr)
-	     (pp `(define *runtime-variables* ',bindings))
-	     (loop (append (search-for-creations expr)
-			   bindings))))))
+   (args-parse (cdr args)
+      (("-o" ?file (help "Output file"))
+       (set! *output* file))
+      (else
+       (set! *in-files* (cons else *in-files*))))
+   (let ((out-p (if (not *output*)
+		    (current-output-port)
+		    (open-output-file *output*))))
+      (with-handler
+	 (lambda (e)
+	    (when *output*
+	       (delete-file *output*))
+	    (raise e))
+	 (unwind-protect
+	    (begin
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (let ((bindings (extract-globals *in-files*)))
+		  (pp `(define *runtime-variables* ',bindings) out-p)))
+	    (close-output-port out-p)))))

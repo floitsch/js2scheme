@@ -1,5 +1,6 @@
 (module jsre-global-object
-   (import jsre-base-object)
+   (import jsre-base-object
+	   jsre-base-string)
    (use jsre-natives ;; undefined
 	jsre-Error
 	jsre-primitives
@@ -17,7 +18,7 @@
 	   *js-global-env*
 	   ;; reuse the Property-entry
 	   (wide-class Js-Global-Box::Property-entry
-	      id::bstring
+	      id::Js-Base-String
 	      declared?::bool)
 	   (global-object-init)
  	   (macro create-declared-global)
@@ -27,7 +28,7 @@
  	   (macro global-read)
  	   (macro global-typeof-read)
  	   (macro global-set!)
-	   (create-global::Js-Global-Box id::bstring
+	   (create-global::Js-Global-Box id::Js-Base-String
 					 attributes declared? . Linit-val)))
 
 ;; should be in global-object.scm
@@ -146,9 +147,9 @@
 
 ;; ======= implementation of Js-Global.
 
-(define-method (js-class-name::bstring o::Js-Global)
+(define-method (js-class-name::Js-Base-String o::Js-Global)
    ;; not defined in ECMA.
-   "global")
+   (STR "global"))
 
 (define-method (js-property-one-level-contains? o::Js-Global prop)
    (with-access::Js-Global o (props)
@@ -171,8 +172,8 @@
 	    ((js-null? proto) #f)
 	    (else             (js-property-contains proto prop))))))
 
-(define-method (js-property-generic-set! o::Js-Global prop::bstring
-					  new-value attributes)
+(define-method (js-property-generic-set! o::Js-Global prop
+					 new-value attributes)
    ;(tprint "set!: " prop " <- " new-value)
    (with-access::Js-Global o (props)
       ;; hashtable-update! is evil! not only is its return value different,

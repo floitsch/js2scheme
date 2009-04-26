@@ -1,5 +1,6 @@
 (module jsre-RegExp-fsm
    (import jsre-RegExp-classes
+	   jsre-base-string
 	   mset
 	   multi-top-level)
    (export
@@ -437,16 +438,16 @@
 	      (if multi-line?
 		  (lambda (str index)
 		     (or (zerofx? index)
-			 (terminator-char? (string-ref str (-fx index 1)))))
+			 (terminator-char? (js-string-ref str (-fx index 1)))))
 		  (lambda (str index)
 		     (zerofx? index))))
 	     ((:eol :eos :$)
 	      (if multi-line?
 		  (lambda (str index)
-		     (or (=fx index (string-length str))
-			 (terminator-char? (string-ref str index))))
+		     (or (=fx index (js-string-length str))
+			 (terminator-char? (js-string-ref str index))))
 		  (lambda (str index)
-		     (=fx index (string-length str)))))
+		     (=fx index (js-string-length str)))))
 	     ((:word-boundary :wbdry)
 	      word-boundary)
 	     ((:not-word-boundary :not-wbdry)

@@ -1,5 +1,5 @@
 (module mset
-   (export (make-mset #!key (comp eq?))
+   (export (make-mset #!key (eqtest eq?) (hash get-hashnumber))
 	   (mset-put! mset val)
 	   (mset-remove! mset val)
 	   (mset-contains? mset val)
@@ -12,8 +12,8 @@
 ;; operation it updates its state.
 ;; Currently based on hashtables. But should improve in the future.
 
-(define (make-mset #!key (comp eq?))
-   (make-hashtable 5 #unspecified comp))
+(define (make-mset #!key (eqtest eq?) (hash get-hashnumber))
+   (create-hashtable :size 5 :eqtest eqtest :hash hash))
 
 (define (mset-put! mset val)
    (hashtable-put! mset val #t))

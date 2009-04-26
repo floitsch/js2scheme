@@ -1,11 +1,12 @@
 (module jsre-primitives
    (use mset
 	jsre-base-object
+	jsre-base-string
 	jsre-natives) ;; undefined
-   (export (js-property-get o::Js-Object prop::bstring)
+   (export (js-property-get o::Js-Object prop::Js-Base-String)
 	   ;; returns the given value
-	   (js-property-set! o::Js-Object prop::bstring new-val)
-	   (js-property-update! o::Js-Object prop::bstring new-val)
+	   (js-property-set! o::Js-Object prop::Js-Base-String new-val)
+	   (js-property-update! o::Js-Object prop::Js-Base-String new-val)
 
 	   (js-property-for-each o::Js-Object f::procedure)
 
@@ -14,7 +15,7 @@
 	   
 
 
-(define (js-property-get o::Js-Object prop::bstring)
+(define (js-property-get o::Js-Object prop::Js-Base-String)
    ;(write-circle o)(print)
    ;(write-circle prop)(print)
    (let ((res (js-property-contains o prop)))
@@ -24,11 +25,11 @@
 	  (js-undefined))))
 
 ;; non-generic. but js-property-generic-set! is.
-(define (js-property-set! o::Js-Object prop::bstring new-value)
+(define (js-property-set! o::Js-Object prop::Js-Base-String new-value)
    (js-property-generic-set! o prop (mangle-false new-value) #f)
    new-value)
 
-(define (js-property-update! o::Js-Object prop::bstring new-value)
+(define (js-property-update! o::Js-Object prop::Js-Base-String new-value)
    (cond
       ((js-null? o) #f)
       ((js-property-one-level-contains? o prop)
@@ -39,7 +40,7 @@
 	  (js-property-update! proto prop new-value)))))
 
 (define (js-property-for-each start-o::Js-Object p::procedure)
-   (let ((shadowed (make-mset :comp string=?)))
+   (let ((shadowed (make-mset :eqtest js-string=? :hash js-string-hash)))
       (js-hierarchy-for-each
        start-o
        (lambda (o)

@@ -1,12 +1,13 @@
 (module jsre-eval
    (library js2scheme-comp)
+   (import jsre-base-string)
    (use jsre-Eval-env
 	jsre-global-object
 	jsre-scope-object
 	jsre-base-object
 	jsre-Error)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
-	   (js-Function-eval src::bstring)))
+	   (js-Function-eval src::Js-Base-String)))
 
 ;; TODO: currently we just include the macros. That's clearly not the best
 ;; solution. but at least it works, and is simple.
@@ -23,6 +24,28 @@
 (define *macros* (read-macros))
 (define *eval-init-done?* #f)
 
+(define (compile-js src config global-obj global-env tl-this)
+   (let ((p (open-input-string (js-string->utf8 src))))
+      (unwind-protect
+	 (with-handler
+	    (lambda (e)
+	       (cond
+		  ((&error? e)
+		   ;; (format "~a ~a\n~a:\n~a\n~a"
+		   (syntax-error (utf8->js-string (&error-msg e))
+				 (&error-obj e)))
+		  (else (syntax-error (STR "unknown syntax error") #f))))
+	    (js2scheme-eval p config global-obj global-env tl-this))
+	 (close-input-port p))))
+
+(define (run-compiled scm-prog)
+;  (eval `(module ,(gensym 'fun-eval)
+;           (library js2scheme-runtime)))
+   (unless *eval-init-done?*
+      (eval `(begin ,@*macros*))
+      (set! *eval-init-done?* #t))
+   (eval scm-prog))
+   
 ;; js-eval needs several things:
 ;; - the program prog (obvious)
 ;; - top-level-obj: the object which will receive new var-decls. Usually the
@@ -32,9 +55,7 @@
 ;; - envs: a list of all environments that need to be searched for variables.
 ;;   note the top-level-obj is in this list too.
 (define (js-eval prog top-level-obj top-level-this next-env . Lenvs)
-   ;(tprint "**" prog)
-   ;; TODO error handling
-   (if (not (string? prog))
+   (if (not (js-string? prog))
        prog
        (let* ((config (let ((ht (make-hashtable)))
 			 ;; evaled-string is there anyways.
@@ -42,44 +63,26 @@
 			 (hashtable-put! ht 'function-strings #t)
 			 ;(hashtable-put! ht 'verbose #t)
 			 ht))
-	      (p (open-input-string prog)))
-	  (unwind-protect
-	     (let ((scm-prog (js2scheme-eval p
-					     config
-					     top-level-obj
-					     (instantiate::Js-Eval-env
-						(objs Lenvs)
-						(next-env next-env))
-					     top-level-this)))
-;		(eval `(module ,(gensym 'eval)
-;			  (library js2scheme-runtime)))
-		(unless *eval-init-done?*
-		   (eval `(begin ,@*macros*))
-		   (set! *eval-init-done?* #t))
-		(eval scm-prog))
-	     (close-input-port p)))))
+	      (scm-prog (compile-js prog
+				    config
+				    top-level-obj
+				    (instantiate::Js-Eval-env
+				       (objs Lenvs)
+				       (next-env next-env))
+				    top-level-this)))
+	  (run-compiled scm-prog))))
 
 (define (js-Function-eval src)
-   (with-handler
-      (lambda (e) (syntax-error e))
-      (let* ((config (let ((ht (make-hashtable)))
-			;; evaled-string is there anyways.
-			;; no need to hide the function-string
-			(hashtable-put! ht 'function-strings #t)
-			;(hashtable-put! ht 'verbose #t)
-			ht))
-	     (p (open-input-string src)))
-	 (unwind-protect
-	    (let ((scm-prog (js2scheme-eval p
-					    config
-					    *js-global-object*
-					    *js-global-env*
-					    ;; we could use *js-global-this* too
-					    *js-global-object*)))
-;	       (eval `(module ,(gensym 'fun-eval)
-;			 (library js2scheme-runtime)))
-	       (unless *eval-init-done?*
-		  (eval `(begin ,@*macros*))
-		  (set! *eval-init-done?* #t))
-	       (eval scm-prog))
-	    (close-input-port p)))))
+   (let* ((config (let ((ht (make-hashtable)))
+		     ;; evaled-string is there anyways.
+		     ;; no need to hide the function-string
+		     (hashtable-put! ht 'function-strings #t)
+		     ;(hashtable-put! ht 'verbose #t)
+		     ht))
+	  (scm-prog (compile-js src
+				config
+				*js-global-object*
+				*js-global-env*
+				;; *js-global-this* == *js-global-object*
+				*js-global-object*)))
+      (run-compiled scm-prog)))

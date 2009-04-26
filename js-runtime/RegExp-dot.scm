@@ -1,5 +1,6 @@
 (module jsre-RegExp-dot
-   (import jsre-RegExp-classes
+   (import jsre-base-string
+	   jsre-RegExp-classes
 	   jsre-RegExp-fsm
 	   jsre-RegExp-state)
    (export (regexp->dot fsm)
@@ -20,7 +21,8 @@
 
 (define (running->dot fsm states frozen-states str index)
    (dot-header)
-   (print (gensym 'str) "[label=\"" (substring str 0 index) "\",shape=record];")
+   (print (gensym 'str)
+	  "[label=\"" (js-substring str 0 index) "\",shape=record];")
    (let ((ht-ids (dot-out-fsm fsm)))
       (dot-out-states states ht-ids #f str index)
       (for-each (lambda (frozen)
@@ -61,7 +63,7 @@
 		    "")
 		"label=\""
 		(if (>= start-index 0)
-		    (substring str start-index index)
+		    (js-substring str start-index index)
 		    "")
 		"|" prio
 		(if (FSM-sleeping-state? state)
@@ -181,8 +183,8 @@
 (define-method (dot-out n::FSM-everything ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
-      (with-access::FSM-char n (next c)
-	 (print (get-id n ht-id) "[label=\"every\"]; // char")
+      (with-access::FSM-everything n (next c)
+	 (print (get-id n ht-id) "[label=\"every\"]; // every")
 	 (dot-out next ht-id ht-done)
 	 (print (get-id n ht-id) " -> "
 		(get-id next ht-id) ";"))))

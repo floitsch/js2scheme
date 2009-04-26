@@ -21,6 +21,7 @@
 				       (drop arg-bindings-good-nb
 					     *nb-named-params*)))))
       `(let ((,fun ,f))
+	  (unless (procedure? ,fun) (type-procedure-error ,fun))
 	  (let* ,arg-bindings-good-nb
 	     (,fun ,(or this '*js-global-this*)
 		   ,fun
@@ -29,8 +30,13 @@
 		   ,(list 'quasiquote rest-vec))))))
 
 (define-macro (js-method-call o m . Largs)
+  (define (js-string? s)
+     (and (symbol? s)
+	  ;; HACK: hardcoded var-prefix for strings. (jsstr-)
+	  (string-prefix? "jsstr-" (symbol->string s))))
+
    (if (and (symbol? o)
-	    (string? m))
+	    (js-string? m))
        (let ((tmp-o (gensym 'o))
 	     (tmp-this (gensym 'this)))
 	  `(let* ((,tmp-this (any->object ,o))
@@ -49,9 +55,9 @@
 		  (,tmp-field ,m)
 		  (,tmp-object-this (any->object ,tmp-o))
 		  (,tmp-object-o (safe-js-object ,tmp-object-this))
-		  (,tmp-string-field (any->string ,tmp-field)))
+		  (,tmp-string-field (any->js-string ,tmp-field)))
 	      (js-call (js-property-get ,tmp-object-o
-					     ,tmp-string-field)
+					,tmp-string-field)
 		       ,tmp-object-this
 		       ,@Largs)))))
 
@@ -163,7 +169,7 @@
 	 (o-res (gensym 'o-res)))
       `(let ((,f-eval ,f))
 	  (if (not (procedure? ,f-eval))
-	      (type-error "not a procedure" ,f-eval)
+	      (type-procedure-error ,f-eval)
 	      (let* ((,(symbol-append c '::Js-Function)
 		      (procedure-object ,f-eval))
 		     (,construct (Js-Function-construct ,c))

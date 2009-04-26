@@ -1,5 +1,6 @@
 (module jsre-globals
    (use jsre-base-object
+	jsre-base-string
 	jsre-natives ;; undefined
 	jsre-primitives
 	jsre-Error
@@ -40,17 +41,17 @@
 
 (define (globals-init)
    (set! jsg-NaN                            ;; 15.1.1.1
-	 (create-special-global "NaN"
+	 (create-special-global (STR "NaN")
 				(get-Attributes dont-enum dont-delete)
 				+nan.0))
 
    (set! jsg-Infinity                       ;; 15.1.1.2
-	 (create-special-global "Infinity"
+	 (create-special-global (STR "Infinity")
 				(get-Attributes dont-enum dont-delete)
 				+inf.0))
 
    (set! jsg-undefined                      ;; 15.1.1.3
-	 (create-special-global "undefined"
+	 (create-special-global (STR "undefined")
 				(get-Attributes dont-enum dont-delete)
 				(js-undefined)))
 
@@ -67,7 +68,7 @@
 	  (exported-ids (map (lambda (id) (symbol-append 'jsg- id)) ids))
 	  (vals (map (lambda (def id)
 			(if (pair? (cadr def))
-			    `(js-fun #f #f #f ,(symbol->string id)
+			    `(js-fun #f #f #f (STR ,(symbol->string id))
 				     ,(cdr (cadr def))
 				     ,@(cddr def))
 			    (caddr def)))
@@ -80,7 +81,7 @@
 			      (cons (lambda ()
 				       (set! ,exported-id
 					     (create-runtime-global
-					      ,(symbol->string id)
+					      (STR ,(symbol->string id))
 					      ,val)))
 				    *delayed-assigs*))))
 		 exported-ids
@@ -91,14 +92,15 @@
 
 (define-runtime-globals
    (define (print to-print)
-      (print (any->string to-print)))
+      (print (js-string->utf8 (any->js-string to-print))))
 
    (define (scmprint to-print)
       (write-circle to-print)
       (print))
 
    (define (eval prog)              ;; 15.1.2.1
-      (eval-error prog))
+      ;; real eval's are short-cut in scm-out.
+      (eval-error))
 
    (define (isNaN number)           ;; 15.1.2.4
       (nanfl? (any->number number)))
@@ -109,7 +111,7 @@
 
    (define (parseInt string radix)  ;; 15.1.2.2
       (define (parseIntR s i R::bint sign::bint)
-	 (let ((str-len (string-length s)))
+	 (let ((str-len (js-string-length s)))
 	    (let loop ((i i)
 		       (res 0)
 		       (found-char #f))
@@ -117,8 +119,8 @@
 		   (if found-char
 		       (* 1.0 (* res sign)) ;; (* 1.0) -> flonum
 		       +nan.0)
-		   (let* ((c (string-ref s i))
-			  (ci (char->integer (string-ref s i)))
+		   (let* ((c (js-string-ref s i))
+			  (ci (char->integer (js-string-ref s i)))
 			  (cv (cond
 				 ((and (char>=? c #\0)
 				       (char<=? c #\9))
@@ -151,21 +153,21 @@
 	 (char-whitespace? c))
 
       (define (first-non-white s)
-	 (let ((len (string-length s)))
+	 (let ((len (js-string-length s)))
 	    (let loop ((i 0))
 	       (cond
 		  ((>=fx i len) i)
-		  ((char-whitespace? (string-ref s i))
+		  ((char-whitespace? (js-string-ref s i))
 		   (loop (+fx i 1)))
 		  (else i)))))
 
       (define (read-sign s pos)
 	 (cond
-	    ((>=fx pos (string-length s))
+	    ((>=fx pos (js-string-length s))
 	     (values 1 pos))
-	    ((char=? #\- (string-ref s pos))
+	    ((char=? #\- (js-string-ref s pos))
 	     (values -1 (+fx pos 1)))
-	    ((char=? #\+ (string-ref s pos))
+	    ((char=? #\+ (js-string-ref s pos))
 	     (values 1 (+fx pos 1)))
 	    (else
 	     (values 1 pos))))
@@ -174,15 +176,15 @@
 	 (cond
 	    ((and (or (=fx Rfx 0)
 		      (=fx Rfx 16))
-		  (or (substring-at? s "0x" pos)
-		      (substring-at? s "0X" pos)))
+		  (or (js-substring-at_utf8? s "0x" pos)
+		      (js-substring-at_utf8? s "0X" pos)))
 	     (values 16 (+fx pos 2)))
 	    ((=fx Rfx 0)
 	     (values 10 pos))
 	    (else
 	     (values Rfx pos))))
 
-      (let* ((s (any->string string))
+      (let* ((s (any->js-string string))
 	     (tmp-R (any->int32 radix)))
 	 (if (not (or (=fl tmp-R 0.0)
 		      (and (>=fl tmp-R 2.0)
@@ -206,15 +208,15 @@
 	    ((=fx from to) +nan.0)
 	    ((and (=fx from 0)
 		  (=fx to str-len))
-	     (string->real str))
+	     (js-string->real str))
 	    (else
-	     (string->real (substring str from to)))))
+	     (js-string->real (js-substring str from to)))))
       
       (define (read-ws str i str-len)
 	 (cond
 	    ((>= i str-len)
 	     +nan.0)
-	    ((whitespace? (string-ref str i))
+	    ((whitespace? (js-string-ref str i))
 	     (read-ws str (+fx i 1) str-len))
 	    (else
 	     (read-str-decimal-literal str i str-len))))
@@ -223,11 +225,11 @@
 	 ;; get rid of infinity.
 	 (cond
 	    ((>=fx i str-len) +nan.0)
-	    ((substring-at? str "Infinity" i) +inf.0)
-	    ((substring-at? str "+Infinity" i) +inf.0)
-	    ((substring-at? str "-Infinity" i) -inf.0)
-	    ((or (char=? #\- (string-ref str i))
-		 (char=? #\+ (string-ref str i)))
+	    ((js-substring-at_utf8? str "Infinity" i) +inf.0)
+	    ((js-substring-at_utf8? str "+Infinity" i) +inf.0)
+	    ((js-substring-at_utf8? str "-Infinity" i) -inf.0)
+	    ((or (char=? #\- (js-string-ref str i))
+		 (char=? #\+ (js-string-ref str i)))
 	     (read-unsigned str (+fx i 1) str-len i))
 	    (else
 	     (read-unsigned str i str-len i))))
@@ -242,11 +244,11 @@
 		+nan.0)
 	       ((>=fx i str-len)
 		(substring->real str str-len start-pos str-len))
-	       ((decimal-char? (string-ref str i))
+	       ((decimal-char? (js-string-ref str i))
 		(loop (+fx i 1)
 		      #f
 		      encountered-dot?))
-	       ((char=? #\. (string-ref str i))
+	       ((char=? #\. (js-string-ref str i))
 		(cond
 		   ((and encountered-dot?
 			 need-digit?)
@@ -255,8 +257,8 @@
 		    (substring->real str str-len start-pos i))
 		   (else
 		    (loop (+fx i 1) need-digit? #t))))
-	       ((or (char=? #\e (string-ref str i))
-		    (char=? #\E (string-ref str i)))
+	       ((or (char=? #\e (js-string-ref str i))
+		    (char=? #\E (js-string-ref str i)))
 		(if need-digit?
 		    +nan.0
 		    (read-exponent-integer str i str-len start-pos)))
@@ -273,14 +275,14 @@
 	    (cond
 	       ((>=fx i str-len)
 		(substring->real str str-len start-pos end-pos))
-	       ((decimal-char? (string-ref str i))
+	       ((decimal-char? (js-string-ref str i))
 		(loop (+fx i 1)
 		      (+fx i 1)
 		      #f
 		      #f))
 	       ((and sign-is-allowed?
-		     (or (char=? #\- (string-ref str i))
-			 (char=? #\+ (string-ref str i))))
+		     (or (char=? #\- (js-string-ref str i))
+			 (char=? #\+ (js-string-ref str i))))
 		(loop (+fx i 1)
 		      end-pos
 		      #t
@@ -288,11 +290,11 @@
 	       (else
 		(substring->real str str-len start-pos end-pos)))))
       
-      (let ((str (any->string string)))
-	 (read-ws str 0 (string-length str))))
+      (let ((str (any->js-string string)))
+	 (read-ws str 0 (js-string-length str))))
    
    (define (decodeURI encodedURI)                     ;; 15.1.3.1
-      (let ((str (any->string encodedURI)))
+      (let ((str (any->js-string encodedURI)))
 	 (uri-decode str (lambda (c)
 			    (case c
 			       ((#\; #\/ #\? #\: #\@ #\& #\= #\+ #\$ #\,)
@@ -301,12 +303,12 @@
 			       (else #f))))))
    
    (define (decodeURIComponent encodedURIComponent)   ;; 15.1.3.2
-      (let ((str (any->string encodedURIComponent)))
+      (let ((str (any->js-string encodedURIComponent)))
 	 (uri-decode str (lambda (c)
 			    #f))))
    
    (define (encodeURI uri)                            ;; 15.1.3.3
-      (let ((str (any->string uri)))
+      (let ((str (any->js-string uri)))
 	 (uri-encode str
 		     (lambda (c)
 			(and (<fx c 128)
@@ -330,7 +332,7 @@
 				(else #f)))))))
    
    (define (encodeURIComponent uriComponent)          ;; 15.1.3.4
-      (let ((str (any->string uriComponent)))
+      (let ((str (any->js-string uriComponent)))
 	 (uri-encode str
 		     (lambda (c)
 			(and (<fx c 128)
@@ -351,9 +353,9 @@
    )
 
 ;; 15.1.3 URI functions
-(define-inline (uri-encode str in-unescaped-set?)
+(define-inline (uri-encode str::Js-Base-String in-unescaped-set?)
    (define (unicode-char-at str i)
-      (char->integer (string-ref str i)))
+      (char->integer (js-string-ref str i)))
    (define (display-uc-char c)
       (display (integer->char c)))
 
@@ -368,51 +370,52 @@
 		(hex-digit->char (bit-ursh b 4))
 		(hex-digit->char (bit-and b #x0F))))
 
-   (let ((str-len (string-length str)))
+   (let ((str-len (js-string-length str)))
       ;; TODO: uri-encode. do not create new string, if there is nothing to encode
-      (with-output-to-string
-	 (lambda ()
-	    (let loop ((i 0))
-	       (when (<fx i str-len)
-		  (let ((c (unicode-char-at str i)))
-		     (cond
-			((not c) ;; can't happen yet
-			 (uri-error "invalid unicode character"))
-			;; the following would have been written completely
-			;; different (and imho nicer) in C.
-			((in-unescaped-set? c)
-			 (display-uc-char c))
-			((<=fx c #x7F)
-			 (display-escaped-byte c))
-			((<=fx c #x7FF)
-			 (let ((b1 (+fx #xC0 (bit-ursh c 6)))
-			       (b2 (+fx #x80 (bit-and c #x3F))))
-			    (display-escaped-byte b1)
-			    (display-escaped-byte b2)))
-			((<=fx c #xFFFF)
-			 (let ((b1 (+fx #xE0 (bit-ursh c 12)))
-			       (b2 (+fx #x80
-					(bit-and (bit-ursh c 6) #x3F)))
-			       (b3 (+fx #x80 (bit-and c #x3F))))
-			    (display-escaped-byte b1)
-			    (display-escaped-byte b2)
-			    (display-escaped-byte b3)))
-			(else
-			 (let ((b1 (+fx #xF0 (bit-ursh c 18)))
-			       (b2 (+fx #x80
-					(bit-and (bit-ursh c 12) #x3F)))
-			       (b3 (+fx #x80
-					(bit-and (bit-ursh c 6) #x3F)))
-			       (b4 (+fx #x80 (bit-and c #x3F))))
-			    (display-escaped-byte b1)
-			    (display-escaped-byte b2)
-			    (display-escaped-byte b3)
-			    (display-escaped-byte b4)))))
-		  (loop (+fx i 1))))))))
+      (utf8->js-string
+       (with-output-to-string
+	  (lambda ()
+	     (let loop ((i 0))
+		(when (<fx i str-len)
+		   (let ((c (unicode-char-at str i)))
+		      (cond
+			 ((not c) ;; can't happen yet
+			  (uri-error (STR "invalid unicode character")))
+			 ;; the following would have been written completely
+			 ;; different (and imho nicer) in C.
+			 ((in-unescaped-set? c)
+			  (display-uc-char c))
+			 ((<=fx c #x7F)
+			  (display-escaped-byte c))
+			 ((<=fx c #x7FF)
+			  (let ((b1 (+fx #xC0 (bit-ursh c 6)))
+				(b2 (+fx #x80 (bit-and c #x3F))))
+			     (display-escaped-byte b1)
+			     (display-escaped-byte b2)))
+			 ((<=fx c #xFFFF)
+			  (let ((b1 (+fx #xE0 (bit-ursh c 12)))
+				(b2 (+fx #x80
+					 (bit-and (bit-ursh c 6) #x3F)))
+				(b3 (+fx #x80 (bit-and c #x3F))))
+			     (display-escaped-byte b1)
+			     (display-escaped-byte b2)
+			     (display-escaped-byte b3)))
+			 (else
+			  (let ((b1 (+fx #xF0 (bit-ursh c 18)))
+				(b2 (+fx #x80
+					 (bit-and (bit-ursh c 12) #x3F)))
+				(b3 (+fx #x80
+					 (bit-and (bit-ursh c 6) #x3F)))
+				(b4 (+fx #x80 (bit-and c #x3F))))
+			     (display-escaped-byte b1)
+			     (display-escaped-byte b2)
+			     (display-escaped-byte b3)
+			     (display-escaped-byte b4)))))
+		   (loop (+fx i 1)))))))))
 
-(define-inline (uri-decode str in-reserved-set?)
+(define-inline (uri-decode str::Js-Base-String in-reserved-set?)
    ;; the str is supposed to be encoded. Therefore all chars should be ASCII.
-   ;; we will therefore simply use string-ref to traverse the string.
+   ;; we will therefore simply use js-string-ref to traverse the string.
 
    (define (display-uc-char c)
       (display (integer->char c)))
@@ -437,8 +440,8 @@
 
       ;; (string-ref str i) == #\%
       (and (<fx (+fx i 2) str-len)
-	   (let ((d1 (hex-char->integer (string-ref str (+fx i 1))))
-		 (d2 (hex-char->integer (string-ref str (+fx i 2)))))
+	   (let ((d1 (hex-char->integer (js-string-ref str (+fx i 1))))
+		 (d2 (hex-char->integer (js-string-ref str (+fx i 2)))))
 	      (and d1 d2
 		   (+fx (bit-lsh d1 4) d2)))))
 
@@ -447,13 +450,13 @@
       (let ((b (read-escaped-byte str i str-len)))
 	 (when (or (not b)
 		   (not (=fx #x80 (bit-and #xC0 b)))) ;; starts with '10'
-	    (uri-error "bad URI escape sequence 1"))
+	    (uri-error (STR "bad URI escape sequence")))
 	 (bit-and #x3F b)))
 
    (define (read-escaped-sequence str i str-len)
       (let ((b1 (read-escaped-byte str i str-len)))
 	 (when (not b1)
-	    (uri-error "bad URI escape sequence 2"))
+	    (uri-error (STR "bad URI escape sequence")))
 	 (cond
 	    ((zerofx? (bit-and b1 #x80))
 	     (values b1 (+fx i 3)))
@@ -479,24 +482,25 @@
 				       b4)))
 			(+fx i 12))))
 	    (else
-	     (uri-error "bad URI escape sequence 3")))))
+	     (uri-error (STR "bad URI escape sequence"))))))
 		 
-   (let ((str-len (string-length str)))
+   (let ((str-len (js-string-length str)))
       ;; TODO: uri-decode. do not create new string, if there is nothing to decode
-      (with-output-to-string
-	 (lambda ()
-	    (let loop ((i 0))
-	       (when (<fx i str-len)
-		  (let ((c (string-ref str i)))
-		     (if (not (char=? c #\%))
-			 (begin
-			    (display c)
-			    (loop (+fx i 1)))
-			 (receive (decoded-uc-char end-pos)
-			    (read-escaped-sequence str i str-len)
-			    (when (>fx decoded-uc-char #x10FFFF)
-			       (uri-error "bad URI escape sequence 4"))
-			    (if (in-reserved-set? decoded-uc-char)
-				(display (substring str i end-pos))
-				(display-uc-char decoded-uc-char))
-			    (loop end-pos))))))))))
+      (utf8->js-string
+       (with-output-to-string
+	  (lambda ()
+	     (let loop ((i 0))
+		(when (<fx i str-len)
+		   (let ((c (js-string-ref str i)))
+		      (if (not (char=? c #\%))
+			  (begin
+			     (display c)
+			     (loop (+fx i 1)))
+			  (receive (decoded-uc-char end-pos)
+			     (read-escaped-sequence str i str-len)
+			     (when (>fx decoded-uc-char #x10FFFF)
+				(uri-error (STR "bad URI escape sequence")))
+			     (if (in-reserved-set? decoded-uc-char)
+				 (display (js-substring str i end-pos))
+				 (display-uc-char decoded-uc-char))
+			     (loop end-pos)))))))))))

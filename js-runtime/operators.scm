@@ -1,4 +1,5 @@
 (module jsre-operators
+   (import jsre-base-string)
    (use jsre-base-object
 	jsre-natives ;; undefined
 	jsre-primitives
@@ -66,18 +67,18 @@
 (define-inline (jsop-delete base prop)
    ;; mostly similar to js-property-get
    (let ((o-typed (safe-js-object (any->object base)))
-	 (prop-typed (any->string prop)))
+	 (prop-typed (any->js-string prop)))
       (js-property-safe-delete! o-typed prop-typed)))
 
 (define-inline (jsop-typeof v)
    (cond
-      ((string? v) "string")
-      ((number? v) "number")
-      ((boolean? v) "boolean")
-      ((procedure? v) "function")
-      ((js-undefined? v) "undefined")
-      ((js-null? v) "object")
-      ((Js-Object? v) "object")
+      ((js-string? v) (STR "string"))
+      ((number? v) (STR "number"))
+      ((boolean? v) (STR "boolean"))
+      ((procedure? v) (STR "function"))
+      ((js-undefined? v) (STR "undefined"))
+      ((js-null? v) (STR "object"))
+      ((Js-Object? v) (STR "object"))
       (else
        (print)
        (display "-*")
@@ -128,12 +129,12 @@
    (let* ((lhs (any->primitive v1 #f))
 	  (rhs (any->primitive v2 #f)))
       (cond
-	 ((string? lhs)
-	  (if (string? rhs)
-	      (string-append lhs rhs)
-	      (string-append lhs (any->string rhs))))
-	 ((string? rhs)
-	  (string-append (any->string lhs) rhs))
+	 ((js-string? lhs)
+	  (if (js-string? rhs)
+	      (js-string-append lhs rhs)
+	      (js-string-append lhs (any->js-string rhs))))
+	 ((js-string? rhs)
+	  (js-string-append (any->js-string lhs) rhs))
 	 (else
 	  (let* ((n1 (any->number lhs))
 		 (n2 (any->number rhs)))
@@ -178,8 +179,8 @@
    ;; 11.8.5
    (let* ((p1 (any->primitive v1 'number))
 	  (p2 (any->primitive v2 'number)))
-      (if (and (string? p1) (string? p2))
-	  (string<? p1 p2)
+      (if (and (js-string? p1) (js-string? p2))
+	  (js-string<? p1 p2)
 	  (let* ((n1 (any->number p1))
 		 (n2 (any->number p2)))
 	     (cond
@@ -206,14 +207,14 @@
 
 (define (jsop-instanceof v1 v2)
    (unless (procedure? v2)
-      (type-error "not a procedure" v2))
+      (type-procedure-error v2))
    (let ((obj1 (js-object v1)))
       (unless obj1
-	 (type-error "not an object" v1))
-      (let* ((prototype (js-property-get (js-object v2) "prototype"))
+	 (type-error (STR "not an object") v1))
+      (let* ((prototype (js-property-get (js-object v2) (STR "prototype")))
 	     (prototype-obj (js-object prototype)))
 	 (unless prototype-obj
-	    (type-error "prototype is not an object" prototype))
+	    (type-error (STR "prototype is not an object") prototype))
 	 (let loop ((obj1 obj1))
 	    (let ((proto (Js-Object-proto obj1)))
 	       (cond
@@ -227,8 +228,8 @@
 (define (jsop-in v1 v2)
    (let ((obj2 (js-object v2)))
       (unless obj2
-	 (type-error "not an object" v2))
-      (let ((str1 (any->string v1)))
+	 (type-error (STR "not an object") v2))
+      (let ((str1 (any->js-string v1)))
 	 (and (js-property-contains obj2 str1)
 	      #t))))
 
@@ -248,29 +249,29 @@
 
       ;; same types:
       ((and (flonum? v1)     (flonum? v2))     (=fl v1 v2))
-      ((and (string? v1)     (string? v2))     (string=? v1 v2))
+      ((and (js-string? v1)  (js-string? v2))  (js-string=? v1 v2))
       ((and (boolean? v1)    (boolean? v2))    #f) ;; eq? covered other case
       ((and (procedure? v1)  (procedure? v2))  #f) ;; eq? covered other case
 
       ;; different types:
       ((and (js-null? v1)      (js-undefined? v2)) #t)
       ((and (js-undefined? v1) (js-null? v2))      #t)
-      ((and (string? v1)       (flonum? v2))   (=fl (js-string->number v1) v2))
-      ((and (flonum? v1)       (string? v2))   (=fl v1 (js-string->number v2)))
+      ((and (js-string? v1)    (flonum? v2))    (=fl (js-string->number v1) v2))
+      ((and (flonum? v1)       (js-string? v2)) (=fl v1 (js-string->number v2)))
 
       ((boolean? v1)
        (if v1 (jsop-== 1.0 v2) (jsop-== 0.0 v2)))
       ((boolean? v2)
        (if v2 (jsop-== v1 1.0) (jsop-== v1 0.0)))
 
-      ((and (or (string? v1) (flonum? v1))
+      ((and (or (js-string? v1) (flonum? v1))
 	    (js-object v2))
        => (lambda (obj)
 	     (jsop-== v1
 		      (js-object->primitive v2 (if (Js-Date? obj)
 						   'string
 						   'number)))))
-      ((and (or (string? v2) (flonum? v2))
+      ((and (or (js-string? v2) (flonum? v2))
 	    (js-object v1))
        => (lambda (obj)
 	     (jsop-== (js-object->primitive v1 (if (Js-Date? obj)
@@ -285,9 +286,9 @@
 (define-inline (jsop-=== v1 v2)
    (cond
       ((eq? v1 v2) #t) ;; handles undefined, null, bools and funs
-      ((string? v1)
-       (and (string? v2)
-	    (string=? v1 v2)))
+      ((js-string? v1)
+       (and (js-string? v2)
+	    (js-string=? v1 v2)))
       ((flonum? v1)
        (and (flonum? v2)
 	    (=fl v1 v2)))

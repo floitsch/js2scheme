@@ -1,5 +1,6 @@
 (module jsre-Function
-   (import jsre-base-object)
+   (import jsre-base-object
+	   jsre-base-string)
    (use jsre-natives
 	jsre-eval
 	jsre-Object
@@ -49,8 +50,8 @@
    (lambda L (js-undefined))) ;; 15.3.4
 (define *js-Function-prototype-object*::Js-Object (js-null))
 
-(define-method (js-class-name::bstring o::Js-Function)
-   "Function")
+(define-method (js-class-name::Js-Base-String o::Js-Function)
+   (STR "Function"))
 
 (define *function-prototype-initialized?* #f)
 
@@ -58,6 +59,7 @@
    ;; 15.3.4
    (unless *function-prototype-initialized?*
        (let* ((f *js-Function-prototype*)
+	      (text-repr (STR "function() { /* Function.prototype */ }"))
 	      (fun-obj (instantiate::Js-Function
 			  (props (make-props-hashtable))
 			  ;; The only function with object-prototype!
@@ -65,7 +67,7 @@
 			  (fun f)
 			  (new f)
 			  (construct create-empty-object-lambda)
-			  (text-repr "function() {/*Function.prototype*/}"))))
+			  (text-repr text-repr))))
 	  (hashtable-put! *js-function-objects-ht* f fun-obj)
 	  (set! *js-Function-prototype-object* fun-obj)
 	  (set! *function-prototype-initialized?* #t)))
@@ -78,7 +80,7 @@
 
 (define (Function-init)
    (let* ((fun (Function-lambda))
-	  (fun-text "function(b) {/* native Function */ throw 'native'; }")
+	  (fun-text (STR "function() {/*native Function*/ throw 'native'; }"))
 	  (fun-obj (create-function-object fun
 					   fun ;; new == lambda
 					   (lambda (ignored) 'ignored)
@@ -86,14 +88,14 @@
 	  (prototype (js-function-prototype))
 	  (prototype-obj (js-function-prototype-object)))
 
-      (set! *jsg-Function* (create-runtime-global "Function" fun))
+      (set! *jsg-Function* (create-runtime-global (STR "Function") fun))
       
       (js-property-generic-set! fun-obj       ;; 15.3.3
-				"length"
+				(STR "length")
 				1.0
 				(length-attributes))
       (js-property-generic-set! fun-obj       ;; 15.3.3.1
-				"prototype"
+				(STR "prototype")
 				prototype
 				(get-Attributes dont-enum
 						dont-delete read-only))
@@ -102,38 +104,38 @@
       ;; and prototype properties. These are not mentioned in the spec, but we
       ;; simply assume, that they follow default rules.
       (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
-				"constructor"
+				(STR "constructor")
 				prototype
 				(constructor-attributes))
       (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
-				"length"
+				(STR "length")
 				0.0
 				(length-attributes))
       (js-property-generic-set! prototype-obj ;; assumed in 15.3.4
-				"prototype"
+				(STR "prototype")
 				(js-new (global-read *jsg-Object*))
 				(get-Attributes dont-enum
 						dont-delete read-only))
 				
       (js-property-generic-set! prototype-obj ;; 15.3.4.1
-				"constructor"
+				(STR "constructor")
 				fun
 				(constructor-attributes))
       (js-property-generic-set! prototype-obj ;; 15.3.4.2
-				"toString"
+				(STR "toString")
 				(toString)
 				(built-in-attributes))
       (js-property-generic-set! prototype-obj ;; 15.3.4.3
-				"apply"
+				(STR "apply")
 				(fun-apply)
 				(built-in-attributes))
       (js-property-generic-set! prototype-obj ;; 15.3.4.4
-				"call"
+				(STR "call")
 				(call)
 				(built-in-attributes))))
 				  
 (define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
-   (let ((proto (or (js-object (js-property-get f-o "prototype"))
+   (let ((proto (or (js-object (js-property-get f-o (STR "prototype")))
 		    (js-object-prototype))))
       (instantiate::Js-Object
 	 (props (make-props-hashtable))
@@ -157,22 +159,22 @@
 					   text-repr)))
 
       (js-property-generic-set! fun-prototype                 ;; 13.2 - 10
-			       "constructor"
-			       js-lambda
-			       (get-Attributes dont-enum))
+				(STR "constructor")
+				js-lambda
+				(get-Attributes dont-enum))
       
       (js-property-generic-set! fun-obj                       ;; 15.3.5.1
-			       "length"
-			       (if (exact? length)
-				   (exact->inexact length)
-				   length)
-			       (get-Attributes dont-delete
-					       read-only dont-enum))
+				(STR "length")
+				(if (exact? length)
+				    (exact->inexact length)
+				    length)
+				(get-Attributes dont-delete
+						read-only dont-enum))
       
       (js-property-generic-set! fun-obj                       ;; 15.3.5.2
-			       "prototype"
-			       fun-prototype
-			       (get-Attributes dont-delete))
+				(STR "prototype")
+				fun-prototype
+				(get-Attributes dont-delete))
       js-lambda))
 
 ;; creates a Function-object and registers it in hashtable.
@@ -200,33 +202,37 @@
    ;; 15.3.2.1
    (js-fun-lambda #f #f (nb-args get-arg)
     ()
-    (let loop ((i 0)
-	       (args "")
-	       (body ""))
-       (cond
-	  ((=fx i nb-args)
-	   (js-Function-eval (string-append "(function (" args ") {"
-					    body
-					    "})")))
-	  ((=fx i (- nb-args 1))
-	   (loop (+ i 1) args (any->string (get-arg i))))
-	  ((=fx i 0)
-	   (loop (+ i 1) (any->string (get-arg i)) body))
-	  (else
-	   (loop (+ i 1)
-		 (string-append args "," (any->string (get-arg i)))
-		 body))))))
+    (if (zerofx? nb-args)
+	(js-Function-eval (STR "(function() {})"))
+	(let ((body (any->js-string (get-arg (-fx nb-args 1)))))
+	   ;; now add the args in front.
+	   (let loop ((i (-fx nb-args 2))
+		      (str-parts (list (STR ") {") body (STR "})"))))
+	      (cond
+		 ((<fx i 0)
+		  (js-Function-eval
+		   (apply js-string-append (cons (STR "(function (")
+						 str-parts))))
+		 ((=fx i 0)
+		  ;; the first arg
+		  (loop (-fx i 1)
+			(cons (any->js-string (get-arg 0)) str-parts)))
+		 (else
+		  ;; an arg, but not the first
+		  (loop (-fx i 1)
+			(cons* (STR ", ") (any->js-string (get-arg i))
+			       str-parts)))))))))
 
 (define (toString)
    ;; 15.3.4.2
-   (js-fun this #f #f "Function.toString"
+   (js-fun this #f #f (STR "Function.toString")
 	   ()
 	   (if (not (Js-Function? this))
-	       (type-error "Function-toString applied to" this)
+	       (type-error (STR "Function-toString applied to") this)
 	       (let ((str (Js-Function-text-repr this)))
-		  (if (string? str)
+		  (if (js-string? str)
 		      str
-		      (substring (car str) (cadr str) (caddr str)))))))
+		      (js-substring (car str) (cadr str) (caddr str)))))))
 
 (define (fun-apply)
    ;; 15.3.4.3
@@ -234,14 +240,14 @@
 
    (define *nb-named-params* 3)
    
-   (js-fun this #f #f "Function.apply"
+   (js-fun this #f #f (STR "Function.apply")
 	   (thisArg argArray)
 	   (cond
 	      ((not (Js-Function? this))
-	       (type-error "Function.apply applied to" this))
+	       (type-error (STR "Function.apply applied to") this))
 	      ((not (or (Js-Array? argArray)
 			(Js-Arguments? argArray)))
-	       (type-error "argArray is neither Array nor Arguments object"
+	       (type-error (STR "argArray is neither Array nor Arguments object")
 			   argArray))
 	      (else
 	       (let* ((f (Js-Function-fun this))
@@ -253,13 +259,13 @@
 		      ;;  IIRC bigloo vectors can't have more elements anyways.
 		      (len (flonum->fixnum
 			    (any->uint32
-			     (js-property-get argArray "length"))))
+			     (js-property-get argArray (STR "length")))))
 		      (vec (make-vector (maxfx (-fx len *nb-named-params*)
 					       0))))
 		  ;; start by filling the vector
 		  (let loop ((i *nb-named-params*))
 		     (unless (>=fx i len)
-			(let ((str-i (integer->string i)))
+			(let ((str-i (integer->js-string i)))
 			   (vector-set! vec (-fx i *nb-named-params*)
 					(js-property-get argArray str-i))
 			   (loop (+fx i 1)))))
@@ -273,7 +279,7 @@
 					 len
 					 args)))
 			((<fx i len)
-			 (let ((str-i (integer->string i)))
+			 (let ((str-i (integer->js-string i)))
 			    (loop (cons (js-property-get argArray str-i)
 					args)
 				  (-fx i 1))))
@@ -289,10 +295,10 @@
 
    (js-fun this #f
 	   (nb-args get-arg)
-	   "Function.call"
+	   (STR "Function.call")
 	   (thisArg)
 	   (if (not (Js-Function? this))
-	       (type-error "Function.apply applied to" this)
+	       (type-error (STR "Function.apply applied to") this)
 	       (let* ((f (Js-Function-fun this))
 		      (call-this (if (or (js-undefined? thisArg)
 					 (js-null? thisArg))

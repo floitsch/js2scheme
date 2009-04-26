@@ -1,5 +1,6 @@
 (module jsre-Arguments
-   (import jsre-scope-object)
+   (import jsre-scope-object
+	   jsre-base-string)
    (use jsre-base-object
 	jsre-natives)
    (export (class Js-Arguments::Js-Scope-Object))
@@ -17,18 +18,18 @@
 			    (props (make-props-hashtable))
 			    (proto (js-object-prototype)))))
 	  (js-property-generic-set! ,arguments
-				    "callee"
+				    (STR "callee")
 				    ,callee
 				    (get-Attributes dont-enum))
 	  (js-property-generic-set! ,arguments
-				    "length"
+				    (STR "length")
 				    (fixnum->flonum ,nb-args)
 				    (get-Attributes dont-enum))
 	  ;; named vars are added as scope-vars
 	  ,@(map (lambda (id c)
 		    `(when (< ,c ,nb-args)
 			(scope-var-add ,arguments
-				       ,(number->string c)
+				       (integer->js-string ,c)
 				       ,id
 				       (get-Attributes dont-enum))))
 		 param-vars
@@ -37,7 +38,7 @@
 	  (for-each (lambda (,counter)
 		       (js-property-generic-set!
 			,arguments
-			(number->string ,counter)
+			(integer->js-string ,counter)
 			(instantiate::Ref
 			   (getter (lambda ()
 				      (vector-ref ,par-vec
@@ -53,12 +54,12 @@
 	  ,arguments)))
 
 ;; 10.1.8
-(define-method (js-class-name::bstring o::Js-Arguments)
+(define-method (js-class-name o::Js-Arguments)
    ;; The actual class-name is not specified.
    ;; Some interpreters use "Arguments" others "Object".
-   "Arguments")
+   (STR "Arguments"))
 
-(define-method (js-property-safe-delete!::bool o::Js-Arguments prop::bstring)
+(define-method (js-property-safe-delete!::bool o::Js-Arguments prop)
    ;; contrary to the scope-object we only have to delete the entry in
    ;; the hashtable. (do not modify the original variable)
    ;;

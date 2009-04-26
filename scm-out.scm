@@ -85,6 +85,18 @@
 		       (overload traverse out (Label)
 				 (tree.traverse))))))))))
 
+;; not thread-safe: we have a global variable here.
+(define *strs* '())
+(define (strs-reset!) (set! *strs* '()))
+(define (strs-alist) *strs*)
+(define (add-str! str)
+   (let ((t (assoc str *strs*)))
+      (if t
+	  (cdr t)
+	  (let ((str-id (symbol-append 'jsstr- (gensym))))
+	     (set! *strs* (cons (cons str str-id) *strs*))
+	     str-id))))
+
 (define (map-node-compile l)
    (map (lambda (n)
 	   (n.traverse))
@@ -103,8 +115,8 @@
 	 ;; access the eval object
 	 ((and (thread-parameter 'eval?)
 	       this.global?)
-	  `(env-get ,(thread-parameter 'eval-env)
-		    ,(symbol->string this.id)))
+	  (let ((str-id (add-str! (symbol->string this.id))))
+	     `(env-get ,(thread-parameter 'eval-env) ,str-id)))
 	 (this.local-eval?
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
@@ -117,12 +129,11 @@
 	 (else
 	  scm-id))))
 (define-pmethod (Intercepted-var-access)
-   (let* ((id this.id)
-	  (id-str (symbol->string id))
-	  (obj-id this.obj-id)
-	  (intercepted this.intercepted))
-      `(if (js-property-contains ,obj-id ,id-str)
-	   (js-property-get ,obj-id ,id-str)
+   (let ((str-id (add-str! (symbol->string this.id)))
+	 (obj-id this.obj-id)
+	 (intercepted this.intercepted))
+      `(if (js-property-contains ,obj-id ,str-id)
+	   (js-property-get ,obj-id ,str-id)
 	   ,(intercepted.access))))
 (define-pmethod (This-var-access)
    'this)
@@ -138,8 +149,8 @@
 	 ;; access the eval object
 	 ((and (thread-parameter 'eval?)
 	       this.global?)
-	  `(env-typeof-get ,(thread-parameter 'eval-env)
-			   ,(symbol->string this.id)))
+	  (let ((str-id (add-str! (symbol->string this.id))))
+	     `(env-typeof-get ,(thread-parameter 'eval-env) ,str-id)))
 	 (this.local-eval?
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
@@ -150,12 +161,11 @@
 	 (this.global? `(global-typeof-read ,scm-id))
 	 (else scm-id))))
 (define-pmethod (Intercepted-var-typeof)
-   (let* ((id this.id)
-	  (id-str (symbol->string id))
-	  (obj-id this.obj-id)
-	  (intercepted this.intercepted))
-      `(if (js-property-contains ,obj-id ,id-str)
-	   (js-property-get ,obj-id ,id-str)
+   (let ((str-id (add-str! (symbol->string this.id)))
+	 (obj-id this.obj-id)
+	 (intercepted this.intercepted))
+      `(if (js-property-contains ,obj-id ,str-id)
+	   (js-property-get ,obj-id ,str-id)
 	   ,(intercepted.typeof))))
 (define-pmethod (This-var-typeof)
    'this)
@@ -171,9 +181,8 @@
 	 ;; set! the id in the eval object
 	 ((and (thread-parameter 'eval?)
 	       this.global?)
-	  `(env-set! ,(thread-parameter 'eval-env)
-		     ,(symbol->string this.id)
-		     ,val))
+	  (let ((str-id (add-str! (symbol->string this.id))))
+	     `(env-set! ,(thread-parameter 'eval-env) ,str-id ,val)))
 	 (this.local-eval?
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
@@ -188,13 +197,12 @@
 	 (else
 	  `(begin (set! ,scm-id ,val) ,scm-id)))))
 (define-pmethod (Intercepted-var-set! val)
-   (let* ((id this.id)
-	  (id-str (symbol->string id))
-	  (obj-id this.obj-id)
-	  (intercepted this.intercepted))
-      `(if (js-property-contains ,obj-id ,id-str)
+   (let ((str-id (add-str! (symbol->string this.id)))
+	 (obj-id this.obj-id)
+	 (intercepted this.intercepted))
+      `(if (js-property-contains ,obj-id ,str-id)
 	   ;; do not use generic-set! here
-	   (js-property-update! ,obj-id ,id-str ,val)
+	   (js-property-update! ,obj-id ,str-id ,val)
 	   ,(intercepted.set! val))))
 (define-pmethod (This-var-set! val)
    (error "Var-set!"
@@ -209,22 +217,21 @@
    (let ((scm-id (get/assign-scm-id! this)))
       (cond
 	 (this.global?
-	  `(env-delete! ,(thread-parameter 'eval-env)
-			,(symbol->string this.id)))
+	  (let ((str-id (add-str! (symbol->string this.id))))
+	     `(env-delete! ,(thread-parameter 'eval-env) ,str-id)))
 	 (this.local-eval?
-	  `(if (not (js-deleted? ,scm-id))
-	       (js-property-safe-delete! ,this.eval-obj-id
-					 ,(symbol->string this.id))
-	       ,(this.eval-next-var.delete)))
+	  (let ((str-id (add-str! (symbol->string this.id))))
+	     `(if (not (js-deleted? ,scm-id))
+		  (js-property-safe-delete! ,this.eval-obj-id ,str-id)
+		  ,(this.eval-next-var.delete))))
 	 (else
 	  #f))))
 (define-pmethod (Intercepted-var-delete)
-   (let* ((id this.id)
-	  (id-str (symbol->string id))
+   (let* ((str-id (add-str! (symbol->string this.id)))
 	  (obj-id this.obj-id)
 	  (intercepted this.intercepted))
-      `(if (js-property-contains ,obj-id ,id-str)
-	   (js-property-safe-delete! ,obj-id ,id-str)
+      `(if (js-property-contains ,obj-id ,str-id)
+	   (js-property-safe-delete! ,obj-id ,str-id)
 	   ,(intercepted.delete))))
 (define-pmethod (This-var-delete)
    (error "Var-delete"
@@ -247,10 +254,10 @@
 	 ((and (thread-parameter 'eval?)
 	       this.global?)
 	  (let ((v (gensym 'v))
-		(o (gensym 'o)))
+		(o (gensym 'o))
+		(str-id (add-str! (symbol->string this.id))))
 	     `(multiple-value-bind (,v ,o)
-		 (env-get+object ,(thread-parameter 'eval-env)
-				 ,(symbol->string this.id))
+		 (env-get+object ,(thread-parameter 'eval-env) ,str-id)
 		 (unless (Js-Activation-Object? ,o)
 		    (set! ,base ,o))
 		 ,v)))
@@ -266,14 +273,13 @@
 	 (else
 	  scm-id))))
 (define-pmethod (Intercepted-var-access+base base)
-   (let* ((id this.id)
-	  (id-str (symbol->string id))
-	  (obj-id this.obj-id)
-	  (intercepted this.intercepted))
-      `(if (js-property-contains ,obj-id ,id-str)
+   (let ((str-id (add-str! (symbol->string this.id)))
+	 (obj-id this.obj-id)
+	 (intercepted this.intercepted))
+      `(if (js-property-contains ,obj-id ,str-id)
 	   (begin
 	      (set! ,base ,obj-id)
-	      (js-property-get ,obj-id ,id-str))
+	      (js-property-get ,obj-id ,str-id))
 	   ,(intercepted.access+base base))))
 (define-pmethod (This-var-access+base base) 'this)
 (define-pmethod (Imported-var-access+base base)
@@ -307,21 +313,27 @@
 	  (pobject-name this)))
 
 (define-pmethod (Program-out)
-   (let ((tlo (thread-parameter 'top-level-object))
-	 (in-eval? (thread-parameter 'eval?))
-	 (tl-this (thread-parameter 'top-level-this))
-	 (declared-globals-w/o-this
-	  (filter (lambda (var)
-		     (not (inherits-from? var (node 'This-var))))
-		  this.declared-globals)))
+   (strs-reset!)
+   (let* ((tlo (thread-parameter 'top-level-object))
+	  (in-eval? (thread-parameter 'eval?))
+	  (tl-this (thread-parameter 'top-level-this))
+	  (declared-globals-w/o-this
+	   (filter (lambda (var)
+		      (not (inherits-from? var (node 'This-var))))
+		   this.declared-globals))
+	  (compiled-body (this.body.traverse)))
       (if (not in-eval?)
 	  `(begin
+	      ;; declare strings
 	      ;; create 'this'
 	      ;; declare global variables (declared and implicit)
 	      ;; create fun-strings (when configured this way)
 	      ;; create 'init-declared', 'init-implicit' and 'run-top-level
 	      ;; if not in module execute these funs. (otherwise somebody else
 	      ;;   needs to invoke them.)
+	      ,@(map (lambda (p)
+			`(define ,(cdr p) (utf8->js-string-literal ,(car p))))
+		     (strs-alist))
 	      (define this ,tl-this)
 	      ,@(map (lambda (var)
 			`(define ,(var.compiled-id) #unspecified))
@@ -332,14 +344,16 @@
 	      ,@(if (config 'function-strings)
 		    (hashtable-map this.function-str-ids-ht
 				   (lambda (str-id str)
-				      `(define ,str-id ,str)))
+				      `(define ,str-id
+					  (utf8->js-string-literal ,str))))
 		    '())
 	      (define (js-init-declared)
 		 #unspecified ;; so the fun is never empty
 		 ,@(map (lambda (var)
 			   `(set! ,(var.compiled-id)
 				  (create-declared-global
-				   ,(symbol->string var.id))))
+				   (utf8->js-string-literal
+				    ,(symbol->string var.id)))))
 			declared-globals-w/o-this))
 	      (define (js-init-implicit)
 		 #unspecified ;; so the fun is never empty
@@ -347,10 +361,11 @@
 			   (let ((var decl.var))
 			      `(set! ,(var.compiled-id)
 				     (create-implicit-global
-				      ,(symbol->string var.id)))))
+				      (utf8->js-string-literal
+				       ,(symbol->string var.id))))))
 			this.implicit-globals))
 	      (define (js-run-top-level)
-		 ,(this.body.traverse))
+		 ,compiled-body)
 	      ,@(if (config 'module)
 		    '()
 		    '((js-init-declared)
@@ -358,16 +373,21 @@
 		      (js-run-top-level))))
 
 	  ;; eval does not do anything for implicit vars.
-	  ;; declared globals: if the var is a declared function, than it
+	  ;; declared globals: if the var is a declared function, then it
 	  ;; must replace the original entry (including the attributes).
 	  ;; otherwise just make sure there is an entry.
 	  `(let ((this ,tl-this)
+		 ,@(map (lambda (p)
+			   `(,(cdr p) (utf8->js-string-literal ,(car p))))
+			(strs-alist))
 		 ,@(if (config 'function-strings)
 		       (hashtable-map this.function-str-ids-ht
-				      list)
+				      (lambda (id str)
+					 `(,id (utf8->js-string-literal ,str))))
 		       '()))
 	      ,@(map (lambda (var)
-			(let ((id-str (symbol->string var.id)))
+			(let ((id-str (symbol->string var.id))
+			      (str-id (symbol-append 'jsstr- (gensym))))
 			   (if var.fun?
 			       ;; declared fun.
 			       ;; always replace existing entry.
@@ -376,16 +396,18 @@
 			       ;; we need to use generic-set, otherwise we
 			       ;; can't overwrite existing entries, if they
 			       ;; have different attributes.
-			       `(js-property-generic-set! ,tlo ,id-str
-							  (js-undefined)
-							  (default-attributes))
-			       `(unless (js-property-one-level-contains?
-					 ,tlo ,id-str)
-				   (js-property-set! ,tlo
-						     ,id-str
-						     (js-undefined))))))
+			       `(js-property-generic-set!
+				 ,tlo
+				 (utf8->js-string-literal ,id-str)
+				 (js-undefined)
+				 (default-attributes))
+			       `(let ((,str-id (utf8->js-string-literal
+						,id-str)))
+				   (unless (js-property-one-level-contains?
+					    ,tlo ,str-id)
+				   (js-property-set! ,tlo ,str-id (js-undefined)))))))
 		     declared-globals-w/o-this)
-	      ,(this.body.traverse)))))
+	      ,compiled-body))))
 
 (define-pmethod (Begin-out)
    `(begin
@@ -535,7 +557,7 @@
 
 (define-pmethod (Catch-out)
    (let ((exc-scm-id (this.decl.var.compiled-id))
-	 (exc-js-id this.decl.var.id)
+	 (exc-js-str (add-str! (symbol->string this.decl.var.id)))
 	 (obj-id this.obj-id)
 	 (compiled-body (this.body.traverse)))
       ;; the exc-scm-id is assigned in the Try-clause.
@@ -545,21 +567,21 @@
 		    (,obj-id (js-create-scope-object (js-object-literal '()))))
 		;; 12.14
 		(scope-var-add ,obj-id
-			       ,(symbol->string exc-js-id)
+			       ,exc-js-str
 			       ,exc-scm-id
 			       (get-Attributes dont-delete))
 		,compiled-body)))))
 
 (define-pmethod (Named-fun-out)
    (let ((fun-scm-id (this.decl.var.compiled-id))
-	 (fun-js-id this.decl.var.id)
+	 (fun-js-str (add-str! (symbol->string this.decl.var.id)))
 	 (obj-id this.obj-id)
 	 (compiled-body (this.body.traverse)))
       `(let ((,obj-id (js-create-scope-object (js-object-literal '()))))
 	  (letrec ((,fun-scm-id ,compiled-body))
 	     ;; 13
 	     (scope-var-add ,obj-id
-			    ,(symbol->string fun-js-id)
+			    ,fun-js-str
 			    ,fun-scm-id
 			    (get-Attributes dont-delete read-only))
 	     ,fun-scm-id))))
@@ -587,7 +609,7 @@
 		       local-vars))
 	     ,@(map (lambda (var)
 		       `(scope-var-add ,eval-obj-id
-				       ,(symbol->string var.id)
+				       ,(add-str! (symbol->string var.id))
 				       ,(var.compiled-id)
 				       (declared-attributes)))
 		    fun-vars)
@@ -613,8 +635,8 @@
 	       #f ;; no this-fun (only accessible through arguments)
 	       ,compiled-arguments
 	       ,(if (config 'function-strings)
-		    `(list ,@this.str)
-		    (symbol->string (gensym "function")))
+		    `(list ,@this.str) ;; something like fun-str-id, from, to.
+		    `(add-str! ,(symbol->string (gensym "function"))))
 	       (,@compiled-params)
 	       ,compiled-body)))
 
@@ -627,7 +649,7 @@
        ;; assign fun-binding to top-level object and not to current
        ;; environment. (Rhino 1.7 release 1 Pre 2007 11 25 has this bug)
        `(js-property-set! ,(thread-parameter 'top-level-object)
-			  ,(symbol->string this.lhs.var.id)
+			  ,(add-str! (symbol->string this.lhs.var.id))
 			  ,(this.val.traverse))
        (pcall this Vassig-out)))
 
@@ -645,14 +667,14 @@
 	       (string? traversed-field))
 	  `(let* ((,tmp-object-o (jsop-any->object ,traversed-obj)))
 	      (js-property-set! ,tmp-object-o
-				,traversed-field
+				(add-str! ,traversed-field)
 				,traversed-val))
 	  ;; we need all these tmp-variables, to ensure the correct order of
 	  ;; evaluation.
 	  `(let* ((,tmp-o ,traversed-obj)
 		  (,tmp-field ,traversed-field)
 		  (,tmp-object-o (jsop-any->object ,tmp-o))
-		  (,tmp-string-field (any->string ,tmp-field)))
+		  (,tmp-string-field (any->js-string ,tmp-field)))
 	      (js-property-set! ,tmp-object-o
 				,tmp-string-field
 				,(this.val.traverse))))))
@@ -700,7 +722,7 @@
 	     (f (gensym 'f)))
 	  `(let ((,base *js-global-this*))
 	      ;; if the variable has a base, it will update the base-variable
-	      ;; we then perform (implicitely) a method-call.
+	      ;; (during runtime). we then perform (implicitely) a method-call.
 	      (let ((,f ,(this.op.var.access+base base)))
 		 (js-call ,f
 			  ,base ;; might have been updated by access+base.
@@ -759,7 +781,7 @@
       `(let* ((,tmp-o ,(this.obj.traverse))
 	      (,tmp-field ,(this.field.traverse))
 	      (,tmp-object-o (jsop-any->object ,tmp-o))
-	      (,tmp-string-field (any->string ,tmp-field)))
+	      (,tmp-string-field (any->js-string ,tmp-field)))
 	  (js-property-get ,tmp-object-o ,tmp-string-field))))
 
 (define-pmethod (This-out)
@@ -821,7 +843,7 @@
    (unescape (substring s 1 (-fx (string-length s) 1))))
 
 (define-pmethod (String-out)
-   (unescaped-minus-quotes this.val))
+   (add-str! (unescaped-minus-quotes this.val)))
 
 (define-pmethod (Array-out)
    `(js-array-literal
@@ -846,4 +868,6 @@
 	  (flags (substring pattern/flags
 			    (+ last-/ 1)
 			    (string-length pattern/flags))))
-      `(js-new (global-read *jsg-RegExp*) ,pattern ,flags)))
+      `(js-new (global-read *jsg-RegExp*)
+	       ,(add-str! pattern)
+	       ,(add-str! flags))))

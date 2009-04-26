@@ -1,5 +1,6 @@
 (module jsre-Number
    (import jsre-base-object
+	   jsre-base-string
 	   jsre-double)
    (use jsre-natives
 	jsre-Error
@@ -24,13 +25,13 @@
 (define *js-Number-prototype*::Js-Object (js-null))
 
 (define-method (js-class-name::bstring o::Js-Number)
-   "Number")
+   (STR "Number"))
 
 (define (Number-init)
    (set! *js-Number-orig* (Number-lambda))
-   (set! *jsg-Number* (create-runtime-global "Number" *js-Number-orig*))
+   (set! *jsg-Number* (create-runtime-global (STR "Number") *js-Number-orig*))
 
-   (let* ((text-repr "function(v) { /* native Number */ throw 'native'; }")
+   (let* ((text-repr (STR "function(v) {/*native Number*/ throw 'native'; }"))
 	  (number-object (create-function-object *js-Number-orig*
 						 (Number-new)
 						 Number-construct
@@ -42,70 +43,70 @@
       (set! *js-Number-prototype* prototype)
 
       (js-property-generic-set! number-object ;; 15.7.3
-				"length"
+				(STR "length")
 				1.0
 				(length-attributes))
       (js-property-generic-set! number-object ;; 15.7.3.1
-				"prototype"
+				(STR "prototype")
 				prototype
 				(get-Attributes dont-enum dont-delete
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.2
-				"MAX_VALUE"
+				(STR "MAX_VALUE")
 				;; TODO: MAX_VALUE
 				;; for now close enough
 				1.7976931348623157E308
 				(get-Attributes dont-enum dont-delete
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.3
-				"MIN_VALUE"
+				(STR "MIN_VALUE")
 				;; TODO: MIN_VALUE
 				;; for now close enough
 				4.9E-324
 				(get-Attributes dont-enum dont-delete
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.4
-				"NaN"
+				(STR "NaN")
 				+nan.0
 				(get-Attributes dont-enum dont-delete
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.5
-				"NEGATIVE_INFINITY"
+				(STR "NEGATIVE_INFINITY")
 				-inf.0
 				(get-Attributes dont-enum dont-delete
 						read-only))
       (js-property-generic-set! number-object ;; 15.7.3.6
-				"POSITIVE_INFINITY"
+				(STR "POSITIVE_INFINITY")
 				+inf.0
 				(get-Attributes dont-enum dont-delete
 						read-only))
 
       (js-property-generic-set! prototype     ;; 15.7.4.1
-				"constructor"
+				(STR "constructor")
 				*js-Number-orig*
 				(constructor-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.2
-				"toString"
+				(STR "toString")
 				(toString)
 				(built-in-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.3
-				"toLocaleString"
+				(STR "toLocaleString")
 				(toString) ;; HACK: number locale string.
 				(built-in-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.4
-				"valueOf"
+				(STR "valueOf")
 				(valueOf)
 				(built-in-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.5
-				"toFixed"
+				(STR "toFixed")
 				(toFixed)
 				(built-in-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.6
-				"toExponential"
+				(STR "toExponential")
 				(toExponential)
 				(built-in-attributes))
       (js-property-generic-set! prototype     ;; 15.7.4.7
-				"toPrecision"
+				(STR "toPrecision")
 				(toPrecision)
 				(built-in-attributes))
 				))
@@ -140,16 +141,16 @@
    #f)
 
 (define (toString)                    ;; 15.7.4.2 (and 15.7.4.3 toLocaleString)
-   (js-fun this #f #f "Number.valueOf"
+   (js-fun this #f #f (STR "Number.valueOf")
 	   (radix)
 	   (define (convert radix)
 	      (cond
 		 ((not (Js-Number? this))
-		  (type-error "Number.toString applied to" this))
+		  (type-error (STR "Number.toString applied to") this))
 		 ((or (js-undefined? radix)
 		      (and (flonum? radix)
 			   (=fl radix 10.0)))
-		  (any->string (Js-Number-value this)))
+		  (any->js-string (Js-Number-value this)))
 		 ;; we are allowed to return a limited form of toString here.
 		 ;; spec explicitely allows a implementation dependent
 		 ;; representation.
@@ -157,86 +158,91 @@
 		       (>= radix 2.0)
 		       (<= radix 36.0)
 		       (=fl radix (any->integer radix)))
-		  (llong->string (flonum->llong (Js-Number-value this))
-				 (flonum->fixnum radix)))
+		  (llong->js-string (flonum->llong (Js-Number-value this))
+				    (flonum->fixnum radix)))
 		 
 		 ;; unspecified in spec.
 		 ;; v v v v v v v v v v 
 		 ((flonum? radix) ;; outside boundary
-		  (any->string (Js-Number-value this)))
+		  (any->js-string (Js-Number-value this)))
 		 (else
 		  (convert (any->number radix)))))
 	   (convert radix)))
 
 (define (valueOf)                          ;; 15.7.4.4
-   (js-fun this #f #f "Number.valueOf"
+   (js-fun this #f #f (STR "Number.valueOf")
 	   ()
 	   (if (not (Js-Number? this))
-	       (type-error "Number.valueOf applied to" this)
+	       (type-error (STR "Number.valueOf applied to") this)
 	       (Js-Number-value this))))
 
 (define (toFixed)                          ;; 15.7.4.5
    (js-fun
-    this #f #f "Number.toFixed"
+    this #f #f (STR "Number.toFixed")
     (fraction-digits)
     (let ((f (any->integer fraction-digits)))
        (when (or (<fl f 0.0) (>fl f 20.0))
-	  (range-error "invalide parameter to 'toFixed'. must be in range 0-20"
-		       f))
-       (when (not (Js-Number? this)) (type-error "Number.toFixed applied to" this))
+	  (range-error
+	   (STR "invalide parameter to 'toFixed'. must be in range 0-20")
+	   f))
+       (when (not (Js-Number? this))
+	  (type-error (STR "Number.toFixed applied to") this))
        (let ((x (Js-Number-value this)))
 	  (cond
-	     ((nanfl? x)
-	      "NaN")
+	     ((nanfl? x) (STR "NaN"))
 	     ((or (>fl x 10e21)
 		  (<fl x -10e21))
-	      (double->string x 'shortest 0))
+	      (utf8->js-string (double->string x 'shortest 0)))
 	     (else
-	      (double->string x 'fixed (flonum->fixnum f))))))))
+	      (utf8->js-string
+	       (double->string x 'fixed (flonum->fixnum f)))))))))
 
 (define (toExponential)                    ;; 15.7.4.6
    (js-fun
-    this #f #f "Number.toExponential"
+    this #f #f (STR "Number.toExponential")
     (fraction-digits)
-    (when (not (Js-Number? this)) (type-error "Number.toExponential applied to" this))
+    (when (not (Js-Number? this))
+       (type-error (STR "Number.toExponential applied to") this))
     (let* ((x (Js-Number-value this))
 	   (f (any->integer fraction-digits)))
        (cond
-	  ((nanfl? x)
-	   "NaN")
+	  ((nanfl? x) (STR "NaN"))
 	  ((infinitefl? x)
 	   (if (<fl x 0.0)
-	       "-Infinity"
-	       "Infinity"))
+	       (STR "-Infinity")
+	       (STR "Infinity")))
 	  ((js-undefined? fraction-digits)
-	   (double->string x 'shortest-exponential 0))
+	   (utf8->js-string (double->string x 'shortest-exponential 0)))
 	  ((or (<fl f 0.0) (>fl f 20.0))
-	   (range-error (string-append "invalid parameter to 'toExponential'. "
-				       "must be in range 0-20")
-			f))
+	   (range-error
+	    (STR (string-append "invalid parameter to 'toExponential'. "
+				"must be in range 0-20"))
+	    f))
 	  (else
-	   (double->string x 'exponential (flonum->fixnum f)))))))
+	   (utf8->js-string
+	    (double->string x 'exponential (flonum->fixnum f))))))))
 
 (define (toPrecision)                      ;; 15.7.4.7
    (js-fun
-    this #f #f "Number.toPrecision"
+    this #f #f (STR "Number.toPrecision")
     (precision)
-    (when (not (Js-Number? this)) (type-error "Number.toPrecision applied to" this))
+    (when (not (Js-Number? this))
+       (type-error (STR "Number.toPrecision applied to") this))
     (let ((x (Js-Number-value this)))
        (if (js-undefined? precision)
-	   (double->string x 'shortest 0)
+	   (utf8->js-string (double->string x 'shortest 0))
 	   (let ((p (any->integer precision)))
 	      (cond
-		 ((nanfl? x)
-		  "NaN")
+		 ((nanfl? x) (STR "NaN"))
 		 ((infinitefl? x)
 		  (if (<fl x 0.0)
-		      "-Infinity"
-		      "Infinity"))
+		      (STR "-Infinity")
+		      (STR "Infinity")))
 		 ((or (<fl p 1.0) (>fl p 21.0))
 		  (range-error
-		   (string-append "invalid parameter to 'toPrecision'. "
-				  "must be in range 1-21")
+		   (STR (string-append "invalid parameter to 'toPrecision'. "
+				       "must be in range 1-21"))
 		   p))
 		 (else
-		  (double->string x 'precision (flonum->fixnum p)))))))))
+		  (utf8->js-string
+		   (double->string x 'precision (flonum->fixnum p))))))))))

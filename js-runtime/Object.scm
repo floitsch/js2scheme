@@ -1,5 +1,6 @@
 (module jsre-Object
    (import jsre-base-object
+	   jsre-base-string
 	   jsre-natives)
    (use jsre-Function
 	jsre-Date
@@ -31,13 +32,13 @@
 	 (set! *object-prototype-initialized?* #t)))
    *js-Object-prototype*)
 
-(define-method (js-class-name::bstring o::Js-Object)
-   "Object")
+(define-method (js-class-name::Js-Base-String o::Js-Object)
+   (STR "Object"))
 
 (define (Object-init)
-   (set! *jsg-Object* (create-runtime-global "Object" (Object-lambda)))
+   (set! *jsg-Object* (create-runtime-global (STR "Object") (Object-lambda)))
 
-   (let* ((text-repr "function(v) {/* native Object */ throw 'native'; }")
+   (let* ((text-repr (STR "function(v) {/*native Object*/ throw 'native'; }"))
 	  (proc-object (create-function-object (global-read *jsg-Object*)
 					       (Object-new)
 					       Object-construct
@@ -48,41 +49,41 @@
       ;; done.
 
       (js-property-generic-set! proc-object ;; 15.2.3
-				"length"
+				(STR "length")
 				1.0
 				(length-attributes))
       (js-property-generic-set! proc-object ;; 15.2.3.1
-				"prototype"
+				(STR "prototype")
 				prototype
 				(get-Attributes dont-enum
 						dont-delete read-only))
       
       (js-property-generic-set! prototype  ;; 15.2.4.1
-				"constructor"
+				(STR "constructor")
 				(global-read *jsg-Object*)
 				(constructor-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.2
-				"toString"
+				(STR "toString")
 				(toString)
 				(built-in-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.3
-				"toLocalString"
+				(STR "toLocalString")
 				(toLocalString)
 				(built-in-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.4
-				"valueOf"
+				(STR "valueOf")
 				(valueOf)
 				(built-in-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.5
-				"hasOwnProperty"
+				(STR "hasOwnProperty")
 				(hasOwnProperty)
 				(built-in-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.6
-				"isPrototypeOf"
+				(STR "isPrototypeOf")
 				(isPrototypeOf)
 				(built-in-attributes))
       (js-property-generic-set! prototype  ;; 15.2.4.7
-				"propertyIsEnumerable"
+				(STR "propertyIsEnumerable")
 				(propertyIsEnumerable)
 				(built-in-attributes))))
 
@@ -112,7 +113,7 @@
 (define (js-object-literal properties)
    (let ((o (js-new (global-read *jsg-Object*))))
       (for-each (lambda (prop)
-		   (let ((name (any->string (car prop)))
+		   (let ((name (any->js-string (car prop)))
 			 (val (cadr prop)))
 		      ;; TODO: js-object-literal can be optimized
 		      (js-property-set! o name val)))
@@ -122,32 +123,32 @@
 ;; Properties
 ;; ===================================
 (define (toString)      ;; 15.2.4.2
-   (js-fun this #f #f "Object.toString"
+   (js-fun this #f #f (STR "Object.toString")
 	   ()
-	   (string-append "[object "
-			  (js-class-name (safe-js-object this))
-			  "]")))
+	   (js-string-append (STR "[object ")
+			     (js-class-name (safe-js-object this))
+			     (STR "]"))))
 
 
 (define (toLocalString) ;; 15.2.4.3
-   (js-fun this #f #f "Object.toLocalString"
+   (js-fun this #f #f (STR "Object.toLocalString")
 	   ()
-	   (js-call (js-property-get this "toString")
+	   (js-call (js-property-get this (STR "toString"))
 		    this)))
 
 (define (valueOf)       ;; 15.2.4.4
-   (js-fun this #f #f "Object.valueOf"
+   (js-fun this #f #f (STR "Object.valueOf")
 	   ()
 	   this))
 
 (define (hasOwnProperty) ;; 15.2.4.5
-   (js-fun this #f #f "Object.hasOwnProperty"
+   (js-fun this #f #f (STR "Object.hasOwnProperty")
 	   (prop)
-	   (let ((s (any->string prop)))
+	   (let ((s (any->js-string prop)))
 	      (js-property-one-level-contains? this s))))
 
 (define (isPrototypeOf) ;; 15.2.4.6
-   (js-fun this #f #f "Object.isPrototypeOf"
+   (js-fun this #f #f (STR "Object.isPrototypeOf")
 	   (other)
 	   (cond
 	      ((js-object other)
@@ -165,7 +166,7 @@
 	       #f))))
 
 (define (propertyIsEnumerable) ;; 15.2.4.7
-   (js-fun this #f #f "Object.propertyIsEnumerable"
+   (js-fun this #f #f (STR "Object.propertyIsEnumerable")
 	   (prop)
-	   (let ((s (any->string prop)))
+	   (let ((s (any->js-string prop)))
 	      (js-property-is-enumerable? this s))))

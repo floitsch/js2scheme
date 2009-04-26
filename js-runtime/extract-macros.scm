@@ -21,18 +21,19 @@
 	       (delete-file *output*))
 	    (raise e))
 	 (unwind-protect
-	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
-	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
-	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
-	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
-	    (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
-	    (for-each (lambda (f)
-			 (extract-exported-macros f out-p))
-		      *in-files*)
+	    (begin
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (display ";; GENERATED FILE -- DO NOT EDIT\n" out-p)
+	       (for-each (lambda (f)
+			    (extract-exported-macros f out-p))
+			 *in-files*))
 	    (close-output-port out-p)))))
 
 (define (extract-exported-macros f out-p)
-   (print "extracting: " f)
+   (display (format "extracting macros from: ~a\n" f) (current-error-port))
    (with-input-from-file f
       (lambda ()
 	 (let ((module-clause (read)))

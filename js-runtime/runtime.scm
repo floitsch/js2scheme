@@ -1,5 +1,6 @@
 (module jsre-runtime
    (import jsre-base-object
+	   jsre-base-string
 	   jsre-natives
 	   jsre-Error
 	   jsre-primitives
@@ -21,6 +22,7 @@
 	   jsre-conversion
 	   jsre-Arguments)
    (from jsre-base-object
+	 jsre-base-string
 	 jsre-natives
 	 jsre-Error
 	 jsre-primitives

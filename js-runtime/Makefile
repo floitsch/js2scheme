@@ -2,11 +2,11 @@ CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
 AFILE		= bglafile
 
-# basically all modules that are included in 'runtime.scm' and thus exported
+# basically all modules are included in 'runtime.scm' and thus exported
 # from the library.
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
-			natives base-object global-object globals \
+			natives base-object base-string global-object globals \
 			primitives operators scope-object \
 			RegExp
 
@@ -17,6 +17,8 @@ ALL_RUNTIME_BGL_MODULES = $(RUNTIME_BGL_MODULES) \
 
 RUNTIME_OBJECTS = $(ALL_RUNTIME_BGL_MODULES:%=o/%.o)
 RUNTIME_SOURCES = $(RUNTIME_BGL_MODULES:%=%.scm)
+
+STRING_SOURCES = js-string-impl.sch
 
 OBJECTS	= $(RUNTIME_OBJECTS)
 SOURCES	= $(OBJECTS:o/%.o=%.scm)
@@ -39,11 +41,13 @@ extract-globals: extract-globals.scm
 	$(BIGLOO) -g -o $@ $^
 extract-macros: extract-macros.scm
 	$(BIGLOO) -g -o $@ $^
+string-cache: str-cache.scm
+	$(BIGLOO) -g -o $@ $^
 
 runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
-	cat $(RUNTIME_SOURCES) | ./extract-globals > $@
+	./extract-globals -o $@ $(RUNTIME_SOURCES)
 
-macros.sch: extract-macros $(RUNTIME_SOURCES)
+macros.sch: extract-macros $(RUNTIME_SOURCES) $(STRING_SOURCES)
 	./extract-macros -o $@ $(RUNTIME_SOURCES)
 
 $(JS2SCHEME_RT_LIB).init: $(JS2SCHEME_RT_LIB).init.in macros.sch
@@ -69,6 +73,7 @@ clean:
 	rm -f $(OBJECTS) $(REGEXP_OBJECTS) \
               extract-globals extract-globals.o \
 	      extract-macros  extract-macros.o \
+	      str-cache str-cache.o \
 	      $(JS2SCHEME_RT_HEAP) \
 	      $(JS2SCHEME_RT_LIB_A) \
 	      $(JS2SCHEME_RT_LIB_SO) \
