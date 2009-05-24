@@ -708,8 +708,10 @@
 	 (let loop ((i 1))
 	    (cond
 	       ((>=fx i stop) #t)
-	       ((or (char-alphabetic? (string-ref str i))
-		    (char-numeric? (string-ref str i)))
+	       ((char-alphabetic? (string-ref str i))
+		(loop (+fx i 1)))
+	       ((and (>fx i 1)
+		     (char-numeric? (string-ref str i)))
 		(loop (+fx i 1)))
 	       (else #f)))))
 

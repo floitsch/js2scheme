@@ -2,7 +2,8 @@
    (use mset
 	jsre-base-object
 	jsre-base-string
-	jsre-natives) ;; undefined
+	jsre-natives ;; undefined
+	jsre-conversion)
    (export (js-property-get o::Js-Object prop::Js-Base-String)
 	   ;; returns the given value
 	   (js-property-set! o::Js-Object prop::Js-Base-String new-val)

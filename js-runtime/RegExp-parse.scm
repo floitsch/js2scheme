@@ -1,5 +1,8 @@
 (module jsre-RegExp-parse
-   (import jsre-base-string)
+   (import jsre-base-string
+	   jsre-base-char)
+   (use jsre-base-object
+	jsre-conversion)
 ;   (main my-main)
    (export (js-regexp->scm-regexp pattern::Js-Base-String)))
 
@@ -22,23 +25,33 @@
 
 ;; takes care of #f
 (define (c=? c1 c2)
-   (and c1 c2 (char=? c1 c2)))
+   (and c1 c2 (js-char=? c1 c2)))
+(define (cc=? c1 c2)
+   [assert (c1 c2) (and (or (not c1) (js-char? c1))
+			(or (not c2) (char? c2)))]
+   (and c1 c2 (js-char=char? c1 c2)))
+
+(define (cchar>=? c1::js-char c2::char)
+   (>= (js-char->integer c1) (char->integer c2)))
+(define (cchar<=? c1::js-char c2::char)
+   (>= (js-char->integer c1) (char->integer c2)))
+
+(define (cc-any-of? c::js-char chars::bstring)
+   (and (< (js-char->integer c) 256)
+	(string-index chars (js-char->char c))
+	#t))
 
 (define (c-hex? c)
-   (and (char? c)
-	(or (and (char>=? c #\a)
-		 (char<=? c #\f))
-	    (and (char>=? c #\A)
-		 (char<=? c #\F))
-	    (and (char>=? c #\0)
-		 (char<=? c #\9)))))
+   (and (js-char? c)
+	(or (and (cchar>=? c #\a)
+		 (cchar<=? c #\f))
+	    (and (cchar>=? c #\A)
+		 (cchar<=? c #\F))
+	    (and (cchar>=? c #\0)
+		 (cchar<=? c #\9)))))
 
 (define (c-numeric? c)
-   (and c (char-numeric? c)))
-
-(define (char->symbol c)
-   (string->symbol (string c)))
-
+   (and c (js-char-numeric? c)))
 
 (define (current-pos)
    pos)
@@ -74,7 +87,7 @@
 
 (define (disjunction)
    (let loop ((rev-res (list (alternative))))
-      (if (c=? (peek-char) #\|)
+      (if (cc=? (peek-char) #\|)
 	  (begin
 	     (consume-char!) ;; eat '|'
 	     (loop (cons (alternative) rev-res)))
@@ -85,7 +98,7 @@
 (define (alternative)
    (let loop ((rev-res '()))
       (let ((c (peek-char)))
-	 (case c
+	 (js-char-case c
 	    ((#f #\| #\))
 	     ;; end of string, | for next alternative, or end of cluster
 	     (cons ':seq (reverse! rev-res)))
@@ -95,7 +108,7 @@
 (define (term)
    (let ((c (peek-char)))
       ;; do assertion directly in here:
-      (case c
+      (js-char-case c
 	 ((#\^) (consume-char!)
 		':bol) ;; begin of line/string
 	 ((#\$) (consume-char!)
@@ -103,12 +116,12 @@
 	 ((#\\) ;; either \b \B or \AtomEscape
 	  (consume-char!)
 	  (let ((c (peek-char)))
-	     (cond
+	     (js-char-case c
 		;; Remaining Assertions \b and \B
-		((c=? c #\b) (consume-char!)
-			     ':wbdry)
-		((c=? c #\B) (consume-char!)
-			     ':not-wbdry)
+		((#\b) (consume-char!)
+		       ':wbdry)
+		((#\B) (consume-char!)
+		       ':not-wbdry)
 		(else
 		 (back!)
 		 (quantified-atom)))))
@@ -118,11 +131,11 @@
 (define (quantified-atom)
    (let* ((at (atom))
 	  (c (peek-char)))
-      (case c
+      (js-char-case c
 	 ((#\* #\+ #\? #\{)
 	  (receive (min max)
 	     (quantifier)
-	     (if (c=? (peek-char) #\?)
+	     (if (cc=? (peek-char) #\?)
 		 (begin
 		    ;; non greedy
 		    (consume-char!)
@@ -133,14 +146,14 @@
 
 (define (quantifier)
    (let ((c (consume-char!)))
-      (case c
+      (js-char-case c
 	 ((#\*) (values 0 #f))
 	 ((#\?) (values 0 1))
 	 ((#\+) (values 1 #f))
 	 (else ;; {
 	  (let* ((n1 (read-number))
 		 (n2 n1))
-	     (when (c=? #\, (peek-char))
+	     (when (cc=? (peek-char) #\,)
 		(consume-char!)
 		(if (c-numeric? (peek-char))
 		    (begin
@@ -148,13 +161,13 @@
 		       (unless (<=fx n1 n2)
 			  (return #f)))
 		    (set! n2 #f)))
-	     (if (c=? (consume-char!) #\})
+	     (if (cc=? (consume-char!) #\})
 		 (values n1 n2)
 		 (return #f)))))))
 	  
 (define (atom)
    (let ((c (peek-char)))
-      (case c
+      (js-char-case c
 	 ((#\.) (consume-char!)
 		':any)
 	 ((#\\) (atom-escape))
@@ -175,11 +188,11 @@
 	 ;; ---
 	 ;; DecimalEscape
 	 ;; 15.10.2.11
-	 ((char-numeric? c)
+	 ((js-char-numeric? c)
 	  (decimal-escape))
 	 ;; CharacterClassEscape
 	 ;; 15.10.2.12
-	 ((string-index "dDsSwW" c) ;; c is one of "dDsSwW"
+	 ((cc-any-of? c "dDsSwW")
 	  (character-class-escape))
 	 (else
 	  (character-escape)))))
@@ -195,17 +208,17 @@
 	 ;;  UnicodeEscapeSequence
 	 ;;  IdentityEscape
 	 ;; ---
-	 ((string-index "tnvfr" c)
+	 ((cc-any-of? c "tnvfr")
 	  (control-escape))
 	 ;; c ControlLetter
-	 ((c=? c #\c)
+	 ((cc=? c #\c)
 	  ;; must be followed by a-zA-Z
 	  (consume-char!)
 	  (control-letter))
-	 ((or (c=? c #\x)
-	      (c=? c #\u))
+	 ((or (cc=? c #\x)
+	      (cc=? c #\u))
 	  (consume-char!)
-	  (hex-escape (if (c=? c #\x) 2 4)))
+	  (hex-escape (if (cc=? c #\x) 2 4)))
 	 ;; IdentityEscape
 	 (else
 	  ;; TODO: get chars of IdentifierPart.
@@ -220,7 +233,7 @@
 
 (define (decimal-escape)
    (let ((c (peek-char)))
-      (if (c=? c #\0) ;; must not be followed by digit.
+      (if (cc=? c #\0) ;; must not be followed by digit.
 	  (begin
 	     ;; null-char
 	     (consume-char!)
@@ -229,36 +242,36 @@
 		 '(char #\null)))
 	  (back-reference))))
 
-;; we know already, that (peek-char) is one of "dDsSwW".
+;; we know already that (peek-char) is one of "dDsSwW".
 (define (character-class-escape)
    (let ((c (consume-char!)))
       (cond
-	 ((c=? c #\d) ':digit)
-	 ((c=? c #\D) ':not-digit)
-	 ((c=? c #\s) ':space)
-	 ((c=? c #\S) ':not-space)
-	 ((c=? c #\w) ':word)
-	 ((c=? c #\W) ':not-word))))
+	 ((cc=? c #\d) ':digit)
+	 ((cc=? c #\D) ':not-digit)
+	 ((cc=? c #\s) ':space)
+	 ((cc=? c #\S) ':not-space)
+	 ((cc=? c #\w) ':word)
+	 ((cc=? c #\W) ':not-word))))
 
 ;; we know already, that (peek-char) is one of "tnvfr".
 (define (control-escape)
    (let ((c (consume-char!)))
       (cond
-	 ((c=? c #\t) (string-ref "\t" 0))
-	 ((c=? c #\n) (string-ref "\n" 0))
-	 ((c=? c #\v) (string-ref "\v" 0))
-	 ((c=? c #\f) (string-ref "\f" 0))
-	 ((c=? c #\r) (string-ref "\r" 0)))))
+	 ((cc=? c #\t) (string-ref "\t" 0))
+	 ((cc=? c #\n) (string-ref "\n" 0))
+	 ((cc=? c #\v) (string-ref "\v" 0))
+	 ((cc=? c #\f) (string-ref "\f" 0))
+	 ((cc=? c #\r) (string-ref "\r" 0)))))
 
 (define (control-letter)
-   (if (not (char-alphabetic? (peek-char)))
+   (if (not (js-char-alphabetic? (peek-char)))
        (return #f)
        (let* ((c (consume-char!))
-	      (n (char->integer c))
+	      (n (js-char->integer c))
 	      (rem (modulo c 32)))
 	  (if (zero? rem)
 	      #\null
-	      (integer->char rem)))))
+	      (integer->js-char rem)))))
 
 (define (hex-escape nb-hexs)
    (let ((start-pos (current-pos))
@@ -270,7 +283,7 @@
 		(return #f)
 		(loop (+fx i 1)))))
       (let ((hex-str (js-substring str start-pos end-pos)))
-	 (integer->char (js-string->integer hex-str 16)))))
+	 (integer->js-char (js-string->integer hex-str 16)))))
 
 
 (define (cluster)
@@ -280,44 +293,44 @@
       (cond
 	 ((or (not c1)
 	      (not c2)
-	      (not (c=? c1 #\?))
-	      (not (string-index ":=!" c2)))
+	      (not (cc=? c1 #\?))
+	      (not (cc-any-of? c2 ":=!")))
 	  (back!)
 	  (back!)
 	  (let* ((d (disjunction))
 		 (c (consume-char!)))
-	     (if (not (c=? c #\)))
+	     (if (not (cc=? c #\)))
 		 (return #f)
 		 `(:cluster ,d))))
-	 ((c=? c2 #\:)
+	 ((cc=? c2 #\:)
 	  (let* ((d (disjunction))
 		 (c (consume-char!)))
-	     (if (not (c=? c #\)))
+	     (if (not (cc=? c #\)))
 		 (return #f)
 		 d)))
-	 ((c=? c2 #\=)
+	 ((cc=? c2 #\=)
 	  (let* ((d (disjunction))
 		 (c (consume-char!)))
-	     (if (not (c=? c #\)))
+	     (if (not (cc=? c #\)))
 		 (return #f)
 		 `(:pos-lookahead-cluster ,d))))
-	 ((c=? c2 #\!)
+	 ((cc=? c2 #\!)
 	  (let* ((d (disjunction))
 		 (c (consume-char!)))
-	     (if (not (c=? c #\)))
+	     (if (not (cc=? c #\)))
 		 (return #f)
 		 `(:neg-lookahead-cluster ,d)))))))
 
 (define (character-class)
    (consume-char!) ;; the [
-   (let ((invert? (c=? (peek-char) #\^)))
+   (let ((invert? (cc=? (peek-char) #\^)))
       (when invert?
 	 (consume-char!))
       ;; first just get elements
       ;; we will build ranges afterwards
       (let ((chars (let loop ((rev-res '()))
 		      (let ((c (consume-char!)))
-			 (case c
+			 (js-char-case c
 			    ((#f)  (return #f))
 			    ((#\]) (reverse! rev-res)) ;; leave the ']' consumed
 			    ((#\\) (loop (cons (class-escape) rev-res)))
@@ -328,9 +341,9 @@
 			(null? (cdr res))
 			(null? (cddr res)))
 	       (match-case res
-		  (((and (? char?) ?c-from) #\- (and (? char?) ?c-to) ???-)
-		   (let ((c-from-n (char->integer c-from))
-			 (c-to-n (char->integer c-to)))
+		  (((and (? js-char?) ?c-from) #\- (and (? js-char?) ?c-to) ???-)
+		   (let ((c-from-n (js-char->integer c-from))
+			 (c-to-n (js-char->integer c-to)))
 		      (unless (<=fx c-from-n c-to-n)
 			 (return #f))
 		      (set-car! res `(:range ,c-from-n ,c-to-n))
@@ -347,12 +360,13 @@
 	 ((not c)                   (return #f))
 	 ;; inside classes decimal-escapes must not be back-refs.
 	 ;; -> only choice left is "\0"
-	 ((char-numeric? c)         (let ((d (decimal-escape)))
-				       (unless (char? d)
-					   (return #f))
+	 ((js-char-numeric? c)      (let ((d (decimal-escape)))
+				       (unless (and (pair? d)
+						    (eq? (car d) 'char))
+					  (return #f))
 				       d))
-	 ((c=? c #\b)               `(char ,(integer->char 8))) ;; backspace
-	 ((string-index "dDsSwW" c) (character-class-escape))
+	 ((cc=? c #\b)              `(char ,(integer->char 8))) ;; backspace
+	 ((cc-any-of? c "dDsSwW")   (character-class-escape))
 	 (else                      (character-escape)))))
 
 

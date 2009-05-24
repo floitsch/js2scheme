@@ -162,7 +162,7 @@
 		      (new-node Var-decl-list (reverse! rev-vars))
 		      (let ((t (consume-any!)))
 			 (my-error "unexpected token, error or EOF"
-				   (cdr (consume-any!))
+				   (cdr t)
 				   t)))))))
    
    (define (var in-for-init?)

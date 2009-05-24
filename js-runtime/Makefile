@@ -6,7 +6,8 @@ AFILE		= bglafile
 # from the library.
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
-			natives base-object base-string global-object globals \
+			natives base-object base-string base-char \
+			global-object globals \
 			primitives operators scope-object \
 			RegExp
 

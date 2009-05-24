@@ -1,5 +1,6 @@
 (module jsre-base-object
    (import jsre-base-string)
+   (use jsre-conversion)
    (export
     (inline mangle-false val)
     (inline unmangle-false val)

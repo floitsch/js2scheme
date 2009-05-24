@@ -12,10 +12,10 @@
 (define (fill-insensitive-classes! v sensitive-v)
    (let loop ((i 0))
       (when (<fx i 256)
-	 (let* ((c (integer->char i))
-		(c-up (char-upcase c))
-		(c-down (char-downcase c)))
-	    (if (char=? c-up c-down)
+	 (let* ((c (integer->js-char i))
+		(c-up (js-char-upcase c))
+		(c-down (js-char-downcase c)))
+	    (if (js-char=? c-up c-down)
 		(vector-set! v i (vector-ref sensitive-v i))
 		(let ((re-class (instantiate::RE-class
 				   (char-set (new-empty-char-set))
@@ -42,6 +42,11 @@
    (define (inv-class-keyword s)
       (symbol->keyword (inverted-sym s)))
 
+   ;; given a class-name like *digit-class* and its elements create the
+   ;; instructions to fill the empty class with the given elements.
+   ;; els can be chars, integers, lambdas or lists, where a list represents a
+   ;; range. Lambdas are executed (using 'eval') and are supposed to return a
+   ;; list of integers.
    (define (fill-class name els)
       (let ((set (gensym 'set)))
 	 `(let ((,set (RE-class-char-set ,name)))
@@ -84,7 +89,14 @@
 			(loop (cdr els)
 			      (cons `(char-set-add-n! ,set ,(car els))
 				    res))))))))
-		     
+
+   ;; given a char-class-description
+   ;;  like '(digit (#\0 #\9))
+   ;; create:
+   ;;   (define *digit-class* (instantiate::RE-class ...)) [empty]
+   ;;   (define *not-digit-class* (instantiate::....       [empty]
+   ;;   <code to fill the empty *digit-class*>
+   ;;   <copy the inverted chars from *digit-class* to *not-digit-class*
    (define (create-constant-class desc)
       (let ((def-name (class-name (car desc)))
 	    (inv-def-name (inv-class-name (car desc)))

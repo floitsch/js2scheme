@@ -2,7 +2,8 @@
    (import jsre-scope-object
 	   jsre-base-string)
    (use jsre-base-object
-	jsre-natives)
+	jsre-natives
+	jsre-conversion)
    (export (class Js-Arguments::Js-Scope-Object))
    (export (macro make-arguments))
    (eval (class Js-Arguments)))

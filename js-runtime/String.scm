@@ -189,7 +189,7 @@
 	  (if (=fx i nb-args)
 	      (vector->js-string v)
 	      (begin
-		 (vector-set! v i (flonum->fixnum (any->uint16 (get-arg i))))
+		 (vector-set! v i (get-arg i))
 		 (loop (+fx i 1))))))))
 
 (define (toString)                       ;; 15.5.4.2
@@ -228,7 +228,7 @@
 		    (any->js-string this)))
 	   (c (checked-string-ref str pos)))
        (if c
-	   (char->js-string c)
+	   (js-char->js-string c)
 	   (STR "")))))
 
 (define (charCodeAt)                    ;; 15.5.4.5
@@ -240,7 +240,7 @@
 		    (any->js-string this)))
 	   (c (checked-string-ref str pos-any)))
        (if c
-	   (fixnum->flonum (char->integer c))
+	   (fixnum->flonum (js-char->integer c))
 	   +nan.0))))
 
 (define (concat)                        ;; 15.5.4.6
@@ -397,7 +397,7 @@
 			    this-str this-len
 			    match from to)
    (define (num-char->int c)
-      (-fx (char->integer c) (char->integer #\0)))
+      (-fx (js-char->integer c) (char->integer #\0)))
 
    (let loop ((i 0)
 	      (res-str (STR ""))
@@ -406,14 +406,14 @@
 	 ((>=fx i (-fx repl-len 1)) ;; last char can be $
 	  (js-string-append res-str
 			    (js-substring this-str to-be-copied-pos repl-len)))
-	 ((and (char=? (js-string-ref repl-str i) #\$)
+	 ((and (char=js-char? #\$ (js-string-ref repl-str i))
 	       (not (=fx to-be-copied-pos i)))
 	  ;; simplify task. first copy the not-yet-copied chars.
 	  ;; then iterate and deal with $
 	  (loop i (js-string-append res-str
 				    (js-substring this-str to-be-copied-pos i))
 		i))
-	 ((char=? (js-string-ref repl-str i) #\$)
+	 ((char=js-char? #\$ (js-string-ref repl-str i))
 	  ;; all previous chars have been dealt with.
 	  (let ((c (js-string-ref repl-str (+fx i 1)))
 		(i+2 (+fx i 2)))
@@ -436,7 +436,7 @@
 			     i+2))
 		((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
 		 (let* ((double-digit? (and (<fx i+2 repl-len)
-					    (char-numeric?
+					    (js-char-numeric?
 					     (js-string-ref repl-str i+2))))
 			(c2 (and double-digit? (js-string-ref repl-str i+2)))
 			(n (if double-digit?
@@ -513,8 +513,8 @@
 		  (replace-len (and replace-str (js-string-length replace-str)))
 		  ;; avoid common case where no $ is in replace-str.
 		  (contains-$? (and replace-str
-				    (js-string-index replace-str #\$)
-				    #t)))
+				    (js-string-contains-char? replace-str
+							      #\$))))
 	      (define (replace-matched match from to)
 		 (cond
 		    ((procedure? replaceValue)
@@ -610,15 +610,17 @@
    (let ((v (make-vector 256)))
       (let loop ((i 0))
 	 (when (< i 256)
-	    (vector-set! v i (char->js-string (integer->char i)))
-	    (loop (+fx i 1))))
+	    (let* ((js-c (integer->js-char i))
+		   (str (js-char->js-string js-c)))
+	       (vector-set! v i str)
+	       (loop (+fx i 1)))))
       v))
 
 (define (cached-char-string c)
-   (let ((n (char->integer c)))
+   (let ((n (js-char->integer c)))
       (if (< n 256)
 	  (vector-ref *char-cache* n)
-	  (char->js-string c))))
+	  (js-char->js-string c))))
 
 (define (split)                         ;; 15.5.4.14
    (js-fun

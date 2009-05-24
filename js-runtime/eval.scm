@@ -5,7 +5,8 @@
 	jsre-global-object
 	jsre-scope-object
 	jsre-base-object
-	jsre-Error)
+	jsre-Error
+	jsre-conversion)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
 	   (js-Function-eval src::Js-Base-String)))
 

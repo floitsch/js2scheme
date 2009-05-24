@@ -48,7 +48,7 @@
 	       ((>=fx i str-len)
 		#f)
 	       (else
-		(let ((cv (-fx (char->integer (js-string-ref key i))
+		(let ((cv (-fx (js-char->integer (js-string-ref key i))
 			       (char->integer #\0))))
 		   (if (and (>= cv 0)
 			    (< cv 10))

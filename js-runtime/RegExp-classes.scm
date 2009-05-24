@@ -1,6 +1,9 @@
 (module jsre-RegExp-classes
    (import jsre-RegExp-char-set
-	   jsre-base-string)
+	   jsre-base-string
+	   jsre-base-char)
+   (use jsre-conversion
+	jsre-base-object)
    (static
     (final-class RE-class
        (char-set::RE-char-set read-only)
@@ -8,16 +11,16 @@
    (export
     (RegExp-class-pattern?::bool pattern)
     (RegExp-class-create char/class case-sensitive?)
-    (RegExp-class-match re-class c::char)
+    (RegExp-class-match re-class c::js-char)
     (RegExp-class-subset?::bool re-class1 re-class2)
     (RegExp-class-overlap?::bool re-class1 re-class2)
     (word-boundary str::Js-Base-String index::bint)
-    (terminator-char? c::char))
+    (js-char-terminator? c::js-char))
    (include "RegExp-constant-classes.scm"))
 
 (define (RegExp-class-pattern? pattern)
    (match-case pattern
-      ((or (? char?)
+      ((or (? js-char?)
 	   (? constant-class-pattern?)
 	   (or (:neg-char ?-)
 	       (:one-of-chars ???-)))
@@ -26,7 +29,7 @@
 	   
 (define (RegExp-class-match re-class c)
    (with-access::RE-class re-class (char-set)
-      (char-set-match char-set c)))
+      (char-set-match char-set (js-char->integer c))))
 
 ;; is cl1 a subset of cl2?
 (define (RegExp-class-subset? cl1 cl2)
@@ -115,15 +118,15 @@
 				   *case-sensitive-classes*
 				   *case-insensitive-classes*)))
 	 (merge-classes! re-class
-			 (vector-ref precomputed-chars (char->integer c)))))
+			 (vector-ref precomputed-chars (js-char->integer c)))))
 
    ;; handles case-sensitivity
    (define (add-char-range re-class from to)
-      (let ((from (if (char? from)
-		      (char->integer from)
+      (let ((from (if (js-char? from)
+		      (js-char->integer from)
 		      from))
-	    (to (if (char? to)
-		    (char->integer to)
+	    (to (if (js-char? to)
+		    (js-char->integer to)
 		    to)))
 	 (let loop ((re-class re-class)
 		    (from from))
@@ -138,18 +141,18 @@
 	  (add-range (instantiate::RE-class
 			(char-set (new-empty-char-set)))
 		     from to)
-	  (let ((from (if (char? from)
-			  (char->integer from)
+	  (let ((from (if (js-char? from)
+			  (js-char->integer from)
 			  from))
-		(to (if (char? to)
-			(char->integer to)
+		(to (if (js-char? to)
+			(js-char->integer to)
 			to)))
 	     (char-set-add-range-n! (RE-class-char-set re-class) from to)
 	     re-class)))
 
    (define (add-element! re-class char/class)
       (match-case char/class
-	 ((and (? char?) ?c)
+	 ((and (? js-char?) ?c)
 	  (add-char! re-class c))
 	 ((:range ?from ?to)
 	  (add-range re-class from to))
@@ -175,15 +178,17 @@
 		 "forgot character class"
 		 char/class))))
 
-   (let ((re-class (add-element! *empty-class* char/class)))
-      (or (char-set-get-single-char (RE-class-char-set re-class))
+   (let* ((re-class (add-element! *empty-class* char/class))
+	  (sc (char-set-get-single-char (RE-class-char-set re-class))))
+      (if sc
+	  (integer->js-char sc)
 	  re-class)))
 
 (define (word-boundary str index)
    (define (word-char? c)
-      (or (char-alphabetic? c)
-	  (char-numeric? c)
-	  (char=? c #\_)))
+      (or (js-char-alphabetic? c)
+	  (js-char-numeric? c)
+	  (js-char=char? c #\_)))
    
    (let ((len (js-string-length str)))
       (cond
@@ -198,11 +203,9 @@
 	 (else ;; index-1 is not word-char
 	  (word-char? (js-string-ref str index))))))
 
-(define (terminator-char? c)
-   (let ((n (char->integer c)))
+(define (js-char-terminator? c)
+   (let ((n (js-char->integer c)))
       (or (=fx n #xA) ;; Linefeed
 	  (=fx n #xD) ;; Carriage Return
-	  ;; following entries can't happen unless we
-	  ;; have switched to UCS2
 	  (=fx n #x2028) ;; Line separator
 	  (=fx n #x2029)))) ;; Paragraph separator

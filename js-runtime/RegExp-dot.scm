@@ -3,6 +3,8 @@
 	   jsre-RegExp-classes
 	   jsre-RegExp-fsm
 	   jsre-RegExp-state)
+   (use jsre-conversion
+	jsre-base-object)
    (export (regexp->dot fsm)
 	   (running->dot fsm states frozen-states str index)))
 
@@ -183,7 +185,7 @@
 (define-method (dot-out n::FSM-everything ht-id ht-done)
    (unless (hashtable-get ht-done n)
       (hashtable-put! ht-done n #t)
-      (with-access::FSM-everything n (next c)
+      (with-access::FSM-everything n (next)
 	 (print (get-id n ht-id) "[label=\"every\"]; // every")
 	 (dot-out next ht-id ht-done)
 	 (print (get-id n ht-id) " -> "

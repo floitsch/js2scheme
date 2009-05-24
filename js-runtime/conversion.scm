@@ -33,7 +33,12 @@
 	   (any->integer::double any)
 	   (any->int32::double any)
 	   (any->uint32::double any)
-	   (any->uint16::double any)
+
+	   ;; char/string conversions
+	   (any->uint10FFFF-fx::long any)
+	   (any->uint16fx::ucs2 any)
+	   (any->uint8fx::char any)
+
 	   (any->js-string::Js-Base-String any)
 	   (any->object any)
 	   (js-object any) ;; TODO we really need a better name...
@@ -72,7 +77,7 @@
    (js-boolify any))
 
 (define (js-string->number str)
-   (define whitespace? char-whitespace?)   ;; TODO not spec-conform (white-space)
+   (define whitespace? js-char-whitespace?)   ;; TODO not spec-conform (white-space)
 
    ;; TODO: in C-mode we could theoretically use 'string->real' if the
    ;; base-string has a fitting representation.
@@ -92,7 +97,7 @@
 	    (if (>= i str-len)
 		res
 		(let* ((c (js-string-ref str i))
-		       (v (char->integer c)))
+		       (v (js-char->integer c)))
 		   (cond
 		      ((and (>=fx v val0) (<=fx v val9))
 		       (loop (+fx i 1)
@@ -146,23 +151,23 @@
 		#f)
 	       ((>=fx i str-len)
 		#t)
-	       ((and (>=fx (char->integer (js-string-ref str i)) val0)
-		     (<=fx (char->integer (js-string-ref str i)) val9))
+	       ((and (>=fx (js-char->integer (js-string-ref str i)) val0)
+		     (<=fx (js-char->integer (js-string-ref str i)) val9))
 		(loop (+fx i 1)
 		      #f
 		      allow-dot?
 		      allow-e?
 		      #f))
 	       ((and allow-dot?
-		     (char=? #\. (js-string-ref str i)))
+		     (char=js-char? #\. (js-string-ref str i)))
 		(loop (+fx i 1)
 		      #f
 		      #f
 		      allow-e?
 		      need-digit?))
 	       ((and allow-sign?
-		     (or (char=? #\+ (js-string-ref str i))
-			 (char=? #\- (js-string-ref str i))))
+		     (or (char=js-char? #\+ (js-string-ref str i))
+			 (char=js-char? #\- (js-string-ref str i))))
 		(loop (+fx i 1)
 		      #f
 		      allow-dot?
@@ -170,8 +175,8 @@
 		      need-digit?))
 	       ((and allow-e?
 		     (not need-digit?)
-		     (or (char=? #\e (js-string-ref str i))
-			 (char=? #\E (js-string-ref str i))))
+		     (or (char=js-char? #\e (js-string-ref str i))
+			 (char=js-char? #\E (js-string-ref str i))))
 		(loop (+fx i 1)
 		      #t
 		      #f
@@ -190,13 +195,13 @@
 	    (valA (char->integer #\A))
 	    (valF (char->integer #\F)))
 	 (and (>fx str-len 2)
-	      (char=? #\0 (js-string-ref str 0))
-	      (or (char=? #\x (js-string-ref str 1))
-		  (char=? #\X (js-string-ref str 1)))
+	      (char=js-char? #\0 (js-string-ref str 0))
+	      (or (char=js-char? #\x (js-string-ref str 1))
+		  (char=js-char? #\X (js-string-ref str 1)))
 	      (let loop ((i 2))
 		 (if (>= i str-len)
 		     #t
-		     (let ((cval (char->integer (js-string-ref str i))))
+		     (let ((cval (js-char->integer (js-string-ref str i))))
 			(if (or (and (>=fx cval val0)
 				     (<=fx cval val9))
 				(and (>=fx cval vala)
@@ -289,9 +294,19 @@
 	 (else
 	  (finite->integer nb)))))
 
+;; nb must not be nan, 0.0 or infinite.
+(define (safe->uint32 nb::float)
+   (let* ((tmp (truncatefl nb))
+	  (two^32 4294967296.0)
+	  (rem (remainderfl tmp two^32)))
+      ;; remainderfl returns negative values for negative input.
+      ;; fix this.
+      (if (<fl rem 0.0)
+	  (+fl rem two^32)
+	  rem)))
+   
 (define (any->int32 any)
-   ;; TODO: would be much faster and better with 32bit datatype
-   ;; TODO: broken any->uint16: must take modulo.
+   ;; TODO: inefficient?
    (let ((nb (any->number any)))
       (cond
 	 ((or (nanfl? nb)
@@ -299,15 +314,15 @@
 	      (=fl 0.0 nb)) ;; could be -0.0, too.
 	  +0.0)
 	 (else
-	  (let* ((tmp (flonum->llong nb))
-		 (uint32 (bit-andllong tmp #lxffffffff))) ;; 32 bits
-	     (if (>=llong uint32 #lx80000000) ;; 2^31
-		 (llong->flonum (-llong uint32 #lx100000000)) ;; 2^32
-		 (llong->flonum uint32)))))))
+	  (let ((tmp (safe->uint32 nb))
+		(two^32 4294967296.0)
+		(two^31 2147483648.0))
+	     (if (>=fl nb two^31)
+		 (-fl nb two^32)
+		 nb))))))
 
 (define (any->uint32 any)
-   ;; TODO: would be much faster and better with u32bit datatype
-   ;; TODO: broken any->uint16: must take modulo.
+   ;; TODO: inefficient
    (let ((nb (any->number any)))
       (cond
 	 ((or (nanfl? nb)
@@ -315,23 +330,61 @@
 	      (=fl 0.0 nb)) ;; could be -0.0, too
 	  +0.0)
 	 (else
-	  (let ((tmp (flonum->llong nb)))
-	     (llong->flonum
-	      (bit-andllong tmp #lxffffffff))))))) ;; 32 bits
-   
-(define (any->uint16 any)
-   ;; TODO: would be much faster and better with u32bit datatype
-   ;; TODO: broken any->uint16: must take modulo.
+	  (safe->uint32 nb)))))
+
+;; might return a negative number.
+;; nb must not be nan, infinite or 0.0 (although that probably does not matter)
+;; if nb does not fit into nb, then it is cut by an arbitrary limit. However,
+;;    we assure that the cut-off is at least 2^24 and on a bit-boundary.
+;;    In other words: the least important bits are untouched.
+(define (flonum->truncated-fixnum nb)
+   (define limit 16777216.0)
+   [assert (limit) (> (maxvalfx) limit)]
+
+   (if (=fl nb (fixnum->flonum (flonum->fixnum nb)))
+       ;; shortcut: a valid integer-number.
+       (flonum->fixnum nb)
+       (flonum->fixnum (remainderfl (truncatefl nb) limit))))
+
+;; the following functions are (should) only be used for character creations.
+;; they return fixnums (bints/longs)
+;; The ECMA spec requires characters to be 16 bit long. The "real" conversion
+;; function would hence be 'any->uint16fx'. The others are used by "incorrect"
+;; string implementations.
+(define (any->uint8fx::char any)
    (let ((nb (any->number any)))
       (cond
 	 ((or (nanfl? nb)
 	      (infinitefl? nb)
-	      (=fl 0.0 nb)) ;; could be -0.0, too
-	  +0.0)
+	      (=fl 0.0 nb)) ;; covers -0.0 too.
+	  #a000)
 	 (else
-	  (let ((tmp (flonum->llong nb)))
-	     (llong->flonum
-	      (bit-andllong tmp #lxffff))))))) ;; 16 bits
+	  (integer->char (bit-and #xFF (flonum->truncated-fixnum nb)))))))
+
+(define (any->uint16fx::ucs2 any)
+   (let ((nb (any->number any)))
+      (cond
+	 ((or (nanfl? nb)
+	      (infinitefl? nb)
+	      (=fl 0.0 nb)) ;; covers -0.0 too.
+	  #u0000)
+	 (else
+	  (integer->ucs2 (bit-and #xFFFF (flonum->truncated-fixnum nb)))))))
+
+;; this one should be used for utf32 (or similar implementations)
+;; it returns the unicode-value of the given number.
+;; 
+(define (any->uint10FFFF-fx::long any)
+   (let ((nb (any->number any)))
+      (cond
+	 ((or (nanfl? nb)
+	      (infinitefl? nb)
+	      (=fl 0.0 nb)) ;; covers -0.0 too.
+	  #u0000)
+	 (else
+	  (let ((tr (flonum->truncated-fixnum nb)))
+	     ;; most of the time tr will be < #x10FFFF anyways.
+	     (modulofx (bit-and #xFFFFFF tr) #x10FFFF))))))
 
 (define (any->js-string::Js-Base-String any)
    (define (any->string2::Js-Base-String any)

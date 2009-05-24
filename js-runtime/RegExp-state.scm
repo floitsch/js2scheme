@@ -3,6 +3,8 @@
 	   jsre-RegExp-classes
 	   jsre-RegExp-fsm
 	   jsre-RegExp-dot)
+   (use jsre-conversion
+	jsre-base-object)
    (export
     (final-class FSM-loop-info
        (iterations::bint read-only)

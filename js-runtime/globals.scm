@@ -120,16 +120,16 @@
 		       (* 1.0 (* res sign)) ;; (* 1.0) -> flonum
 		       +nan.0)
 		   (let* ((c (js-string-ref s i))
-			  (ci (char->integer (js-string-ref s i)))
+			  (ci (js-char->integer (js-string-ref s i)))
 			  (cv (cond
-				 ((and (char>=? c #\0)
-				       (char<=? c #\9))
+				 ((and (js-char>=char? c #\0)
+				       (js-char<=char? c #\9))
 				  (-fx ci (char->integer #\0)))
-				 ((and (char>=? c #\a)
-				       (char<=? c #\z))
+				 ((and (js-char>=char? c #\a)
+				       (js-char<=char? c #\z))
 				  (+fx 10 (-fx ci (char->integer #\a))))
-				 ((and (char>=? c #\A)
-				       (char<=? c #\Z))
+				 ((and (js-char>=char? c #\A)
+				       (js-char<=char? c #\Z))
 				  (+fx 10 (-fx ci (char->integer #\A))))
 				 (else
 				  99)))) ;; some big value
@@ -149,15 +149,14 @@
 				found-char))))))))
       
       (define (white-space? c)
-	 ;; TODO: not spec-conform
-	 (char-whitespace? c))
+	 (js-char-whitespace? c))
 
       (define (first-non-white s)
 	 (let ((len (js-string-length s)))
 	    (let loop ((i 0))
 	       (cond
 		  ((>=fx i len) i)
-		  ((char-whitespace? (js-string-ref s i))
+		  ((js-char-whitespace? (js-string-ref s i))
 		   (loop (+fx i 1)))
 		  (else i)))))
 
@@ -165,9 +164,9 @@
 	 (cond
 	    ((>=fx pos (js-string-length s))
 	     (values 1 pos))
-	    ((char=? #\- (js-string-ref s pos))
+	    ((char=js-char? #\- (js-string-ref s pos))
 	     (values -1 (+fx pos 1)))
-	    ((char=? #\+ (js-string-ref s pos))
+	    ((char=js-char? #\+ (js-string-ref s pos))
 	     (values 1 (+fx pos 1)))
 	    (else
 	     (values 1 pos))))
@@ -199,9 +198,8 @@
 		      (parseIntR s pos R sign)))))))
    
    (define (parseFloat string) ;; 15.1.2.3
-      (define decimal-char? char-numeric?)
-      ;; TODO not spec-conform (whitespace)
-      (define whitespace? char-whitespace?)
+      (define decimal-char? js-char-numeric?)
+      (define whitespace? js-char-whitespace?)
       
       (define (substring->real str str-len from to)
 	 (cond
@@ -228,8 +226,8 @@
 	    ((js-substring-at_utf8? str "Infinity" i) +inf.0)
 	    ((js-substring-at_utf8? str "+Infinity" i) +inf.0)
 	    ((js-substring-at_utf8? str "-Infinity" i) -inf.0)
-	    ((or (char=? #\- (js-string-ref str i))
-		 (char=? #\+ (js-string-ref str i)))
+	    ((or (char=js-char? #\- (js-string-ref str i))
+		 (char=js-char? #\+ (js-string-ref str i)))
 	     (read-unsigned str (+fx i 1) str-len i))
 	    (else
 	     (read-unsigned str i str-len i))))
@@ -248,7 +246,7 @@
 		(loop (+fx i 1)
 		      #f
 		      encountered-dot?))
-	       ((char=? #\. (js-string-ref str i))
+	       ((char=js-char? #\. (js-string-ref str i))
 		(cond
 		   ((and encountered-dot?
 			 need-digit?)
@@ -257,8 +255,8 @@
 		    (substring->real str str-len start-pos i))
 		   (else
 		    (loop (+fx i 1) need-digit? #t))))
-	       ((or (char=? #\e (js-string-ref str i))
-		    (char=? #\E (js-string-ref str i)))
+	       ((or (char=js-char? #\e (js-string-ref str i))
+		    (char=js-char? #\E (js-string-ref str i)))
 		(if need-digit?
 		    +nan.0
 		    (read-exponent-integer str i str-len start-pos)))
@@ -281,8 +279,8 @@
 		      #f
 		      #f))
 	       ((and sign-is-allowed?
-		     (or (char=? #\- (js-string-ref str i))
-			 (char=? #\+ (js-string-ref str i))))
+		     (or (char=js-char? #\- (js-string-ref str i))
+			 (char=js-char? #\+ (js-string-ref str i))))
 		(loop (+fx i 1)
 		      end-pos
 		      #t
@@ -354,75 +352,96 @@
 
 ;; 15.1.3 URI functions
 (define-inline (uri-encode str::Js-Base-String in-unescaped-set?)
-   (define (unicode-char-at str i)
-      (char->integer (js-string-ref str i)))
-   (define (display-uc-char c)
-      (display (integer->char c)))
-
-   (define (display-escaped-byte b)
-      (define (hex-digit->char d)
+   (define (escaped-byte-push! buf b)
+      (define (hex-digit->integer d)
 	 (cond
 	    ((<fx d 10)
-	     (integer->char (+fx d (char->integer #\0))))
+	     (+fx d (char->integer #\0)))
 	    (else
-	     (integer->char (+fx d (-fx (char->integer #\A) 10))))))
-      (display* #\%
-		(hex-digit->char (bit-ursh b 4))
-		(hex-digit->char (bit-and b #x0F))))
+	     (+fx d (-fx (char->integer #\A) 10)))))
+      (js-string-buffer-uc-push! buf (char->integer #\%))
+      (js-string-buffer-uc-push! buf (hex-digit->integer (bit-ursh b 4)))
+      (js-string-buffer-uc-push! buf (hex-digit->integer (bit-and b #x0F))))
 
-   (let ((str-len (js-string-length str)))
-      ;; TODO: uri-encode. do not create new string, if there is nothing to encode
-      (utf8->js-string
-       (with-output-to-string
-	  (lambda ()
-	     (let loop ((i 0))
-		(when (<fx i str-len)
-		   (let ((c (unicode-char-at str i)))
-		      (cond
-			 ((not c) ;; can't happen yet
-			  (uri-error (STR "invalid unicode character")))
-			 ;; the following would have been written completely
-			 ;; different (and imho nicer) in C.
-			 ((in-unescaped-set? c)
-			  (display-uc-char c))
-			 ((<=fx c #x7F)
-			  (display-escaped-byte c))
-			 ((<=fx c #x7FF)
-			  (let ((b1 (+fx #xC0 (bit-ursh c 6)))
-				(b2 (+fx #x80 (bit-and c #x3F))))
-			     (display-escaped-byte b1)
-			     (display-escaped-byte b2)))
-			 ((<=fx c #xFFFF)
-			  (let ((b1 (+fx #xE0 (bit-ursh c 12)))
-				(b2 (+fx #x80
-					 (bit-and (bit-ursh c 6) #x3F)))
-				(b3 (+fx #x80 (bit-and c #x3F))))
-			     (display-escaped-byte b1)
-			     (display-escaped-byte b2)
-			     (display-escaped-byte b3)))
-			 (else
-			  (let ((b1 (+fx #xF0 (bit-ursh c 18)))
-				(b2 (+fx #x80
-					 (bit-and (bit-ursh c 12) #x3F)))
-				(b3 (+fx #x80
-					 (bit-and (bit-ursh c 6) #x3F)))
-				(b4 (+fx #x80 (bit-and c #x3F))))
-			     (display-escaped-byte b1)
-			     (display-escaped-byte b2)
-			     (display-escaped-byte b3)
-			     (display-escaped-byte b4)))))
-		   (loop (+fx i 1)))))))))
+   (define (needs-escaping?/compute-escaped-size str)
+      (let ((it (js-string-uc-iterator str)))
+	 (with-handler
+	    (lambda (e)
+	       (uri-error (STR "invalid unicode character")))
+	    ;; we assume that ascii-chars only take one js-string-char.
+	    ;; this should be a reasonable assumptions. but still CARE.
+	    (let loop ((needs-escaping? #f)
+		       (size 0))
+	       (let ((c (it)))
+		  (cond
+		     ((not c) (values needs-escaping? size))
+		     ((in-unescaped-set? c) needs-escaping? (+fx size 1))
+		     ;; otherwise it needs to be escaped:
+		     ;; each byte is written as %xy
+		     ((<=fx c #x7F) (loop #t (+fx size 3)))
+		     ((<=fx c #x7FF) (loop #t (+fx size 6)))
+		     ((<=fx c #xFFFF) (loop #t (+fx size 9)))
+		     (else (loop #t (+fx size 12)))))))))
+
+   (receive (needs-escaping? escaped-size)
+      (needs-escaping?/compute-escaped-size str)
+      (if (not needs-escaping?)
+	  str ;; nothing to do.
+	  (let ((res-buf (open-js-string-buffer escaped-size))
+		(it (js-string-uc-iterator str)))
+	     (let loop ()
+		(let ((c (it)))
+		   (cond
+		      ((not c)
+		       (close-js-string-buffer res-buf))
+		      ;; the following would have been written completely
+		      ;; different (and imho nicer) in C.
+		      ((in-unescaped-set? c)
+		       (js-string-buffer-uc-push! res-buf c)
+		       (loop))
+		      ((<=fx c #x7F)
+		       (escaped-byte-push! res-buf c)
+		       (loop))
+		      ((<=fx c #x7FF)
+		       (let ((b1 (+fx #xC0 (bit-ursh c 6)))
+			     (b2 (+fx #x80 (bit-and c #x3F))))
+			  (escaped-byte-push! res-buf b1)
+			  (escaped-byte-push! res-buf b2)
+			  (loop)))
+		      ((<=fx c #xFFFF)
+		       (let ((b1 (+fx #xE0 (bit-ursh c 12)))
+			     (b2 (+fx #x80
+				      (bit-and (bit-ursh c 6) #x3F)))
+			     (b3 (+fx #x80 (bit-and c #x3F))))
+			  (escaped-byte-push! res-buf b1)
+			  (escaped-byte-push! res-buf b2)
+			  (escaped-byte-push! res-buf b3)
+			  (loop)))
+		      (else
+		       (let ((b1 (+fx #xF0 (bit-ursh c 18)))
+			     (b2 (+fx #x80
+				      (bit-and (bit-ursh c 12) #x3F)))
+			     (b3 (+fx #x80
+				      (bit-and (bit-ursh c 6) #x3F)))
+			     (b4 (+fx #x80 (bit-and c #x3F))))
+			  (escaped-byte-push! res-buf b1)
+			  (escaped-byte-push! res-buf b2)
+			  (escaped-byte-push! res-buf b3)
+			  (escaped-byte-push! res-buf b4)
+			  (loop))))))))))
 
 (define-inline (uri-decode str::Js-Base-String in-reserved-set?)
    ;; the str is supposed to be encoded. Therefore all chars should be ASCII.
    ;; we will therefore simply use js-string-ref to traverse the string.
 
-   (define (display-uc-char c)
-      (display (integer->char c)))
+   (define-macro (+fx+ x . L)
+      (if (null? L)
+	  x
+	  `(+fx ,x (+fx+ ,@L))))
 
    (define (read-escaped-byte str i str-len)
       (define (hex-char->integer c)
-	 (let ((v (char->integer c))
+	 (let ((v (js-char->integer c))
 	       (v_0 (char->integer #\0))
 	       (v_a (char->integer #\a))
 	       (v_A (char->integer #\A)))
@@ -445,7 +464,7 @@
 	      (and d1 d2
 		   (+fx (bit-lsh d1 4) d2)))))
 
-   ;; removes the leading 10 bits
+   ;; removes the leading '10' bits
    (define (read-non-head-escaped-byte str i str-len)
       (let ((b (read-escaped-byte str i str-len)))
 	 (when (or (not b)
@@ -461,46 +480,85 @@
 	    ((zerofx? (bit-and b1 #x80))
 	     (values b1 (+fx i 3)))
 	    ((=fx #xC0 (bit-and #xE0 b1)) ;; 2 bytes
-	     (let ((b2 (read-non-head-escaped-byte str (+fx i 3) str-len)))
-		(values (+fx (bit-lsh (bit-and #x1F b1) 6)
-			     b2)
-			(+fx i 6))))
+	     (let* ((b2 (read-non-head-escaped-byte str (+fx i 3) str-len))
+		    (decoded-uc-char (+fx (bit-lsh (bit-and #x1F b1) 6)
+					  b2)))
+		(when (>fx decoded-uc-char #x10FFFF)
+		   (uri-error (STR "bad URI escape sequence")))
+		(values decoded-uc-char (+fx i 6))))
 	    ((=fx #xE0 (bit-and #xF0 b1)) ;; 3 bytes
 	     (let* ((b2 (read-non-head-escaped-byte str (+fx i 3) str-len))
-		    (b3 (read-non-head-escaped-byte str (+fx i 6) str-len)))
-		(values (+fx (bit-lsh (bit-and #x0F b1) 12)
-			     (+fx (bit-lsh b2 6)
-				  b3))
-			(+fx i 9))))
+		    (b3 (read-non-head-escaped-byte str (+fx i 6) str-len))
+		    (decoded-uc-char (+fx+ (bit-lsh (bit-and #x0F b1) 12)
+					   (bit-lsh b2 6)
+					   b3)))
+		(when (>fx decoded-uc-char #x10FFFF)
+		   (uri-error (STR "bad URI escape sequence")))
+		(values decoded-uc-char (+fx i 9))))
 	    ((=fx #xF0 (bit-and #xF8 b1)) ;; 4bytes
 	     (let* ((b2 (read-non-head-escaped-byte str (+fx i 3) str-len))
 		    (b3 (read-non-head-escaped-byte str (+fx i 6) str-len))
-		    (b4 (read-non-head-escaped-byte str (+fx i 9) str-len)))
-		(values (+fx (bit-lsh (bit-and #x0F b1) 18)
-			     (+fx (bit-lsh b2 12)
-				  (+fx (bit-lsh b3 6)
-				       b4)))
-			(+fx i 12))))
+		    (b4 (read-non-head-escaped-byte str (+fx i 9) str-len))
+		    (decoded-uc-char (+fx+ (bit-lsh (bit-and #x0F b1) 18)
+					   (bit-lsh b2 12)
+					   (bit-lsh b3 6)
+					   b4)))
+		(when (>fx decoded-uc-char #x10FFFF)
+		   (uri-error (STR "bad URI escape sequence")))
+		(values decoded-uc-char (+fx i 12))))
 	    (else
 	     (uri-error (STR "bad URI escape sequence"))))))
-		 
-   (let ((str-len (js-string-length str)))
-      ;; TODO: uri-decode. do not create new string, if there is nothing to decode
-      (utf8->js-string
-       (with-output-to-string
-	  (lambda ()
+
+   (define (needs-decoding?/decoded-size str)
+      ;; we use a simple js-string-ref. for ascii-chars that should be ok.
+      ;; but still: CARE
+      (let ((str-len (js-string-length str)))
+	 (let loop ((i 0)
+		    (needs-decoding? #f)
+		    (decoded-size 0))
+	    (if (>=fx i str-len)
+		(values needs-decoding? decoded-size)
+		(let ((c (js-string-ref str i)))
+		   (cond
+		      ((char=js-char? #\% c)
+		       (receive (decoded-uc-char end-pos)
+			  (read-escaped-sequence str i str-len)
+			  (if (in-reserved-set? decoded-uc-char)
+			      ;; needs to stay encoded
+			      (loop end-pos
+				    needs-decoding?
+				    (+fx decoded-size (-fx end-pos i)))
+			      (loop end-pos
+				    #t
+				    (+fx decoded-size
+					 (js-string-uc-char-size
+					  decoded-uc-char))))))
+		      (else (loop (+fx i 1)
+				  needs-decoding?
+				  (+fx decoded-size 1)))))))))
+
+   (define (verbatim-push! buf str from to)
+      (unless (>=fx from to)
+	 (js-string-buffer-verbatim-push! buf (js-string-ref str from))
+	 (verbatim-push! buf str (+fx from 1) to)))
+
+   (receive (needs-decoding? target-len)
+      (needs-decoding?/decoded-size str)
+      (if (not needs-decoding?)
+	  str
+	  (let ((str-len (js-string-length str))
+		(buf (open-js-string-buffer target-len)))
 	     (let loop ((i 0))
-		(when (<fx i str-len)
-		   (let ((c (js-string-ref str i)))
-		      (if (not (char=? c #\%))
-			  (begin
-			     (display c)
-			     (loop (+fx i 1)))
-			  (receive (decoded-uc-char end-pos)
-			     (read-escaped-sequence str i str-len)
-			     (when (>fx decoded-uc-char #x10FFFF)
-				(uri-error (STR "bad URI escape sequence")))
-			     (if (in-reserved-set? decoded-uc-char)
-				 (display (js-substring str i end-pos))
-				 (display-uc-char decoded-uc-char))
-			     (loop end-pos)))))))))))
+		(cond
+		   ((>=fx i str-len)
+		    (close-js-string-buffer buf))
+		   ((not (char=js-char? #\% (js-string-ref str i)))
+		    (js-string-buffer-verbatim-push! buf (js-string-ref str i))
+		    (loop (+fx i 1)))
+		   (else
+		    (receive (decoded-uc-char end-pos)
+		       (read-escaped-sequence str i str-len)
+		       (if (in-reserved-set? decoded-uc-char)
+			   (verbatim-push! buf str i end-pos)
+			   (js-string-buffer-uc-push! buf decoded-uc-char))
+		       (loop end-pos)))))))))

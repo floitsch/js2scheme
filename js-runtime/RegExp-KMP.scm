@@ -1,5 +1,6 @@
 (directives
-   (import jsre-RegExp-classes)
+   (import jsre-RegExp-classes
+	   jsre-base-char)
    (export
     (final-class FSM-KMP::FSM-consuming
        fail::FSM-consuming))
@@ -68,7 +69,7 @@
    (cond
       ((FSM-everything? node) #t)
       ((and (FSM-char? n) (FSM-char? node))
-       (char=? (FSM-char-c n) (FSM-char-c node)))
+       (js-char=? (FSM-char-c n) (FSM-char-c node)))
       ((and (FSM-class? n) (FSM-char? node))
        #f)
       ((and (FSM-char? n) (FSM-class? node))
@@ -89,7 +90,7 @@
 	   (FSM-everything? n2))
        #t)
       ((and (FSM-char? n1) (FSM-char? n2))
-       (char=? (FSM-char-c n1) (FSM-char-c n2)))
+       (js-char=? (FSM-char-c n1) (FSM-char-c n2)))
       ((and (FSM-class? n1) (FSM-char? n2))
        (RegExp-class-match (FSM-class-class n1) (FSM-char-c n2)))
       ((and (FSM-char? n1) (FSM-class? n2))

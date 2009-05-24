@@ -4,6 +4,8 @@
 	   jsre-RegExp-fsm
 	   jsre-RegExp-dot
 	   jsre-RegExp-state)
+   (use jsre-conversion
+	jsre-base-object)
    (import multi-top-level)
    (export (regexp-match fsm::FSM str::Js-Base-String start-index::bint)
 	   (regexp-test fsm::FSM str::Js-Base-String start-index::bint)
@@ -761,11 +763,11 @@
 
 (define-method (consume n::FSM-char state str index)
    (with-access::FSM-char n (next c)
-      (and (char=? c (js-string-ref str index))
+      (and (js-char=? c (js-string-ref str index))
 	   next)))
 
 (define-method (consume n::FSM-everything state str index)
-   (with-access::FSM-char n (next)
+   (with-access::FSM-everything n (next)
       next))
 
 (define-method (consume n::FSM-class state str index)

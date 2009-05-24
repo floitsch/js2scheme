@@ -1,8 +1,11 @@
 (module jsre-RegExp-fsm
    (import jsre-RegExp-classes
 	   jsre-base-string
+	   jsre-base-char
 	   mset
 	   multi-top-level)
+   (use jsre-conversion
+	jsre-base-object)
    (export
     (class FSM
        entry::FSM-node
@@ -39,7 +42,7 @@
        (case-sensitive?::bool read-only))
 
     (final-class FSM-char::FSM-consuming
-       (c::char read-only))
+       (c::js-char read-only))
     (final-class FSM-everything::FSM-consuming) ;; everything matches.
     (final-class FSM-class::FSM-consuming
        (class read-only))
@@ -438,14 +441,14 @@
 	      (if multi-line?
 		  (lambda (str index)
 		     (or (zerofx? index)
-			 (terminator-char? (js-string-ref str (-fx index 1)))))
+			 (js-char-terminator? (js-string-ref str (-fx index 1)))))
 		  (lambda (str index)
 		     (zerofx? index))))
 	     ((:eol :eos :$)
 	      (if multi-line?
 		  (lambda (str index)
 		     (or (=fx index (js-string-length str))
-			 (terminator-char? (js-string-ref str index))))
+			 (js-char-terminator? (js-string-ref str index))))
 		  (lambda (str index)
 		     (=fx index (js-string-length str)))))
 	     ((:word-boundary :wbdry)
@@ -639,7 +642,7 @@
 	  clusters-nb))
       ((? RegExp-class-pattern?)
        (let* ((class-or-c (RegExp-class-create scm-re case-sensitive?))
-	      (t (if (char? class-or-c)
+	      (t (if (js-char? class-or-c)
 		     (instantiate::FSM-char
 			(id (get-id))
 			(next exit)

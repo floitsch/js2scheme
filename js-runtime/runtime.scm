@@ -1,6 +1,7 @@
 (module jsre-runtime
    (import jsre-base-object
 	   jsre-base-string
+	   jsre-base-char
 	   jsre-natives
 	   jsre-Error
 	   jsre-primitives
@@ -23,6 +24,7 @@
 	   jsre-Arguments)
    (from jsre-base-object
 	 jsre-base-string
+	 jsre-base-char
 	 jsre-natives
 	 jsre-Error
 	 jsre-primitives
