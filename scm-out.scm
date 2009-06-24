@@ -1,4 +1,5 @@
 (module scm-out
+   (library js2scheme-runtime)
    (include "protobject.sch")
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))
@@ -332,7 +333,8 @@
 	      ;; if not in module execute these funs. (otherwise somebody else
 	      ;;   needs to invoke them.)
 	      ,@(map (lambda (p)
-			`(define ,(cdr p) (utf8->js-string-literal ,(car p))))
+			`(define ,(cdr p)
+			    ,(utf8->js-string-literal (car p) #t)))
 		     (strs-alist))
 	      (define this ,tl-this)
 	      ,@(map (lambda (var)
@@ -352,8 +354,8 @@
 		 ,@(map (lambda (var)
 			   `(set! ,(var.compiled-id)
 				  (create-declared-global
-				   (utf8->js-string-literal
-				    ,(symbol->string var.id)))))
+				   ,(utf8->js-string-literal
+				     (symbol->string var.id)))))
 			declared-globals-w/o-this))
 	      (define (js-init-implicit)
 		 #unspecified ;; so the fun is never empty
@@ -361,8 +363,8 @@
 			   (let ((var decl.var))
 			      `(set! ,(var.compiled-id)
 				     (create-implicit-global
-				      (utf8->js-string-literal
-				       ,(symbol->string var.id))))))
+				      ,(utf8->js-string-literal
+					(symbol->string var.id))))))
 			this.implicit-globals))
 	      (define (js-run-top-level)
 		 ,compiled-body)
@@ -378,7 +380,7 @@
 	  ;; otherwise just make sure there is an entry.
 	  `(let ((this ,tl-this)
 		 ,@(map (lambda (p)
-			   `(,(cdr p) (utf8->js-string-literal ,(car p))))
+			   `(,(cdr p) ,(utf8->js-string-literal (car p))))
 			(strs-alist))
 		 ,@(if (config 'function-strings)
 		       (hashtable-map this.function-str-ids-ht
@@ -398,11 +400,11 @@
 			       ;; have different attributes.
 			       `(js-property-generic-set!
 				 ,tlo
-				 (utf8->js-string-literal ,id-str)
+				 ,(utf8->js-string-literal id-str)
 				 (js-undefined)
 				 (default-attributes))
-			       `(let ((,str-id (utf8->js-string-literal
-						,id-str)))
+			       `(let ((,str-id
+				       ,(utf8->js-string-literal id-str)))
 				   (unless (js-property-one-level-contains?
 					    ,tlo ,str-id)
 				   (js-property-set! ,tlo ,str-id (js-undefined)))))))
@@ -816,30 +818,58 @@
 		 "could not transform to number:"
 		 str)))))
 
+(define (unescape str)
+   (let ((char-l (string->list str)))
+      (let loop ((char-l char-l)
+		 (rev-res '()))
+	 (if (null? char-l)
+	     (list->string (reverse rev-res))
+	     (cond
+		((and (char=? #\\ (car char-l))
+		      (char=? #\0 (cadr char-l)))
+		 ;; only if the following char is not
+		 ;; another digit count it as null-char.
+		 ;; was initially octal escape
+		 ;; sequence. (now deprecated)
+		 (if (or (null? (cddr char-l))
+			 (not (char-numeric? (caddr char-l))))
+		     (loop (cddr char-l)
+			   (cons #\null rev-res))
+		     (loop (cddr char-l)
+			   (cons* (cadr char-l)
+				  (car char-l)
+				  rev-res))))
+		((and (char=? #\\ (car char-l))
+		      (or (char=? #\x (cadr char-l))
+			  (char=? #\u (cadr char-l))))
+		 ;; we can't really handle unicode chars now (depends on the
+		 ;; configuration (utf8, utf16, etc). so we leave them
+		 ;; in the string.
+		 (loop (cddr char-l)
+		       (cons* (cadr char-l)
+			      (car char-l)
+			      rev-res)))
+		((char=? #\\ (car char-l))
+		 (loop (cddr char-l)
+		       ;; 7.8.4
+		       (cons (case (cadr char-l)
+				;; SingleEscapeCharacters vvv
+				((#\b) #a008)
+				((#\t) #\tab)
+				((#\n) #\newline)
+				((#\v) #a011)
+				((#\f) #a012)
+				((#\r) #\return)
+				;; the else-part covers ', " and \
+				;; SingleEscapeCharacters ^^^
+				(else (cadr char-l)))
+			     rev-res)))
+		(else
+		 (loop (cdr char-l)
+		       (cons (car char-l) rev-res))))))))
+
 (define (unescaped-minus-quotes s)
-   ;; TODO: fix strings. (escaping always correct?)
-   (define (unescape str)
-      (let ((char-l (string->list str)))
-	 (let loop ((char-l char-l)
-		    (rev-res '()))
-	    (if (null? char-l)
-		(list->string (reverse rev-res))
-		(cond
-		   ((eq? (car char-l) #\\)
-		    (loop (cddr char-l)
-			  ;; 7.8.4
-			  (cons (case (cadr char-l)
-				   ((#\b) #a008)
-				   ((#\t) #\tab)
-				   ((#\n) #\newline)
-				   ((#\v) #a011)
-				   ((#\f) #a012)
-				   ((#\r) #\return)
-				   (else (cadr char-l)))
-				rev-res)))
-		   (else
-		    (loop (cdr char-l)
-			  (cons (car char-l) rev-res))))))))
+   ;; 7.8.4
    (unescape (substring s 1 (-fx (string-length s) 1))))
 
 (define-pmethod (String-out)

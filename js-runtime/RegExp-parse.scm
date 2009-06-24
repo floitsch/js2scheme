@@ -1,6 +1,5 @@
 (module jsre-RegExp-parse
-   (import jsre-base-string
-	   jsre-base-char)
+   (import jsre-base-string)
    (use jsre-base-object
 	jsre-conversion)
 ;   (main my-main)
@@ -13,6 +12,15 @@
 ;;       Normally all other escape-prefixes are thus unique (if it starts with
 ;;       a 'x' it must be a hex-escape).
 ;; TODO: hex-conversion down the code.
+
+(define-macro (js-char-case c . Lclauses)
+   (let ((gs (gensym 'char)))
+      `(let ((,gs ,c))
+	  (case (if (and (js-char? ,gs)
+			 (< (js-char->integer ,gs) 256))
+		    (js-char->char ,gs)
+		    ,gs)
+	     ,@Lclauses))))
 
 (define (js-regexp->scm-regexp js-pattern)
 (bind-exit (return)
@@ -50,8 +58,20 @@
 	    (and (cchar>=? c #\0)
 		 (cchar<=? c #\9)))))
 
+;; numeric is only for decimal chars ('0'-'9')
 (define (c-numeric? c)
-   (and c (js-char-numeric? c)))
+   (and c
+	(let ((ci (js-char->integer c)))
+	   (and (>=fx ci (char->integer #\0))
+		(<=fx ci (char->integer #\9))))))
+;; alphabetic is only for ascii chars.
+(define (c-alphabetic? c)
+   (and c
+	(let ((ci (js-char->integer c)))
+	   (or (and (>=fx ci (char->integer #\a))
+		    (<=fx ci (char->integer #\z))))
+	   (or (and (>=fx ci (char->integer #\A))
+		    (<=fx ci (char->integer #\Z)))))))
 
 (define (current-pos)
    pos)
@@ -69,7 +89,7 @@
    (next-char!))
 
 (define (peek-char)
-   (if (< pos str-len)
+   (if (<fx pos str-len)
        (js-string-ref str pos)
        #f))
 
@@ -188,7 +208,7 @@
 	 ;; ---
 	 ;; DecimalEscape
 	 ;; 15.10.2.11
-	 ((js-char-numeric? c)
+	 ((c-numeric? c)
 	  (decimal-escape))
 	 ;; CharacterClassEscape
 	 ;; 15.10.2.12
@@ -239,7 +259,7 @@
 	     (consume-char!)
 	     (if (c-numeric? (peek-char))
 		 (return #f)
-		 '(char #\null)))
+		 `(char ,(char->js-char #\null))))
 	  (back-reference))))
 
 ;; we know already that (peek-char) is one of "dDsSwW".
@@ -257,14 +277,14 @@
 (define (control-escape)
    (let ((c (consume-char!)))
       (cond
-	 ((cc=? c #\t) (string-ref "\t" 0))
-	 ((cc=? c #\n) (string-ref "\n" 0))
-	 ((cc=? c #\v) (string-ref "\v" 0))
-	 ((cc=? c #\f) (string-ref "\f" 0))
-	 ((cc=? c #\r) (string-ref "\r" 0)))))
+	 ((cc=? c #\t) (char->js-char (string-ref "\t" 0)))
+	 ((cc=? c #\n) (char->js-char (string-ref "\n" 0)))
+	 ((cc=? c #\v) (char->js-char (string-ref "\v" 0)))
+	 ((cc=? c #\f) (char->js-char (string-ref "\f" 0)))
+	 ((cc=? c #\r) (char->js-char (string-ref "\r" 0))))))
 
 (define (control-letter)
-   (if (not (js-char-alphabetic? (peek-char)))
+   (if (not (c-alphabetic? (peek-char)))
        (return #f)
        (let* ((c (consume-char!))
 	      (n (js-char->integer c))
@@ -346,7 +366,7 @@
 			 (c-to-n (js-char->integer c-to)))
 		      (unless (<=fx c-from-n c-to-n)
 			 (return #f))
-		      (set-car! res `(:range ,c-from-n ,c-to-n))
+		      (set-car! res `(:char-range ,c-from-n ,c-to-n))
 		      (set-cdr! res (cdddr res)))))
 	       (loop (cdr res))))
 	 ;; chars is now a list of chars and ranges.
@@ -360,7 +380,7 @@
 	 ((not c)                   (return #f))
 	 ;; inside classes decimal-escapes must not be back-refs.
 	 ;; -> only choice left is "\0"
-	 ((js-char-numeric? c)      (let ((d (decimal-escape)))
+	 ((c-numeric? c)            (let ((d (decimal-escape)))
 				       (unless (and (pair? d)
 						    (eq? (car d) 'char))
 					  (return #f))

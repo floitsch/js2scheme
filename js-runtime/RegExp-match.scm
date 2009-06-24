@@ -515,6 +515,20 @@
 	    tmp))))
 
 (define-method (propagate n::FSM-backref state str index)
+   ;; is str[from to] at str[at] (case-sensitive?)
+   (define (self-string-at? str from to at cs?)
+      (define (REchar=? c1 c2)
+	 (js-char=? (canonicalize-char c1 cs?)
+		    (canonicalize-char c2 cs?)))
+      (let ((str-len (js-string-length str))
+	    (len (-fx from to)))
+	 (and (<=fx (+fx len at) str-len)
+	      (let loop ((i 0))
+		 (if (=fx i len)
+		     #t
+		     (and (REchar=? (js-string-ref str (+fx i from))
+				    (js-string-ref str (+fx i at)))
+			  (loop (+fx i 1))))))))
    (if (FSM-sleeping-state? state)
        ;; do not occupy (as this would conflict with other states) but still
        ;; push the state, as it is still alive.
@@ -525,10 +539,7 @@
 	  (with-access::FSM-state state (backref-clusters)
 	     (let* ((tmp (*fx backref-nb 2))
 		    (start (vector-ref backref-clusters tmp))
-		    (stop (vector-ref backref-clusters (+fx tmp 1)))
-		    (prefix? (if case-sensitive?
-				 js-string-prefix?
-				 js-string-prefix-ci?)))
+		    (stop (vector-ref backref-clusters (+fx tmp 1))))
 		;; as the start is only updated when there is a stop
 		;; (see FSM-backref-cluster-exit) then there must be a stop
 		;; if there's a start.
@@ -540,7 +551,7 @@
 		   ((>=fx index (js-string-length str))
 		    ;; can't match, but string-prefix? would crash
 		    'do-nothing)
-		   ((prefix? str str start stop index)
+		   ((self-string-at? str start stop index case-sensitive?)
 		    ;; node has now to wait stop-start before it can continue.
 		    (widen!::FSM-sleeping-state state
 		       (cycles-to-sleep (-fx stop start)))
@@ -762,8 +773,9 @@
 	     n)))))
 
 (define-method (consume n::FSM-char state str index)
-   (with-access::FSM-char n (next c)
-      (and (js-char=? c (js-string-ref str index))
+   (with-access::FSM-char n (next c case-sensitive?)
+      (and (js-char=? c (canonicalize-char (js-string-ref str index)
+					   case-sensitive?))
 	   next)))
 
 (define-method (consume n::FSM-everything state str index)
@@ -771,8 +783,10 @@
       next))
 
 (define-method (consume n::FSM-class state str index)
-   (with-access::FSM-class n (next class)
-      (and (RegExp-class-match class (js-string-ref str index))
+   (with-access::FSM-class n (next class case-sensitive?)
+      (and (RegExp-class-match class
+			       (canonicalize-char (js-string-ref str index)
+						  case-sensitive?))
 	   next)))
 )
 

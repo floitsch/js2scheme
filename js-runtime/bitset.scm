@@ -1,5 +1,6 @@
 (module bitset
    (export (make-bitset size::bint)
+	   (bitset-duplicate set)
 	   (bitset-contains?::bool set i::bint)
 	   (bitset-set! set i::bint)
 	   (bitset-clear! set i::bint)
@@ -16,32 +17,35 @@
 	  (make-string size #a000)
 	  (make-string (+fx size 1) #a000))))
 
+(define (bitset-duplicate set)
+   (string-copy set))
+
 (define (bitset-contains? set i)
    (let* ((index (/fx i 8))
 	  (offset (modulo i 8))
 	  (mask (bit-lsh 1 offset)))
-      (not (zerofx (bit-and (bset-ref set index) mask)))))
+      (not (zerofx? (bit-and (bset-ref set index) mask)))))
 
 (define (bitset-set! set i)
    (let* ((index (/fx i 8))
 	  (offset (modulo i 8))
 	  (mask (bit-lsh 1 offset)))
-      (string-set! set index (bit-or (bset-ref set index) mask))))
+      (bset-set! set index (bit-or (bset-ref set index) mask))))
 
 (define (bitset-clear! set i)
    (let* ((index (/fx i 8))
 	  (offset (modulo i 8))
 	  (mask (bit-lsh 1 offset)))
-      (string-set! set index (bit-and (bset-ref set index) (bit-not mask)))))
+      (bset-set! set index (bit-and (bset-ref set index) (bit-not mask)))))
 
 (define (bset-ref set i)
-   (when (>=fx index (string-length set))
+   (when (>=fx i (string-length set))
       (error "bitset" "index out of range" i))
    (char->integer (string-ref set i)))
 (define (bset-set! set i new-v)
-   (when (>=fx index (string-length set))
+   (when (>=fx i (string-length set))
       (error "bitset" "index out of range" i))
-   (string-ref set i (integer->char new-v)))
+   (string-set! set i (integer->char new-v)))
    
 
 ;; set1 subset of set2?
@@ -86,7 +90,7 @@
 		 #f
 		 (case v
 		    ((0)   (loop (+fx i 1) found-index))
-		    ((1)   (loop (+fx i 1) (+fx (*fx i 8) 0))
+		    ((1)   (loop (+fx i 1) (+fx (*fx i 8) 0)))
 		    ((2)   (loop (+fx i 1) (+fx (*fx i 8) 1)))
 		    ((4)   (loop (+fx i 1) (+fx (*fx i 8) 2)))
 		    ((8)   (loop (+fx i 1) (+fx (*fx i 8) 3)))
@@ -94,7 +98,7 @@
 		    ((32)  (loop (+fx i 1) (+fx (*fx i 8) 5)))
 		    ((64)  (loop (+fx i 1) (+fx (*fx i 8) 6)))
 		    ((128) (loop (+fx i 1) (+fx (*fx i 8) 7)))
-		    (else #f)))))))) ;; more than one bit set to 1
+		    (else #f))))))) ;; more than one bit set to 1
 
 (define (bitset-empty? set)
    (let loop ((i 0))

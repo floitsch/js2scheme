@@ -14,6 +14,7 @@
        waiting-nodes::pair-nil
        current-iv)) ;; #f if finished or empty
    (export (make-empty-interval-avl)
+	   (interval-avl-duplicate avl)
 	   (interval-avl-subset? avl1 avl2)
 	   (interval-avl-overlap? avl1 avl2)
 	   (interval-avl-insert avl from::long to::long)
@@ -41,6 +42,8 @@
        `(+fx x (+fx+ ,@L))))
 
 (define (make-empty-interval-avl) #f)
+
+(define (interval-avl-duplicate avl) avl)
 
 (define (height avl)
    (cond
@@ -313,7 +316,7 @@
       (left-most-iv avl '())
       (instantiate::Iterator
 	 (waiting-nodes waiting)
-	 (current-iv avl))))
+	 (current-iv current))))
 
 (define (peek it::Iterator)
    (Iterator-current-iv it))

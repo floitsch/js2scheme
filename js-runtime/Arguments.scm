@@ -30,7 +30,7 @@
 	  ,@(map (lambda (id c)
 		    `(when (< ,c ,nb-args)
 			(scope-var-add ,arguments
-				       (integer->js-string ,c)
+				       (STR ,(integer->string c))
 				       ,id
 				       (get-Attributes dont-enum))))
 		 param-vars

@@ -12,33 +12,54 @@
 	jsre-Bool
 	jsre-conversion)
    (export
-	   (inline jsop-delete obj prop)
-	   (inline jsop-typeof v)
-	   (inline jsop-unary-- v)
-	   (inline jsop-unary-+ v)
-	   (inline jsop-~ v)
-	   (inline jsop-! v)
-	   (inline jsop-* v1 v2)
-	   (inline jsop-/ v1 v2)
-	   (inline jsop-% v1 v2)
-	   (inline jsop-+ v1 v2)
-	   (inline jsop-- v1 v2)
-	   (inline jsop-<< v1 v2)
-	   (inline jsop->> v1 v2)
-	   (inline jsop->>> v1 v2)
+; 	   (inline jsop-delete obj prop)
+; 	   (inline jsop-typeof v)
+; 	   (inline jsop-unary-- v)
+; 	   (inline jsop-unary-+ v)
+; 	   (inline jsop-~ v)
+; 	   (inline jsop-! v)
+; 	   (inline jsop-* v1 v2)
+; 	   (inline jsop-/ v1 v2)
+; 	   (inline jsop-% v1 v2)
+; 	   (inline jsop-+ v1 v2)
+; 	   (inline jsop-- v1 v2)
+; 	   (inline jsop-<< v1 v2)
+; 	   (inline jsop->> v1 v2)
+; 	   (inline jsop->>> v1 v2)
+	   (jsop-delete obj prop)
+	   (jsop-typeof v)
+	   (jsop-unary-- v)
+	   (jsop-unary-+ v)
+	   (jsop-~ v)
+	   (jsop-! v)
+	   (jsop-* v1 v2)
+	   (jsop-/ v1 v2)
+	   (jsop-% v1 v2)
+	   (jsop-+ v1 v2)
+	   (jsop-- v1 v2)
+	   (jsop-<< v1 v2)
+	   (jsop->> v1 v2)
+	   (jsop->>> v1 v2)
 	   (jsop-< v1 v2)
 	   (jsop-> v1 v2)
 	   (jsop-<= v1 v2)
 	   (jsop->= v1 v2)
 	   (jsop-instanceof v1 v2)
 	   (jsop-in v1 v2)
-	   (inline jsop-!= v1 v2)
-	   (inline jsop-== v1 v2)
-	   (inline jsop-!== v1 v2)
-	   (inline jsop-=== v1 v2)
-	   (inline jsop-& v1 v2)
-	   (inline jsop-^ v1 v2)
-	   (inline jsop-BIT_OR v1 v2)
+; 	   (inline jsop-!= v1 v2)
+; 	   (inline jsop-== v1 v2)
+; 	   (inline jsop-!== v1 v2)
+; 	   (inline jsop-=== v1 v2)
+; 	   (inline jsop-& v1 v2)
+; 	   (inline jsop-^ v1 v2)
+; 	   (inline jsop-BIT_OR v1 v2)
+	   (jsop-!= v1 v2)
+	   (jsop-== v1 v2)
+	   (jsop-!== v1 v2)
+	   (jsop-=== v1 v2)
+	   (jsop-& v1 v2)
+	   (jsop-^ v1 v2)
+	   (jsop-BIT_OR v1 v2)
 	   
 	   ;; && and || are in macros.sch
 	   ;; (macro jsop-&& e1 e2)
@@ -48,8 +69,10 @@
 	   (jsop-++ dummy)
 	   (jsop--- dummy)
 
-	   (inline jsop-any->object expr)
-	   (inline jsop-any->number expr)
+;	   (inline jsop-any->object expr)
+;	   (inline jsop-any->number expr)
+	   (jsop-any->object expr)
+	   (jsop-any->number expr)
 	   )
    (export (macro jsop-&&)
 	   (macro jsop-OR)))
@@ -64,13 +87,15 @@
 	      ,tmp
 	      ,e2))))
 
-(define-inline (jsop-delete base prop)
+;(define-inline (jsop-delete base prop)
+(define (jsop-delete base prop)
    ;; mostly similar to js-property-get
    (let ((o-typed (safe-js-object (any->object base)))
 	 (prop-typed (any->js-string prop)))
       (js-property-safe-delete! o-typed prop-typed)))
 
-(define-inline (jsop-typeof v)
+;(define-inline (jsop-typeof v)
+(define (jsop-typeof v)
    (cond
       ((js-string? v) (STR "string"))
       ((number? v) (STR "number"))
@@ -86,31 +111,38 @@
        (print "*-")
        (error "jsop-typeof" "missed type " v))))
 
-(define-inline (jsop-unary-- v)
+;(define-inline (jsop-unary-- v)
+(define (jsop-unary-- v)
    (negfl (any->number v)))
 
-(define-inline (jsop-unary-+ v)
+;(define-inline (jsop-unary-+ v)
+(define (jsop-unary-+ v)
    (any->number v))
 
-(define-inline (jsop-~ v)
+;(define-inline (jsop-~ v)
+(define (jsop-~ v)
    (let* ((f (any->int32 v))
           (i (flonum->elong f)))
       (elong->flonum (bit-notelong i))))
 
-(define-inline (jsop-! v)
+;(define-inline (jsop-! v)
+(define (jsop-! v)
    (not (any->bool v)))
 
-(define-inline (jsop-* v1 v2)
+;(define-inline (jsop-* v1 v2)
+(define (jsop-* v1 v2)
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
       (*fl n1 n2)))
 
-(define-inline (jsop-/ v1 v2)
+;(define-inline (jsop-/ v1 v2)
+(define (jsop-/ v1 v2)
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
       (/fl n1 n2)))
 
-(define-inline (jsop-% v1 v2)
+;(define-inline (jsop-% v1 v2)
+(define (jsop-% v1 v2)
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
       (cond
@@ -125,7 +157,8 @@
 	  (let ((tmp (truncatefl (/fl n1 n2))))
 	     (-fl n1 (*fl tmp n2)))))))
 
-(define-inline (jsop-+ v1 v2)
+;(define-inline (jsop-+ v1 v2)
+(define (jsop-+ v1 v2)
    (let* ((lhs (any->primitive v1 #f))
 	  (rhs (any->primitive v2 #f)))
       (cond
@@ -140,12 +173,14 @@
 		 (n2 (any->number rhs)))
 	     (+fl n1 n2))))))
 
-(define-inline (jsop-- v1 v2)
+;(define-inline (jsop-- v1 v2)
+(define (jsop-- v1 v2)
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
       (-fl n1 n2)))
 
-(define-inline (jsop-<< v1 v2)
+;(define-inline (jsop-<< v1 v2)
+(define (jsop-<< v1 v2)
    ;; 11.7.1
    ;; TODO: we need a 32bit datatype! '<<'
    (let* ((n1 (flonum->elong (any->int32 v1)))
@@ -153,7 +188,8 @@
 	  (by (bit-and #x1F (flonum->fixnum n2))))
       (elong->flonum (bit-lshelong n1 by))))
 
-(define-inline (jsop->> v1 v2)
+;(define-inline (jsop->> v1 v2)
+(define (jsop->> v1 v2)
    ;; 11.7.2
    ;; TODO: we need a 32bit datatype! '>>'
    (let* ((n1 (flonum->elong (any->int32 v1)))
@@ -161,7 +197,8 @@
 	  (by (bit-and #x1F (flonum->fixnum n2))))
       (elong->flonum (bit-rshelong n1 by))))
 
-(define-inline (jsop->>> v1 v2)
+;(define-inline (jsop->>> v1 v2)
+(define (jsop->>> v1 v2)
    ;; 11.7.3
    ;; TODO: we need a 32bit datatype! '>>>'
    (let* ((v1_32 (any->uint32 v1))
@@ -233,7 +270,8 @@
 	 (and (js-property-contains obj2 str1)
 	      #t))))
 
-(define-inline (jsop-== v1 v2)
+;(define-inline (jsop-== v1 v2)
+(define (jsop-== v1 v2)
    (cond
       ;; we have to test nan before we make the 'eq?' test, as
       ;;  (let ((v +nan.0)) (print (eq? v v)))
@@ -280,10 +318,12 @@
 		      v2)))
       (else #f)))
 
-(define-inline (jsop-!= v1 v2)
+;(define-inline (jsop-!= v1 v2)
+(define (jsop-!= v1 v2)
    (not (jsop-== v1 v2)))
 
-(define-inline (jsop-=== v1 v2)
+;(define-inline (jsop-=== v1 v2)
+(define (jsop-=== v1 v2)
    (cond
       ((eq? v1 v2) #t) ;; handles undefined, null, bools and funs
       ((js-string? v1)
@@ -295,22 +335,26 @@
       (else
        #f)))
 
-(define-inline (jsop-!== v1 v2)
+;(define-inline (jsop-!== v1 v2)
+(define (jsop-!== v1 v2)
    (not (jsop-=== v1 v2)))
 
-(define-inline (jsop-& v1 v2)
+;(define-inline (jsop-& v1 v2)
+(define (jsop-& v1 v2)
    ;; 11.10
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (flonum->elong (any->int32 v2))))
       (elong->flonum (bit-andelong n1 n2))))
 
-(define-inline (jsop-^ v1 v2)
+;(define-inline (jsop-^ v1 v2)
+(define (jsop-^ v1 v2)
    ;; 11.10
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (flonum->elong (any->int32 v2))))
       (elong->flonum (bit-xorelong n1 n2))))
 
-(define-inline (jsop-BIT_OR v1 v2)
+;(define-inline (jsop-BIT_OR v1 v2)
+(define (jsop-BIT_OR v1 v2)
    ;; 11.10
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (flonum->elong (any->int32 v2))))
@@ -329,8 +373,10 @@
 	  "-- prefix/postfix must be expanded in compiler."
 	  #f))
 
-(define-inline (jsop-any->object expr)
+;(define-inline (jsop-any->object expr)
+(define (jsop-any->object expr)
    (safe-js-object (any->object expr)))
 
-(define-inline (jsop-any->number expr)
+;(define-inline (jsop-any->number expr)
+(define (jsop-any->number expr)
    (any->number expr))

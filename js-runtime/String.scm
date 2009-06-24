@@ -396,6 +396,11 @@
 (define (string-replacement repl-str repl-len
 			    this-str this-len
 			    match from to)
+   (define (c-numeric? c)
+      ;; only '0'-'9'
+      (let ((ci (js-char->integer c)))
+	 (and (>=fx ci (char->integer #\0))
+	      (<=fx ci (char->integer #\9)))))
    (define (num-char->int c)
       (-fx (js-char->integer c) (char->integer #\0)))
 
@@ -436,7 +441,7 @@
 			     i+2))
 		((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
 		 (let* ((double-digit? (and (<fx i+2 repl-len)
-					    (js-char-numeric?
+					    (c-numeric?
 					     (js-string-ref repl-str i+2))))
 			(c2 (and double-digit? (js-string-ref repl-str i+2)))
 			(n (if double-digit?
@@ -479,7 +484,18 @@
 		       (loop (cons m rev-ms)
 			     (+fl last-index 1.0)))
 		    (loop (cons m rev-ms) new-last-index))))))))
-   
+
+(define $-v (char->integer #\$))
+(define (str-contains-$? str::Js-Base-String)
+   (let ((str-len (js-string-length str)))
+      (let loop ((i 0))
+	 (cond
+	    ((=fx i str-len)
+	     #f)
+	    ((=fx $-v (js-char->integer (js-string-ref str i)))
+	     #t)
+	    (else (loop (+fx i 1)))))))
+		  
 (define (replace)                       ;; 15.5.4.11
    (js-fun
     this #f #f (STR "String.prototype.replace")
@@ -513,8 +529,7 @@
 		  (replace-len (and replace-str (js-string-length replace-str)))
 		  ;; avoid common case where no $ is in replace-str.
 		  (contains-$? (and replace-str
-				    (js-string-contains-char? replace-str
-							      #\$))))
+				    (str-contains-$? replace-str))))
 	      (define (replace-matched match from to)
 		 (cond
 		    ((procedure? replaceValue)

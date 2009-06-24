@@ -1,6 +1,9 @@
-(define (fill-sensitive-classes! v)
+;; fill-sensitive-classes and fill-insensitive-classes are ascii only.
+;; -------------------------------------------------
+
+(define (fill-sensitive-classes! size v)
    (let loop ((i 0))
-      (when (<fx i 256)
+      (when (<fx i size)
 	 (let ((re-class (instantiate::RE-class
 			    (char-set (new-empty-char-set))
 			    (constant? #t))))
@@ -9,9 +12,9 @@
 	    (vector-set! v i re-class)
 	    (loop (+fx i 1))))))
 
-(define (fill-insensitive-classes! v sensitive-v)
+(define (fill-insensitive-classes! size v sensitive-v)
    (let loop ((i 0))
-      (when (<fx i 256)
+      (when (<fx i size)
 	 (let* ((c (integer->js-char i))
 		(c-up (js-char-upcase c))
 		(c-down (js-char-downcase c)))
@@ -21,8 +24,8 @@
 				   (char-set (new-empty-char-set))
 				   (constant? #t))))
 		   (with-access::RE-class re-class (char-set)
-		      (char-set-add-n! char-set (char->integer c-up))
-		      (char-set-add-n! char-set (char->integer c-down)))
+		      (char-set-add-n! char-set (js-char->integer c-up))
+		      (char-set-add-n! char-set (js-char->integer c-down)))
 		   (vector-set! v i re-class)))
 	    (loop (+fx i 1))))))
 

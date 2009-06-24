@@ -32,7 +32,6 @@
       `(let ((,ref (instantiate::Ref
 		      (getter (lambda () ,v))
 		      (setter (lambda (,new-val) (set! ,v ,new-val))))))
-	  [assert (,id) (Js-Base-String? ,id)]
 	  (js-property-generic-set! ,scope-object
 				    ,id
 				    ,ref

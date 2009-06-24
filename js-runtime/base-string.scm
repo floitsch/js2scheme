@@ -1,8 +1,7 @@
 (module jsre-base-string
-   (include "js-string-impl.sch")
-   (import jsre-base-char)
-   (from jsre-base-char)
+   (include "utf/string.sch")
+   (include "utf/char.sch")
    (export (macro STR)))
 
 (define-macro (STR str)
-   `(utf8->js-string-literal ,str))
+   `(ascii->js-string-literal ,str))

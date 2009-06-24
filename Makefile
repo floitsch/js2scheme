@@ -1,5 +1,7 @@
 CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
+
+BGL_FLAGS = -copt -fpic -mkaddlib -L js-runtime -L . -g
 TARGETNAMES	= js-obfuscator js-pp js2scheme
 
 OBFUSCATOR_BGL_MODULES	= config fun-bindings nodes protobject var js-obfuscator js-out \
@@ -54,7 +56,7 @@ js-pp: $(PP_OBJECTS)
 	$(BIGLOO) -o $@ $^
 
 $(JS2SCHEME_HEAP): make-lib.scm js2scheme-comp.scm .afile
-	bigloo -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_LIB) $< -addheap $@
+	bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_LIB) $< -addheap $@
 $(JS2SCHEME_LIB_A): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
 	rm -f $@ && \
 	ar qcv $@ $(JS2SCHEME_LIB_OBJECTS) && \
@@ -63,7 +65,7 @@ $(JS2SCHEME_LIB_SO): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
 	ld -G -o $@ $(JS2SCHEME_LIB_OBJECTS)
 
 js2scheme: $(JS2SCHEME_LIB_A) $(JS2SCHEME_OBJECTS)
-	$(BIGLOO) -o $@ $(JS2SCHEME_OBJECTS)
+	$(BIGLOO) $(BGL_FLAGS) -o $@ $(JS2SCHEME_OBJECTS)
 
 o/symbol.o: js-runtime/runtime-variables.sch
 
@@ -72,7 +74,7 @@ o/.keep:
 	touch $@;
 
 o/%.o: %.scm $(INCLUDES) .afile o/.keep
-	$(BIGLOO) -copt -fpic -mkaddlib -c -g -o $@ $<
+	$(BIGLOO) $(BGL_FLAGS) -c -o $@ $<
 
 clean:
 	rm -f $(OBJECTS) $(TARGETNAMES) \

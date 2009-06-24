@@ -38,7 +38,8 @@
       (lambda ()
 	 (let ((module-clause (read)))
 	    (if (and (list? module-clause)
-		     (eq? 'module (car module-clause)))
+		     (or (eq? 'module (car module-clause))
+			 (eq? 'directives (car module-clause))))
 		(let ((exported-macros (search-exports module-clause))
 		      (include-files (search-includes module-clause)))
 		   (print-definitions exported-macros

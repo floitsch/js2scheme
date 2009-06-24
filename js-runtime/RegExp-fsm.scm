@@ -1,7 +1,6 @@
 (module jsre-RegExp-fsm
    (import jsre-RegExp-classes
 	   jsre-base-string
-	   jsre-base-char
 	   mset
 	   multi-top-level)
    (use jsre-conversion
@@ -42,10 +41,12 @@
        (case-sensitive?::bool read-only))
 
     (final-class FSM-char::FSM-consuming
-       (c::js-char read-only))
+       (c::js-char read-only)
+       (case-sensitive?::bool read-only))
     (final-class FSM-everything::FSM-consuming) ;; everything matches.
     (final-class FSM-class::FSM-consuming
-       (class read-only))
+       (class read-only)
+       (case-sensitive?::bool read-only))
 
     (final-class FSM-assert::FSM-0-cost
        ;; does not consume any char!
@@ -646,11 +647,13 @@
 		     (instantiate::FSM-char
 			(id (get-id))
 			(next exit)
-			(c class-or-c))
+			(c class-or-c)
+			(case-sensitive? case-sensitive?))
 		     (instantiate::FSM-class
 			(id (get-id))
 			(next exit)
-			(class class-or-c)))))
+			(class class-or-c)
+			(case-sensitive? case-sensitive?)))))
 	  (with-access::FSM-node entry (next)
 	     (set! next t))
 	  clusters-nb))

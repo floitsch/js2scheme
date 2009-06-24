@@ -7,6 +7,7 @@
        (bits (default #f))
        (iv-avl (default #f))) ;; interval avl tree
     (new-empty-char-set)
+    (char-set-duplicate::RE-char-set re-set::RE-char-set)
     (char-set-match::bool re-set::RE-char-set c::long)
     (char-set-subset?::bool set1::RE-char-set set2::RE-char-set)
     (char-set-overlap?::bool set1::RE-char-set set2::RE-char-set)
@@ -33,6 +34,13 @@
       (set! bits (make-bitset *bitset-size*))
       (set! iv-avl (make-empty-interval-avl))))
 
+(define (char-set-duplicate re-set)
+   (let ((new-set (new-empty-char-set)))
+      (with-access::RE-char-set new-set (bits iv-avl)
+	 (set! bits (bitset-duplicate (RE-char-set-bits re-set)))
+	 (set! iv-avl (interval-avl-duplicate (RE-char-set-iv-avl re-set))))
+      new-set))
+   
 (define (char-set-match re-set cn)
    (with-access::RE-char-set re-set (bits iv-avl)
       (if (<fx cn *bitset-size*)

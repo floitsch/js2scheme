@@ -1,6 +1,6 @@
 (directives
    (import jsre-RegExp-classes
-	   jsre-base-char)
+	   jsre-base-string)
    (export
     (final-class FSM-KMP::FSM-consuming
        fail::FSM-consuming))

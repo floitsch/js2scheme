@@ -226,6 +226,7 @@
    (raise (js-new *js-URI-Error-orig* msg)))
 
 (define (error->js-exception e)
+   (tprint e)
    (cond
       ((&type-error? e)
        (js-new *js-Type-Error-orig*
@@ -250,12 +251,12 @@
       (else e)))
 
 (define (any->safe-string any)
-   (Js-Base-String-str (any->safe-js-string any)))
+   (js-string->utf8 (any->safe-js-string any)))
 
 (define (any->safe-js-string any)
    (cond
       ((string? any)
-        (STR any))
+       (utf8->js-string any))
       ((js-string? any)
        any)
       ((or (js-null? any)

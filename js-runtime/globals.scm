@@ -110,6 +110,8 @@
 	 (finitefl? n)))
 
    (define (parseInt string radix)  ;; 15.1.2.2
+      (define (white-space? c) (js-char-whitespace? c))
+
       (define (parseIntR s i R::bint sign::bint)
 	 (let ((str-len (js-string-length s)))
 	    (let loop ((i i)
@@ -148,9 +150,6 @@
 				res
 				found-char))))))))
       
-      (define (white-space? c)
-	 (js-char-whitespace? c))
-
       (define (first-non-white s)
 	 (let ((len (js-string-length s)))
 	    (let loop ((i 0))
@@ -175,8 +174,8 @@
 	 (cond
 	    ((and (or (=fx Rfx 0)
 		      (=fx Rfx 16))
-		  (or (js-substring-at_utf8? s "0x" pos)
-		      (js-substring-at_utf8? s "0X" pos)))
+		  (or (js-ascii-substring-at? "0x" s pos)
+		      (js-ascii-substring-at? "0X" s pos)))
 	     (values 16 (+fx pos 2)))
 	    ((=fx Rfx 0)
 	     (values 10 pos))
@@ -198,7 +197,10 @@
 		      (parseIntR s pos R sign)))))))
    
    (define (parseFloat string) ;; 15.1.2.3
-      (define decimal-char? js-char-numeric?)
+      (define (decimal-char? c)
+	 (case (-fx (js-char->integer c) (char->integer #\0))
+	    ((0 1 2 3 4 5 6 7 8 9) #t)
+	    (else #f)))
       (define whitespace? js-char-whitespace?)
       
       (define (substring->real str str-len from to)
@@ -223,9 +225,9 @@
 	 ;; get rid of infinity.
 	 (cond
 	    ((>=fx i str-len) +nan.0)
-	    ((js-substring-at_utf8? str "Infinity" i) +inf.0)
-	    ((js-substring-at_utf8? str "+Infinity" i) +inf.0)
-	    ((js-substring-at_utf8? str "-Infinity" i) -inf.0)
+	    ((js-ascii-substring-at? "Infinity" str i) +inf.0)
+	    ((js-ascii-substring-at? "+Infinity" str i) +inf.0)
+	    ((js-ascii-substring-at? "-Infinity" str i) -inf.0)
 	    ((or (char=js-char? #\- (js-string-ref str i))
 		 (char=js-char? #\+ (js-string-ref str i)))
 	     (read-unsigned str (+fx i 1) str-len i))

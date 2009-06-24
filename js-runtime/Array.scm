@@ -216,7 +216,9 @@
 	  (let ((int-len (any->uint32 len)))
 	     (if (=fl len int-len)
 		 (js-property-set! a (STR "length") len)
-		 (range-error (STR "invalid array-length") len))))
+		 (begin
+		    (tprint int-len " " len)
+		    (range-error (STR "invalid array-length") len)))))
        (let loop ((i 0))
 	  (when (< i nb-args)
 	     (js-property-set! a (integer->js-string i) (get-arg i))
@@ -324,7 +326,7 @@
    
 (define (toString)
    ;; 15.4.4.2
-   (js-fun this #f #f (STR "Array.toString")
+   (js-fun this #f #f (STR "Array.prototype.toString")
 	   ()
 	   (if (not (Js-Array? this))
 	       (type-error (STR "Array-toString applied to") this)
@@ -332,7 +334,7 @@
 
 (define (toLocaleString)
    ;; 15.4.4.3
-   (js-fun this #f #f (STR "Array.toLocaleString")
+   (js-fun this #f #f (STR "Array.prototype.toLocaleString")
 	   ()
 	   (if (not (Js-Array? this))
 	       (type-error (STR "Array-toLocaleString applied to") this)
@@ -378,7 +380,7 @@
 
 (define (concat)
    ;; 15.4.4.4
-   (js-fun this #f (nb-args get-arg) (STR "Array.concat")
+   (js-fun this #f (nb-args get-arg) (STR "Array.prototype.concat")
 	   (first-arg) ;; so the length is 1 (end of 15.4.4.4)
 	   (arrays-concat (+ nb-args 1)
 			  (lambda (i)
@@ -388,13 +390,13 @@
 
 (define (join)
    ;; 15.4.4.5
-   (js-fun this #f #f (STR "Array.join")
+   (js-fun this #f #f (STR "Array.prototype.join")
 	   (sep)
 	   (join-array this sep any->js-string)))
 
 (define (pop)
    ;; 15.4.4.6
-   (js-fun this #f #f (STR "Array.pop")
+   (js-fun this #f #f (STR "Array.prototype.pop")
 	   ()
 	   (let ((len (any->uint32 (js-property-get this (STR "length")))))
 	      (if (=fl len 0.0)
@@ -411,7 +413,7 @@
 
 (define (push)
    ;; 15.4.4.7
-   (js-fun this #f (nb-args get-arg) (STR "Array.push")
+   (js-fun this #f (nb-args get-arg) (STR "Array.prototype.push")
 	   (first) ;; length == 1
 	   (let ((len (any->uint32 (js-property-get this (STR "length")))))
 	      (let loop ((i 0)
@@ -429,7 +431,7 @@
 
 (define (reverse)
    ;; 15.4.4.8
-   (js-fun this #f #f (STR "Array.reverse")
+   (js-fun this #f #f (STR "Array.prototype.reverse")
 	   ()
 	   (let* ((len (any->uint32 (js-property-get this (STR "length"))))
 		  (llen (flonum->llong len))
@@ -509,7 +511,7 @@
 (define (shift)
    ;; 15.4.4.9
    (js-fun
-    this #f #f (STR "Array.shift")
+    this #f #f (STR "Array.prototype.shift")
     ()
     (let ((len (any->uint32 (js-property-get this (STR "length")))))
        (if (=fl len 0.0)
@@ -524,7 +526,7 @@
 (define (slice)
    ;; 15.4.4.10
       (js-fun
-       this #f #f (STR "Array.slice")
+       this #f #f (STR "Array.prototype.slice")
        (start-any end-any)
        (let* ((new-a (js-new (global-read *jsg-Array*)))
 	      (len (any->uint32 (js-property-get this (STR "length"))))
@@ -559,7 +561,7 @@
 (define (array-sort)
    ;; 15.4.4.10
    (js-fun
-    this #f #f (STR "Array.sort")
+    this #f #f (STR "Array.prototype.sort")
     (compare-fn)
     (let* ((len (any->uint32 (js-property-get this (STR "length"))))
 	   (ht (make-hashtable)))
@@ -618,7 +620,7 @@
 (define (splice)
    ;; 15.4.4.12
    (js-fun
-    this #f (nb-args get-arg) (STR "Array.splice")
+    this #f (nb-args get-arg) (STR "Array.prototype.splice")
     (start-any delete-count-any)
     (let* ((new-a (js-new (global-read *jsg-Array*)))
 	   (len (any->uint32 (js-property-get this (STR "length"))))
@@ -680,7 +682,7 @@
 (define (unshift)
    ;; 15.4.4.13
    (js-fun
-    this #f (nb-args get-arg) (STR "Array.unshift")
+    this #f (nb-args get-arg) (STR "Array.prototype.unshift")
     (first) ;; len 1
     (let* ((len (any->uint32 (js-property-get this (STR "length"))))
 	   (new-len (+ len nb-args)))

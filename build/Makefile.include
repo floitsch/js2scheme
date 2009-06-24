@@ -1,8 +1,15 @@
+# out of memory can "crash" a machine. avoid this.
+ULIMITS = ulimit -d 400000 -m 400000 -v 400000
+
 JS2SCHEME_DIR = ..
 RUNTIME_DIR = ../js-runtime
 JS2SCHEME = $(JS2SCHEME_DIR)/js2scheme
 BIGLOO = bigloo
 AFILE = bglafile
+#TARGET_AFILE = $(TARGET).afile ## currently not possible :(
+TARGET_AFILE="`basename $(TARGET)`.afile"
+
+BGL_FLAGS = -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -I $(RUNTIME_DIR)/unicode -g
 
 SCM_SOURCES = $(SOURCES:%.js=%.scm)
 OBJS = $(SOURCES:%.js=%.o)
@@ -21,16 +28,19 @@ dirs:
 $(TARGET).exe.scm: $(SCM_SOURCES)
 	@ $(LD_PATHS_ENV) $(JS2SCHEME) -o $@ $^
 
-$(TARGET).afile: $(SCM_SOURCES)
-	@ $(AFILE) -o $@ $^
+$(TARGET_AFILE): $(SCM_SOURCES)
+	echo $(TARGET_AFILE);
+	 $(AFILE) -o $(TARGET_AFILE) $^
+#	 $(AFILE) -o $@ $^
 
-%.o: %.scm | $(TARGET).afile
-	@ $(BIGLOO) -g -afile $(TARGET).afile -c -o $@ $< -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR)
+%.o: %.scm | $(TARGET_AFILE)
+	@ $(BIGLOO) $(BGL_FLAGS) -afile $(TARGET_AFILE) -c -o $@ $<
 
 $(TARGET).exe: $(TARGET).exe.o $(OBJS)
-	@ $(BIGLOO) -g -afile $(TARGET).afile -o $@ $^ -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -library js2scheme-comp
+	@ $(BIGLOO) $(BGL_FLAGS) -afile $(TARGET_AFILE) -o $@ $^ -library js2scheme-comp
 
 run: $(TARGET).exe
+	$(ULIMITS) && \
 	$(LD_PATHS_ENV) $<
 
 .PHONY: clean run all.include dirs

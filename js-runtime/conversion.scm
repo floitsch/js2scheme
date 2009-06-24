@@ -1,4 +1,5 @@
 (module jsre-conversion
+   (extern (macro fast-integer->ucs2::ucs2 (::long) "(ucs2_t)"))
    (import jsre-double
 	   jsre-base-string)
    (use jsre-base-object
@@ -216,9 +217,9 @@
 	 ((js-string-null? stripped) 0.0)
 	 ((valid-real? stripped)
 	  (js-string->real stripped))
-	 ((js-string=utf8? stripped "+Infinity") +inf.0)
-	 ((js-string=utf8? stripped "-Infinity") -inf.0)
-	 ((js-string=utf8? stripped "Infinity") +inf.0)
+	 ((js-string=ascii? stripped "+Infinity") +inf.0)
+	 ((js-string=ascii? stripped "-Infinity") -inf.0)
+	 ((js-string=ascii? stripped "Infinity") +inf.0)
 	 ((valid-hex-string? stripped)
 	  (hex-string->real stripped))
 	 (else
@@ -295,7 +296,7 @@
 	  (finite->integer nb)))))
 
 ;; nb must not be nan, 0.0 or infinite.
-(define (safe->uint32 nb::float)
+(define (safe->uint32 nb::double)
    (let* ((tmp (truncatefl nb))
 	  (two^32 4294967296.0)
 	  (rem (remainderfl tmp two^32)))
@@ -317,9 +318,9 @@
 	  (let ((tmp (safe->uint32 nb))
 		(two^32 4294967296.0)
 		(two^31 2147483648.0))
-	     (if (>=fl nb two^31)
-		 (-fl nb two^32)
-		 nb))))))
+	     (if (>=fl tmp two^31)
+		 (-fl tmp two^32)
+		 tmp))))))
 
 (define (any->uint32 any)
    ;; TODO: inefficient
@@ -369,7 +370,10 @@
 	      (=fl 0.0 nb)) ;; covers -0.0 too.
 	  #u0000)
 	 (else
-	  (integer->ucs2 (bit-and #xFFFF (flonum->truncated-fixnum nb)))))))
+	  (let ((n (bit-and #xFFFF (flonum->truncated-fixnum nb))))
+	     (cond-expand
+		(bigloo-c (fast-integer->ucs2 n))
+		(else     (integer->ucs2 n))))))))
 
 ;; this one should be used for utf32 (or similar implementations)
 ;; it returns the unicode-value of the given number.

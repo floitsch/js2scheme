@@ -215,8 +215,7 @@
 	   (utf8->js-string (double->string x 'shortest-exponential 0)))
 	  ((or (<fl f 0.0) (>fl f 20.0))
 	   (range-error
-	    (STR (string-append "invalid parameter to 'toExponential'. "
-				"must be in range 0-20"))
+	    (STR "invalid parameter to 'toExponential'. must be in range 0-20")
 	    f))
 	  (else
 	   (utf8->js-string
@@ -240,8 +239,7 @@
 		      (STR "Infinity")))
 		 ((or (<fl p 1.0) (>fl p 21.0))
 		  (range-error
-		   (STR (string-append "invalid parameter to 'toPrecision'. "
-				       "must be in range 1-21"))
+		   (STR "invalid parameter to 'toPrecision'. must be in range 1-21")
 		   p))
 		 (else
 		  (utf8->js-string

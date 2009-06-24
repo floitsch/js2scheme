@@ -46,7 +46,7 @@
 
 (define (lhs-expr? n)
    (or (member-expr? n)
-       (inherits-from? n 'Call?)))
+       (inherits-from? n (node 'Call))))
 
 (define (unary-expr? n)
    (or (lhs-expr? n)

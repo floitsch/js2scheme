@@ -17,9 +17,9 @@
 	   *js-global-this* ;::Js-Object ;; alias for js-global-object
 	   *js-global-env*
 	   ;; reuse the Property-entry
-	   (wide-class Js-Global-Box::Property-entry
-	      id::Js-Base-String
-	      declared?::bool)
+ 	   (wide-class Js-Global-Box::Property-entry
+ 	      id::Js-Base-String
+ 	      declared?::bool)
 	   (global-object-init)
  	   (macro create-declared-global)
  	   (macro create-implicit-global)
