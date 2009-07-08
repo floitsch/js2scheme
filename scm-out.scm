@@ -819,6 +819,12 @@
 		 str)))))
 
 (define (unescape str)
+   (define (char-hex? c)
+      (or (char-numeric? c)
+	  (case c
+	     ((#\a #\b #\c #\d #\e #\f) #t)
+	     ((#\A #\B #\C #\D #\E #\F) #t)
+	     (else #f))))
    (let ((char-l (string->list str)))
       (let loop ((char-l char-l)
 		 (rev-res '()))
@@ -840,8 +846,17 @@
 				  (car char-l)
 				  rev-res))))
 		((and (char=? #\\ (car char-l))
-		      (or (char=? #\x (cadr char-l))
-			  (char=? #\u (cadr char-l))))
+		      (not (null? (cddr char-l)))
+		      (not (null? (cdddr char-l)))
+		      (char-hex? (caddr char-l))
+		      (char-hex? (cadddr char-l))
+		      (let ((char-l+4 (cddddr char-l)))
+			 (or (char=? #\x (cadr char-l))
+			     (and (char=? #\u (cadr char-l))
+				  (not (null? char-l+4))
+				  (not (null? (cdr char-l+4)))
+				  (char-hex? (car char-l+4))
+				  (char-hex? (cadr char-l+4))))))
 		 ;; we can't really handle unicode chars now (depends on the
 		 ;; configuration (utf8, utf16, etc). so we leave them
 		 ;; in the string.
