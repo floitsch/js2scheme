@@ -1,283 +1,567 @@
 (module utf
-   (export
-    (utf8-string->utf16-string::ucs2string s::bstring)
-    (utf16-string->utf8-string::bstring s::ucs2string))
-   (main my-main))
+   (include "utf-data.sch" "utf-category-data.sch")
+   (extern (macro unchecked-integer->ucs2::ucs2 (::long) "INT_TO_UCS2"))
+   (export (inline utf8-char-length::long c::long)
+	   (utf8-uc-iterator str::bstring)
+	   (open-utf8-string-buffer size)
+	   (utf8-buffer-uc-push! buf c::long)
+	   (utf8-buffer-verbatim-push! buf c::char)
+	   (close-utf8-buffer::bstring buf)
+	   (inline utf16-char-length::long c::long)
+	   (utf16-uc-iterator str::ucs2string)
+	   (open-utf16-string-buffer size)
+	   (utf16-buffer-uc-push! buf c::long)
+	   (utf16-buffer-verbatim-push! buf c::ucs2)
+	   (close-utf16-buffer::ucs2string buf)
+	   (utf8-string->utf16-string::ucs2string str::bstring)
+	   (utf16-string->utf8-string::bstring str::ucs2string)
+	   (utf8-string-ref str::bstring i::long)
+	   (utf8-string-set!::long str::bstring i::long val::long)
+	   (utf16-string-ref str::ucs2string i::long)
+	   (utf16-string-set!::long str::ucs2string i::long val::long)
+	   ;; uc-lower, uc-upper, uc-title return either the corresponding
+	   ;; char, or a negative long if the char is special-cased.
+	   ;; the special-cased chars can then be retrieved using uc-special.
+	   (uc-lower::long c::long)
+	   (uc-upper::long c::long)
+	   (uc-title::long c::long)
+	   (uc-special::pair c::long)
+	   (utf8-downcase::bstring str::bstring #!key (always-make-copy? #f) (ignore-error? #t))
+	   (utf8-upcase::bstring str::bstring #!key (always-make-copy? #f) (ignore-error? #t))
+	   (utf8-titlecase::bstring str::bstring #!key (always-make-copy? #f) (ignore-error? #t))
+	   (utf16-downcase::ucs2string str::ucs2string #!key (always-make-copy? #f) (ignore-error? #t))
+	   (utf16-upcase::ucs2string str::ucs2string #!key (always-make-copy? #f) (ignore-error? #t))
+	   (utf16-titlecase::ucs2string str::ucs2string #!key (always-make-copy? #f) (ignore-error? #t))
+	   (unchecked-uc-lower::long c::long)
+	   (unchecked-uc-upper::long c::long)
+	   (unchecked-uc-title::long c::long)
+	   (uc-whitespace-chars::pair)
+	   (uc-whitespace?::bool c::long)
+	   (uc-lineterminator?::bool c::long)
+	   (uc-categories::vector)
+	   (uc-category-ranges::vector) ;; for each category a list of unique codepoints or ranges (from to) (inclusive)
+	   (inline integer->16bit-char i)))
 
-(define (utf8-fold s init-val fun)
-   (define (utf-8-error)
-      (error "utf8-fold"
-	     "bad UTF-8 string"
-	     s))
+(define-inline (integer->16bit-char i)
+   (cond-expand
+      (bigloo-c (unchecked-integer->ucs2 i))
+      (else (integer->ucs2 i))))
 
-   (define (string-int str i)
-      (char->integer (string-ref str i)))
+(define-macro (+fx+ x . L)
+   (if (null? L)
+       x
+       `(+fx ,x (+fx+ ,@L))))
 
-   (let ((str-len (string-length s)))
-      (define (surrogate-char i)
-	 (and (<fx i str-len)
-	      ;; char is of form '10xxxxxx'
-	      (=fx (bit-and (char->integer (string-ref s i))
-			    #xC0)
-		   #x80)))
+(define-inline (utf8-char-length::long c::long)
+   (cond
+      ((<=fx c #x7F) 1)
+      ((<=fx c #x7FF) 2)
+      ((<=fx c #xFFFF) 3)
+      (else 4)))
 
-      (let loop ((i 0)
-		 (v init-val))
-	 (if (>=fx i str-len)
-	     v
-	     (let ((cv (string-int s i)))
-		(cond
-		   ((=fx (bit-and cv #xF8) #xF0)
-		    ;; encoded as 4 chars
-		    (unless (and (surrogate-char (+fx i 1))
-				 (surrogate-char (+fx i 2))
-				 (surrogate-char (+fx i 3)))
-		       (utf-8-error))
-		    (let* ((cv1 (string-int s (+fx i 1)))
-			   (cv2 (string-int s (+fx i 2)))
-			   (cv3 (string-int s (+fx i 3)))
-			   ;; first 3 bits
-			   (p0 (bit-and cv #x7))
-			   ;; next 6
-			   (p1 (+fx (bit-lsh p0 6)
-				    (bit-and cv1 #x3F)))
-			   ;; next 6
-			   (p2 (+fx (bit-lsh p1 6)
-				    (bit-and cv2 #x3F)))
-			   ;; and the last 6 ones
-			   (p3 (+fx (bit-lsh p2 6)
-				    (bit-and cv3 #x3F))))
-		       (loop (+fx i 4)
-			     (fun v p3))))
-		   ((=fx (bit-and cv #xF0) #xE0)
-		    ;; encoded a 3 chars
-		    (unless (and (surrogate-char (+fx i 1))
-				 (surrogate-char (+fx i 2)))
-		       (utf-8-error))
-		    (let* ((cv1 (string-int s (+fx i 1)))
-			   (cv2 (string-int s (+fx i 2)))
-			   ;; first 4 bits
-			   (p0 (bit-and cv #x0F))
-			   ;; next 6
-			   (p1 (+fx (bit-lsh p0 6)
-				    (bit-and cv1 #x3F)))
-			   ;; final 6 bits
-			   (p2 (+fx (bit-lsh p1 6)
-				    (bit-and cv2 #x3F))))
-		       (loop (+fx i 3)
-			     (fun v p2))))
-		   ((=fx (bit-and cv #xE0) #xC0)
-		    ;; encoded as 2 chars
-		    (unless (surrogate-char (+fx i 1))
-		       (utf-8-error))
-		    (let* ((cv1 (string-int s (+fx i 1)))
-			   ;; first 5 bits
-			   (p0 (bit-and cv #x1F))
-			   ;; and the second part
-			   (p1 (+fx (bit-lsh p0 6)
-				    (bit-and cv1 #x3F))))
-		       (loop (+fx i 2)
-			     (fun v p1))))
-		   ((=fx (bit-and cv #x80) 0)
-		    ;; encoded as 1 char
-		    (loop (+fx i 1)
-			  (fun v cv)))
-		   (else
-		    (error "utf8->utf16"
-			   "bad utf-8 string"
-			   s))))))))
+;; returns -1 if this is a bad unicode-sequence.
+(define (utf8-string-ref-no-error str::bstring i::long)
+   (define (&<< x and-v shift-by)
+      (bit-lsh (bit-and x and-v) shift-by))
 
-(define (utf16-fold s::ucs2string init-val fun)
-   (define (utf16-error)
-      (error "utf16-fold"
-	     "bad UTF-16 string"
-	     s))
+   (define (get-safe-surrogate str j)
+      (if (=fx j (string-length str))
+	  -1
+	  (let ((ci (char->integer (string-ref str j))))
+	     (if (not (=fx #x80 (bit-and #xC0 ci)))
+		 -1
+		 ci))))
 
-   (let loop ((i 0)
-	      (v init-val))
+   (when (>=fx i (string-length str))
+      (error "utf8-string-ref"
+	     "index out of bounds"
+	     #f))
+   (let ((ci (char->integer (string-ref str i))))
       (cond
-	 ((>=fx i (ucs2-string-length s))
-	  v)
-	 ((or (<fx (ucs2->integer (ucs2-string-ref s i)) #xD800)
-	      (>=fx (ucs2->integer (ucs2-string-ref s i)) #xE000))
-	  (loop (+fx i 1)
-		(fun v (ucs2->integer (ucs2-string-ref s i)))))
+	 ((<fx ci 128)
+	  ;; ascii-char.
+	  (values ci (+fx i 1)))
+	 ((=fx #xF0 (bit-and #xF8 ci))
+	  ;; 4 char encoding
+	  (let* ((b4 (get-safe-surrogate str (+fx i 3)))
+		 (b3 (get-safe-surrogate str (+fx i 2)))
+		 (b2 (get-safe-surrogate str (+fx i 1))))
+	     (if (or (=fx -1 b2) (=fx -1 b3) (=fx -1 b4))
+		 (values -1 (+fx i 1))
+		 (values (+fx+ (&<< ci #x07 18)
+			       (&<< b2 #x3F 12)
+			       (&<< b3 #x3F 6)
+			       (&<< b4 #x3F 0))
+			 (+fx i 4)))))
+	 ((=fx #xE0 (bit-and #xF0 ci))
+	  ;; 3 char encoding
+	  (let* ((b3 (get-safe-surrogate str (+fx i 2)))
+		 (b2 (get-safe-surrogate str (+fx i 1))))
+	     (if (or (=fx -1 b2) (=fx -1 b3))
+		 (values -1 (+fx i 1))
+		 (values (+fx+ (&<< ci #x0F 12)
+			       (&<< b2 #x3F 6)
+			       (&<< b3 #x3F 0))
+			 (+fx i 3)))))
+	 ((=fx #xC0 (bit-and #xE0 ci))
+	  (let ((b (get-safe-surrogate str (+fx i 1))))
+	     ;; 2 char encoding
+	     (if (=fx -1 b)
+		 (values -1 (+fx i 1))
+		 (values (+fx (&<< ci #x1F 6)
+			      (bit-and #x3F b))
+			 (+fx i 2)))))
 	 (else
-	  (unless (>fx (ucs2-string-length s) (+fx i 1))
-	     (utf16-error))
-	  (let* ((ucs1 (ucs2->integer (ucs2-string-ref s i)))
-		 (ucs2 (ucs2->integer (ucs2-string-ref s (+fx i 1)))))
-	     (unless (and (>=fx ucs1 #xD800) (<=fx ucs1 #xDBFF)
-			  (>=fx ucs2 #xDC00) (<=fx ucs2 #xDFFF))
-		(utf16-error))
-	     (loop (+fx i 2)
-		   (fun v
-			(+fx #x10000
-			     ;; take 10 bits from each char
-			     (+fx (bit-lsh (bit-and ucs1 #x3FF) 10)
-				  (bit-and ucs2 #x3FF))))))))))
-	     
+	  -1))))
    
-(define (utf8-string->utf16-string::ucs2string s::bstring)
-   (define (count-utf16-code-points s)
-      (utf8-fold s
-		 0
-		 (lambda (count::bint uc-char::bint)
-		    (if (>=fx uc-char #x10000)
-			(+fx count 2)
-			(+fx count 1)))))
+;; i must be < str-len.
+(define (utf8-string-ref str::bstring i::long)
+   (receive (c new-i)
+      (utf8-string-ref-no-error str i)
+      (if (=fx -1 c)
+	  (error 'utf8-string-ref
+		 "bad unicode-sequence"
+		 str)
+	  (values c new-i))))
 
-   (let* ((nb-ucs-chars (count-utf16-code-points s))
-	  (ucs-str (make-ucs2-string nb-ucs-chars)))
-      (utf8-fold s
-		 0
-		 (lambda (i uc-char)
-		    (if (>fx uc-char #x10000)
-			(let* ((sub (-fx uc-char #x10000))
-			       ;; first 10 bits
-			       (p1 (bit-rsh (bit-and sub #xFFC00) 10))
-			       ;; second 10 bits
-			       (p2 (bit-and sub #x3FF))
-			       (ucs1 (integer->ucs2 (+fx #xD800 p1)))
-			       (ucs2 (integer->ucs2 (+fx #xDC00 p2))))
-			   (ucs2-string-set! ucs-str i ucs1)
-			   (ucs2-string-set! ucs-str (+fx i 1) ucs2)
-			   (+fx i 2))
-			(begin
-			   (ucs2-string-set! ucs-str i (integer->ucs2 uc-char))
-			   (+fx i 1)))))
-      ucs-str))
+;; returns the next "free" 'i'.
+(define (utf8-string-set! str i c)
+   (define (string-byte-set! str i c)
+      (string-set! str i (integer->char c)))
 
-(define (utf16-string->utf8-string s)
-   (define (count-utf8-code-points s)
-      (utf16-fold s
-		  0
-		  (lambda (count::bint uc-char::bint)
-		     (cond
-			((>=fx uc-char #x10000)
-			 (+fx count 4))
-			((>=fx uc-char #x800)
-			 (+fx count 3))
-			((>=fx uc-char #x80)
-			 (+fx count 2))
-			(else
-			 (+fx count 1))))))
+   ;; in theory we do not need to test ourselves. Bigloo is doing this anyways.
+   (when (>fx (+fx i (utf8-char-length c))
+	      (string-length str))
+      (error "utf8-string-set!"
+	     "out of bounds"
+	     i))
+   (cond
+      ((<=fx c #x7F)
+       (string-byte-set! str i c)
+       (+fx i 1))
+      ((<=fx c #x7FF)
+       (let ((b1 (+fx #xC0 (bit-ursh c 6)))
+	     (b2 (+fx #x80 (bit-and c #x3F))))
+	  (string-byte-set! str i b1)
+	  (string-byte-set! str (+fx i 1) b2)
+	  (+fx i 2)))
+      ((<=fx c #xFFFF)
+       (let ((b1 (+fx #xE0 (bit-ursh c 12)))
+	     (b2 (+fx #x80
+		      (bit-and (bit-ursh c 6) #x3F)))
+	     (b3 (+fx #x80 (bit-and c #x3F))))
+	  (string-byte-set! str i b1)
+	  (string-byte-set! str (+fx i 1) b2)
+	  (string-byte-set! str (+fx i 2) b3)
+	  (+fx i 3)))
+      (else
+       (let ((b1 (+fx #xF0 (bit-ursh c 18)))
+	     (b2 (+fx #x80
+		      (bit-and (bit-ursh c 12) #x3F)))
+	     (b3 (+fx #x80
+		      (bit-and (bit-ursh c 6) #x3F)))
+	     (b4 (+fx #x80 (bit-and c #x3F))))
+	  (string-byte-set! str i b1)
+	  (string-byte-set! str (+fx i 1) b2)
+	  (string-byte-set! str (+fx i 2) b3)
+	  (string-byte-set! str (+fx i 3) b4)
+	  (+fx i 4)))))
+   
+(define (utf8-uc-iterator str::bstring)
+   (let* ((str-len (string-length str))
+	  (i 0))
+      (lambda ()
+	 (if (>= i str-len)
+	     #f ;; eos
+	     (receive (uc new-i)
+		(utf8-string-ref str i)
+		(set! i new-i)
+		uc)))))
 
-   (let* ((nb-chars (count-utf8-code-points s))
-	  (str (make-string nb-chars)))
-      (utf16-fold s
-		  0
-		  (lambda (i uc-char)
-		     (cond
-			((>=fx uc-char #x10000)
-			 (let* (;; take the last 6 bits
-				(c3 (+fx #x80 (bit-and uc-char #x3F)))
-				(uc-3 (bit-rsh uc-char 6))
-				;; take the next 6 bits
-				(c2 (+fx #x80 (bit-and uc-3 #x3F)))
-				(uc-2 (bit-rsh uc-char 6))
-				;; another 6
-				(c1 (+fx #x80 (bit-and uc-2 #x3F)))
-				(uc-1 (bit-rsh uc-char 6))
-				;; and the final 3 bits
-				(c0 (+fx #xF0 (bit-and uc-1 #x07))))
-			    (string-set! str i (integer->char c0))
-			    (string-set! str (+fx i 1) (integer->char c1))
-			    (string-set! str (+fx i 2) (integer->char c2))
-			    (string-set! str (+fx i 3) (integer->char c3))
-			    (+fx i 4)))
-			((>=fx uc-char #x800)
-			 (let* (;; take the last 6 bits
-				(c2 (+fx #x80 (bit-and uc-char #x3F)))
-				(uc-2 (bit-rsh uc-char 6))
-				;; take the next 6 bits
-				(c1 (+fx #x80 (bit-and uc-2 #x3F)))
-				(uc-1 (bit-rsh uc-char 6))
-				;; and the final 4 bits
-				(c0 (+fx #xE0 (bit-and uc-1 #x0F))))
-			    (string-set! str i (integer->char c0))
-			    (string-set! str (+fx i 1) (integer->char c1))
-			    (string-set! str (+fx i 2) (integer->char c2))
-			    (+fx i 3)))
-			((>=fx uc-char #x80)
-			 (let* (;; take the last 6 bits
-				(c1 (+fx #x80 (bit-and uc-char #x3F)))
-				(uc-1 (bit-rsh uc-char 6))
-				;; and the final 5 bits
-				(c0 (+fx #xC0 (bit-and uc-1 #x1F))))
-			    (string-set! str i (integer->char c0))
-			    (string-set! str (+fx i 1) (integer->char c1))
-			    (+fx i 2)))
-			(else
-			 (string-set! str i (integer->char uc-char))
-			 (+fx i 1)))))
-      str))
+(define (open-utf8-string-buffer size)
+   (cons 0 (make-string size)))
 
-(define *mode* 'utf8->utf16)
+(define (utf8-buffer-uc-push! buf c::long)
+   (let ((str (cdr buf))
+	 (i (car buf)))
+      (set-car! buf (utf8-string-set! str i c))))
 
-(define (read-utf8-buffer::bstring)
-   (let ((buffer (make-string 1024)))
-      (string-shrink! buffer (read-chars! buffer 1024))))
+(define (utf8-buffer-verbatim-push! buf c::char)
+   (let ((str (cdr buf))
+	 (i (car buf)))
+      (string-set! str i c)
+      (set-car! buf (+fx i 1))))
 
-(define (read-utf16-buffer::ucs2string)
-   (define BOM0 (integer->char #xFE))
-   (define BOM1 (integer->char #xFF))
+(define (close-utf8-buffer buf)
+   (cdr buf))
 
-   (let* ((buffer (make-string 2048))
-	  (str-len (read-chars! buffer 2048)))
-      (when (not (even? str-len))
-	 (error 'utf
-		"utf16-string must have even length"
-		(string-length buffer)))
-      (let* ((BOM? (and (>=fx str-len 2)
-			(or (and (char=? (string-ref buffer 0) BOM0)
-				 (char=? (string-ref buffer 1) BOM1))
-			    (and (char=? (string-ref buffer 0) BOM1)
-				 (char=? (string-ref buffer 1) BOM0)))))
-	     (bigendian (if BOM?
-			    (char=? (string-ref buffer 0) BOM0)
-			    #t)) ;; assume bigendian
-	     (res (make-ucs2-string (if BOM?
-					(-fx (/fx str-len 2) 1)
-					(/fx str-len 2)))))
-	 (let loop ((i (if BOM? 2 0))
-		    (j 0))
-	    (if (>=fx i str-len)
-		res
-		(let* ((c0 (string-ref buffer i))
-		       (c1 (string-ref buffer (+fx i 1)))
-		       (v0 (char->integer c0))
-		       (v1 (char->integer c1))
-		       (sum (+fx (*fx v0 256) v1))
-		       (uc (integer->ucs2 sum)))
-		   (ucs2-string-set! res j uc)
-		   (loop (+fx i 2) (+fx j 1))))))))
+(define-inline (utf16-char-length::long c::long)
+   (if (>fx c #xFFFF)
+       2
+       1))
 
-(define (write-utf8-buffer s)
-   (let loop ((i 0))
-      (unless (>=fx i (string-length s))
-	 (write-char (string-ref s i))
-	 (loop (+fx i 1)))))
+;; i must be < str-len
+;; returns -1 when bad unicode sequence.
+(define (utf16-string-ref-no-error str i)
+   (define (&<< x and-v shift-by)
+      (bit-lsh (bit-and x and-v) shift-by))
 
-(define (write-utf16-buffer s)
-   (write-char (integer->char #xFE))
-   (write-char (integer->char #xFF))
-   (let loop ((i 0))
-      (unless (>=fx i (ucs2-string-length s))
-	 (let* ((c (ucs2-string-ref s i))
-		(v (ucs2->integer c))
-		(v0 (/fx v 256))
-		(v1 (remainderfx v 256)))
-	    (write-char (integer->char v0))
-	    (write-char (integer->char v1))
-	    (loop (+fx i 1))))))
+   (when (>=fx i (ucs2-string-length str))
+      (error "utf16-string-ref"
+	     "index out of bounds"
+	     #f))
+   (let ((ci (ucs2->integer (ucs2-string-ref str i))))
+      (cond
+	 ((=fx (bit-and ci #xFC00) #xD800)
+	  ;; surrogate.
+	  (if (=fx (+fx i 1) (ucs2-string-length str))
+	      -1
+	      (let* ((c2 (ucs2-string-ref str (+fx i 1)))
+		     (ci2 (ucs2->integer c2)))
+		 (if (not (=fx (bit-and ci2 #xFC00) #xFC00))
+		     -1
+		     (let ((t (+fx (bit-lsh (-fx ci #xD800) 10)
+				   (-fx ci2 #xDC00))))
+			(values (+fx t #x10000)
+				(+fx i 2)))))))
+	 ((=fx (bit-and ci #xFC00) #xDC00)
+	  -1)
+	 (else
+	  (values ci (+fx i 1))))))
+(define (utf16-string-ref str i)
+   (receive (c new-i)
+      (utf16-string-ref-no-error str i)
+      (if (=fx c -1)
+	  (error 'utf16-string-ref
+		 "bad unicode sequence"
+		 str)
+	  (values c new-i))))
 
-(define (my-main args)
-   (when (not (null? (cdr args)))
-      (set! *mode* 'utf16->utf8))
+(define (utf16-string-set! str i c)
+   ;; in theory we do not need to test ourselves. Bigloo is doing this anyways.
+   (when (>fx (+fx i (utf16-char-length c))
+	      (ucs2-string-length str))
+      (error "utf16-string-set!"
+	     "out of bounds"
+	     i))
+   (cond
+      ((<fx c #xFFFF)
+       ;; note: we do not verify if the given char yields an utf16
+       ;; surrogate. For all we know this might be a hack to get
+       ;; utf16 chars.
+       ;; in other words: a valid unicode-char must not be in
+       ;; range #xD800-#xDBFF or #xDC00-#xDFFF as these are used
+       ;; for utf16 surrogates. We do not check (on purpose) if
+       ;; the incoming unicode character is valid.
+       (ucs2-string-set! str i (integer->16bit-char c))
+       (+fx i 1))
+      (else
+       ;; surrogate
+       (let* ((t (-fx c #x10000))
+	      (p1 (+fx #xD800 (bit-rsh (bit-and t #xFFC00) 10)))
+	      (p2 (+fx #xDC00 (bit-and t #x3FF))))
+	  (ucs2-string-set! str i (integer->16bit-char p1))
+	  (ucs2-string-set! str (+fx i 1) (integer->16bit-char p2))
+	  (+fx i 2)))))
+   
+(define (utf16-uc-iterator str::ucs2string)
+   (let* ((str-len (ucs2-string-length str))
+	  (i 0))
+      (lambda ()
+	 (if (>=fx i str-len)
+	     #f ;; eos
+	     (receive (c new-i)
+		(utf16-string-ref str i)
+		(set! i new-i)
+		c)))))
 
-   (if (eq? *mode* 'utf8->utf16)
-       (let ((s (read-utf8-buffer)))
-	  (write-utf16-buffer (utf8-string->utf16-string s)))
-       (let ((s (read-utf16-buffer)))
-	  (write-utf8-buffer (utf16-string->utf8-string s)))))
+(define (open-utf16-string-buffer size)
+   (cons 0 (make-ucs2-string size)))
+
+(define (utf16-buffer-uc-push! buf c::long)
+   (let ((str (cdr buf))
+	 (i (car buf)))
+      (set-car! buf (utf16-string-set! str i c))))
+
+(define (utf16-buffer-verbatim-push! buf c::ucs2)
+   (let ((str (cdr buf))
+	 (i (car buf)))
+      (ucs2-string-set! str i c)
+      (set-car! buf (+fx i 1))))
+
+(define (close-utf16-buffer buf)
+   (cdr buf))
+
+(define (utf8-string->utf16-string::ucs2string str::bstring)
+   ;; start by counting the length of the resulting string
+   (let loop ((i 0)
+	      (target-len 0))
+      (if (>=fx i (string-length str))
+	  ;; we have the target-len now.
+	  (let ((target-str (make-ucs2-string target-len)))
+	     (let loop ((i 0)
+			(j 0))
+		(if (>=fx i (string-length str))
+		    target-str
+		    (receive (c new-i)
+		       (utf8-string-ref str i)
+		       (let ((new-j (utf16-string-set! target-str j c)))
+			  (loop new-i new-j))))))
+	  (receive (c new-i)
+	     (utf8-string-ref str i)
+	     (loop new-i
+		   (+fx target-len (utf16-char-length c)))))))
+
+(define (utf16-string->utf8-string::bstring str::ucs2string)
+   ;; start by counting the length of the resulting string
+   (let loop ((i 0)
+	      (target-len 0))
+      (if (>=fx i (ucs2-string-length str))
+	  ;; we have the target-len now.
+	  (let ((target-str (make-string target-len)))
+	     (let loop ((i 0)
+			(j 0))
+		(if (>=fx i (ucs2-string-length str))
+		    target-str
+		    (receive (c new-i)
+		       (utf16-string-ref str i)
+		       (let ((new-j (utf8-string-set! target-str j c)))
+			  (loop new-i new-j))))))
+	  (receive (c new-i)
+	     (utf16-string-ref str i)
+	     (loop new-i
+		   (+fx target-len (utf8-char-length c)))))))
+
+(define (unchecked-uc-lower::long c::long)
+   (let* ((i1 (bit-and #xFF c))
+	  (i2 (bit-and #xFF (bit-rsh c 8)))
+	  (i3 (bit-and #xFF (bit-rsh c 16)))
+	  (tmp (vector-ref (vector-ref (vector-ref *lower-casing* i3) i2) i1)))
+      (if (zerofx? tmp)
+	  c
+	  tmp)))
+(define (unchecked-uc-upper::long c::long)
+   (let* ((i1 (bit-and #xFF c))
+	  (i2 (bit-and #xFF (bit-rsh c 8)))
+	  (i3 (bit-and #xFF (bit-rsh c 16)))
+	  (tmp (vector-ref (vector-ref (vector-ref *upper-casing* i3) i2) i1)))
+      (if (zerofx? tmp)
+	  c
+	  tmp)))
+(define (unchecked-uc-title::long c::long)
+   (let* ((i1 (bit-and #xFF c))
+	  (i2 (bit-and #xFF (bit-rsh c 8)))
+	  (i3 (bit-and #xFF (bit-rsh c 16)))
+	  (tmp (vector-ref (vector-ref (vector-ref *title-casing* i3) i2) i1)))
+      (if (zerofx? tmp)
+	  c
+	  tmp)))
+
+(define-inline (checked-convert-char::long c::long f::procedure)
+   (cond
+      ((or (<fx c 0)
+	   (>fx c #x10FFFF))
+       (error 'unicode-char
+	      "bad unicode char"
+	      c))
+      (else (f c))))
+
+(define (uc-lower::long c::long)
+   (checked-convert-char c unchecked-uc-lower))
+(define (uc-upper::long c::long)
+   (checked-convert-char c unchecked-uc-upper))
+(define (uc-title::long c::long)
+   (checked-convert-char c unchecked-uc-title))
+
+(define (uc-special c)
+   (let ((len (vector-length *special-casing*))
+	 (unbiased-index (-fx -1 c)))
+      (when (or (>=fx c 0)
+		(>=fx unbiased-index len))
+	 (error 'unicode-char
+		"bad special-case"
+		c))
+      (vector-ref *special-casing* unbiased-index)))
+
+
+(define-inline (utf-string-change-case
+		str change-case always-make-copy?
+		make-str str-length str-ref str-set!
+		utf-str-ref utf-str-set! utf-char-length)
+   (define (count-len str change-case)
+      (let loop ((i 0)
+		 (target-len 0)
+		 (identical? #t))
+	 (if (=fx i (str-length str))
+	     (values target-len identical?)
+	     (receive (c new-i)
+		(utf-str-ref str i)
+		(if (=fx c -1) ;; bad unicode-sequence
+		    (loop (+fx i 1)
+			  (+fx target-len 1)
+			  identical?)
+		    (let ((cased (change-case c)))
+		       (if (>=fx cased 0)
+			   (loop new-i
+				 (+fx (utf-char-length cased)
+				      target-len)
+				 (and identical? (=fx cased c)))
+			   (let liip ((special (uc-special cased))
+				      (char-len 0))
+			      (if (null? special)
+				  (loop new-i (+fx target-len char-len) #f)
+				  (liip (cdr special)
+					(+fx char-len
+					     (utf-char-length (car special))))
+				  )))))))))
+   (define (copy-cased-string str target-str change-case)
+      (let loop ((i 0)
+		 (j 0))
+	 (if (>=fx i (str-length str))
+	     target-str
+	     (receive (c new-i)
+		(utf-str-ref str i)
+		(if (=fx c -1) ;; bad unicode sequence
+		    (begin
+		       (str-set! target-str j (str-ref str i))
+		       (loop (+fx i 1) (+fx j 1)))
+		    (let ((cased (change-case c)))
+		       (if (<fx cased 0)
+			   (let liip ((special (uc-special cased))
+				      (j j))
+			      (cond
+				 ((null? special)
+				  (loop new-i j))
+				 (else
+				  (liip (cdr special)
+					(utf-str-set! target-str j
+						      (car special))))))
+			   (let ((new-j (utf-str-set! target-str j cased)))
+			      (loop new-i new-j)))))))))
+
+   (receive (target-len identical?)
+      (count-len str change-case)
+      (if (and identical? (not always-make-copy?))
+	  str
+	  (copy-cased-string str (make-str target-len) change-case))))
+
+(define (utf8-downcase::bstring str::bstring #!key
+				(always-make-copy? #f) (ignore-error? #t))
+   (if ignore-error?
+       (utf-string-change-case str uc-lower always-make-copy?
+			       make-string string-length string-ref string-set!
+			       utf8-string-ref-no-error utf8-string-set!
+			       utf8-char-length)
+       (utf-string-change-case str uc-lower always-make-copy?
+			       make-string string-length string-ref string-set!
+			       utf8-string-ref utf8-string-set!
+			       utf8-char-length)))
+(define (utf8-upcase::bstring str::bstring #!key
+			      (always-make-copy? #f) (ignore-error? #t))
+   (if ignore-error?
+       (utf-string-change-case str uc-upper always-make-copy?
+			       make-string string-length string-ref string-set!
+			       utf8-string-ref-no-error utf8-string-set!
+			       utf8-char-length)
+       (utf-string-change-case str uc-upper always-make-copy?
+			       make-string string-length string-ref string-set!
+			       utf8-string-ref utf8-string-set!
+			       utf8-char-length)))
+(define (utf8-titlecase::bstring str::bstring #!key
+				 (always-make-copy? #f) (ignore-error? #t))
+   (if ignore-error?
+       (utf-string-change-case str uc-title always-make-copy?
+			       make-string string-length string-ref string-set!
+			       utf8-string-ref-no-error utf8-string-set!
+			       utf8-char-length)
+       (utf-string-change-case str uc-upper always-make-copy?
+			       make-string string-length string-ref string-set!
+			       utf8-string-ref utf8-string-set!
+			       utf8-char-length)))
+(define (utf16-downcase::ucs2string str::ucs2string #!key
+				    (always-make-copy? #f) (ignore-error? #t))
+   (if ignore-error?
+       (utf-string-change-case str uc-lower always-make-copy?
+			       make-ucs2-string ucs2-string-length
+			       ucs2-string-ref ucs2-string-set!
+			       utf16-string-ref-no-error utf16-string-set!
+			       utf16-char-length)
+       (utf-string-change-case str uc-lower always-make-copy?
+			       make-ucs2-string ucs2-string-length
+			       ucs2-string-ref ucs2-string-set!
+			       utf16-string-ref utf16-string-set!
+			       utf16-char-length)))
+(define (utf16-upcase::ucs2string str::ucs2string #!key
+				  (always-make-copy? #f) (ignore-error? #t))
+   (if ignore-error?
+       (utf-string-change-case str uc-upper always-make-copy?
+			       make-ucs2-string ucs2-string-length
+			       ucs2-string-ref ucs2-string-set!
+			       utf16-string-ref-no-error utf16-string-set!
+			       utf16-char-length)
+       (utf-string-change-case str uc-upper always-make-copy?
+			       make-ucs2-string ucs2-string-length
+			       ucs2-string-ref ucs2-string-set!
+			       utf16-string-ref utf16-string-set!
+			       utf16-char-length)))
+(define (utf16-titlecase::ucs2string str::ucs2string #!key
+				     (always-make-copy? #f) (ignore-error? #t))
+   (if ignore-error?
+       (utf-string-change-case str uc-title always-make-copy?
+			       make-ucs2-string ucs2-string-length
+			       ucs2-string-ref ucs2-string-set!
+			       utf16-string-ref-no-error utf16-string-set!
+			       utf16-char-length)
+       (utf-string-change-case str uc-title always-make-copy?
+			       make-ucs2-string ucs2-string-length
+			       ucs2-string-ref ucs2-string-set!
+			       utf16-string-ref utf16-string-set!
+			       utf16-char-length)))
+
+(define-macro (uc-whitespace-macro)
+   (load "utf-category-data.sch")
+   (let ((categories (eval '*categories*))
+	 (ranges (eval '*category-ranges*)))
+      (let loop ((i 0))
+	 (cond
+	    ((eq? 'Zs (vector-ref categories i))
+	     (let liip ((ws-ranges (vector-ref ranges i))
+			(l '()))
+		(cond
+		   ((null? ws-ranges)
+		    (let ((chars (cons* #x09 #x0B #x0C #x0A #x0D
+					#x2028 #x2029 l)))
+		       `(begin
+			   (define *white-chars-generated* ',chars)
+			   (define (uc-whitespace-generated::bool c::long)
+			      (case c
+				 (,chars #t)
+				 (else #f))))))
+		   ((fixnum? (car ws-ranges))
+		    (liip (cdr ws-ranges) (cons (car ws-ranges) l)))
+		   ((pair? (car ws-ranges))
+		    (let luup ((from (car (car ws-ranges)))
+			       (l l))
+		       (if (>fx from (cadr (car ws-ranges)))
+			   (liip (cdr ws-ranges) l)
+			   (luup (+fx from 1) (cons from l)))))
+		   (else (error 'uc-whitespace-case
+				"bad range"
+				(car ws-ranges))))))
+	    (else (loop (+fx i 1)))))))
+
+(uc-whitespace-macro)
+
+(define (uc-whitespace?::bool c::long)
+   (uc-whitespace-generated c))
+
+(define (uc-whitespace-chars::pair)
+   *white-chars-generated*)
+
+(define (uc-lineterminator?::bool c::long)
+   (case c
+      ((#x0A #x0D #x2028 #x2029) #t)
+      (else #f)))
+
+(define (uc-categories) *categories*)
+(define (uc-category-ranges) *category-ranges*)
