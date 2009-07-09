@@ -37,7 +37,7 @@ JS2SCHEME_RT_LIB_OBJECTS = $(RUNTIME_OBJECTS)
 
 all: runtime-variables.sch $(JS2SCHEME_RT_LIB).init $(JS2SCHEME_RT_LIB_A) $(JS2SCHEME_RT_LIB_SO)
 
-.PHONY: build-afile clean
+.PHONY: build-afile clean all
 
 .afile: $(SOURCES)
 	$(AFILE) -o $@ $(SOURCES)
