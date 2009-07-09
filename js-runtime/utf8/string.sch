@@ -1,9 +1,7 @@
 (directives
    (type (alias bstring Js-Base-String))
    (import jsre-conversion
-	   jsre-base-object
-	   utf)
-   (from utf)
+	   jsre-base-object)
    (export
     (macro ascii->js-string-literal)
     (utf8->js-string-literal::Js-Base-String str::bstring #!optional (unescape? #f))

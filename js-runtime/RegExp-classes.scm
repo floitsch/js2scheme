@@ -1,7 +1,6 @@
 (module jsre-RegExp-classes
    (import jsre-RegExp-char-set
-	   jsre-base-string
-	   utf)
+	   jsre-base-string)
    (use jsre-conversion
 	jsre-base-object)
    (static

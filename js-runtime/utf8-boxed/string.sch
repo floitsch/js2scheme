@@ -1,13 +1,12 @@
 (directives
    (import jsre-conversion
-	   jsre-base-object
-	   utf)
-   (from utf)
+	   jsre-base-object)
    (export
     (final-class Js-Base-String
        (str::bstring read-only)
        (hash::long read-only))
     (inline js-string?::bool str)
+    (macro ascii->js-string-literal)
     (inline utf8->js-string-literal::Js-Base-String utf8-str::bstring
 	    #!optional (needs-unescaping? #f))
     (inline utf8->js-string::Js-Base-String utf8-str::bstring)
@@ -47,6 +46,8 @@
     (inline js-string-uc-char-size uc-c::long)
     ))
 
+(define-macro (ascii->js-string-literal str) `(utf8->js-string ,str))
+
 (define-inline (utf8->js-string-literal str #!optional (needs-unescaping? #f))
    (utf8->js-string str))
 
@@ -55,7 +56,7 @@
 
 (define-inline (utf8->js-string::Js-Base-String utf8-str)
    (instantiate::Js-Base-String (str utf8-str)
-				(hash (string-hash utf8-str)))
+				(hash (string-hash utf8-str))))
 (define-inline (js-string->utf8 str::Js-Base-String)
    (Js-Base-String-str str))
 

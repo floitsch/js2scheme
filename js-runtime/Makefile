@@ -2,7 +2,7 @@ CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
 AFILE = bglafile
 
-BGL_COMMON_FLAGS = -L .. -I unicode -I utf -copt -fpic -mkaddlib
+BGL_COMMON_FLAGS = -L .. -I utf -L ../unicode -copt -fpic -mkaddlib -library utf
 BGL_FLAGS = $(BGL_COMMON_FLAGS) -g
 
 # basically all modules are included in 'runtime.scm' and thus exported
@@ -11,7 +11,7 @@ RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
 			natives base-object base-string \
 			global-object globals \
-			unicode/utf bitset interval-avl-tree \
+			bitset interval-avl-tree \
 			primitives operators scope-object \
 			RegExp
 
@@ -61,11 +61,11 @@ $(JS2SCHEME_RT_LIB).init: $(JS2SCHEME_RT_LIB).init.in macros.sch
 
 o/runtime.o: $(RUNTIME_SOURCES)
 
-o/unicode/.keep:
+o/.keep:
 	mkdir -p o/unicode;
 	touch $@;
 
-o/%.o: %.scm .afile o/unicode/.keep
+o/%.o: %.scm .afile o/.keep
 	$(BIGLOO) $(BGL_FLAGS) -c -o $@ $<
 
 # must not use -g for match...
@@ -108,10 +108,6 @@ $(JS2SCHEME_RT_LIB_A): $(JS2SCHEME_RT_HEAP) $(JS2SCHEME_RT_LIB_OBJECTS)
 	ranlib $@
 $(JS2SCHEME_RT_LIB_SO): $(JS2SCHEME_RT_HEAP) $(JS2SCHEME_RT_LIB_OBJECTS)
 	ld -G -o $@ $(JS2SCHEME_RT_LIB_OBJECTS)
-
-# for js2scm-comp script
-%.exe: o/%.o $(JS2SCHEME_RT_LIB_A)
-	$(BIGLOO) -o $@ $< -L .. -L . -ljs2scheme-comp -ljs2scheme-runtime
 
 #-- explicit deps
 o/RegExp-match.o: RegExp-KMP.scm RegExp-constant-classes.scm

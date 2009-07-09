@@ -2,7 +2,6 @@
    (type (alias ucs2string Js-Base-String))
    (import jsre-conversion
 	   jsre-base-object)
-   (from utf)
    (export
     (macro ascii->js-string-literal)
     (utf8->js-string-literal::Js-Base-String str::bstring #!optional (unescape? #f))

@@ -1,5 +1,6 @@
 (module scm-out
    (library js2scheme-runtime)
+   (library utf)
    (include "protobject.sch")
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))

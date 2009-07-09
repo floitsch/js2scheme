@@ -1,6 +1,7 @@
 (module js2scheme
    (library js2scheme-comp)
    (library js2scheme-runtime)
+   (library utf)
    (main js2scheme-prog))
 
 (define *verbose* #f)

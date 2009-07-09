@@ -1,7 +1,7 @@
 CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
 
-BGL_FLAGS = -copt -fpic -mkaddlib -L js-runtime -L . -g
+BGL_FLAGS = -copt -fpic -mkaddlib -L js-runtime -L . -L unicode -g
 TARGETNAMES	= js-obfuscator js-pp js2scheme
 
 OBFUSCATOR_BGL_MODULES	= config fun-bindings nodes protobject var js-obfuscator js-out \
