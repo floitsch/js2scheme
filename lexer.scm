@@ -1,5 +1,5 @@
 (module lexer
-;   (library utf)
+   (library utf)
    (export *JS-grammar*
 	   *care-future-reserved*
 	   *Reg-exp-grammar*))
@@ -77,7 +77,7 @@
    `(econs ,type ,value (the-coord input-port)))
 
 (define *JS-grammar*
-   (regular-grammar
+   (utf8-regular-grammar
 	 ;; TODO: are a010 and a013 really correct?
 	 ((blank        (in #\Space #\Tab #a010 #a011 #a012 #a013 #\Newline))
 	  (blank_no_lt  (in #\Space #\Tab #a011 #a012))

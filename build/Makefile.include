@@ -3,41 +3,41 @@ ULIMITS = ulimit -d 400000 -m 400000 -v 400000
 
 JS2SCHEME_DIR = ..
 RUNTIME_DIR = ../js-runtime
+UNICODE_DIR = ../unicode
 JS2SCHEME = $(JS2SCHEME_DIR)/js2scheme
 BIGLOO = bigloo
 AFILE = bglafile
 #TARGET_AFILE = $(TARGET).afile ## currently not possible :(
 TARGET_AFILE="`basename $(TARGET)`.afile"
 
-BGL_FLAGS = -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -I $(RUNTIME_DIR)/unicode -g
+BGL_FLAGS = -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -L $(UNICODE_DIR) -g -library utf
 
 SCM_SOURCES = $(SOURCES:%.js=%.scm)
 OBJS = $(SOURCES:%.js=%.o)
 
-LD_PATHS_ENV = env LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD/$(JS2SCHEME_DIR):$$PWD/$(RUNTIME_DIR)
+LD_PATHS_ENV = env LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD/$(JS2SCHEME_DIR):$$PWD/$(RUNTIME_DIR):$$PWD/$(UNICODE_DIR)
 
 all.include: run
 
 dirs:
-	@ for f in $(SOURCES); do mkdir -p `dirname "$$f"`; done
+	for f in $(SOURCES); do mkdir -p `dirname "$$f"`; done
 
 %.scm: %.js
-	@ mkdir -p `dirname "$@"`;
-	@ $(LD_PATHS_ENV) $(JS2SCHEME) -c -o $@ $^
+	mkdir -p `dirname "$@"`;
+	$(LD_PATHS_ENV) $(JS2SCHEME) -c -o $@ $^
 
 $(TARGET).exe.scm: $(SCM_SOURCES)
-	@ $(LD_PATHS_ENV) $(JS2SCHEME) -o $@ $^
+	$(LD_PATHS_ENV) $(JS2SCHEME) -o $@ $^
 
 $(TARGET_AFILE): $(SCM_SOURCES)
-	echo $(TARGET_AFILE);
 	 $(AFILE) -o $(TARGET_AFILE) $^
 #	 $(AFILE) -o $@ $^
 
 %.o: %.scm | $(TARGET_AFILE)
-	@ $(BIGLOO) $(BGL_FLAGS) -afile $(TARGET_AFILE) -c -o $@ $<
+	$(BIGLOO) $(BGL_FLAGS) -afile $(TARGET_AFILE) -c -o $@ $<
 
 $(TARGET).exe: $(TARGET).exe.o $(OBJS)
-	@ $(BIGLOO) $(BGL_FLAGS) -afile $(TARGET_AFILE) -o $@ $^ -library js2scheme-comp
+	$(BIGLOO) $(BGL_FLAGS) -afile $(TARGET_AFILE) -o $@ $^ -library js2scheme-comp
 
 run: $(TARGET).exe
 	$(ULIMITS) && \
