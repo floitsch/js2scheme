@@ -1,4 +1,5 @@
 (module lexer
+;   (library utf)
    (export *JS-grammar*
 	   *care-future-reserved*
 	   *Reg-exp-grammar*))

@@ -50,10 +50,10 @@ targets: $(TARGETNAMES) #j$(TARGETNAME)
 	$(AFILE) -o $@ $(SOURCES)
 
 js-obfuscator: $(OBFUSCATOR_OBJECTS)
-	$(BIGLOO) -o $@ $^
+	$(BIGLOO) $(BGL_FLAGS) -o $@ $^
 
 js-pp: $(PP_OBJECTS)
-	$(BIGLOO) -o $@ $^
+	$(BIGLOO) $(BGL_FLAGS) -o $@ $^
 
 $(JS2SCHEME_HEAP): make-lib.scm js2scheme-comp.scm .afile
 	bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_LIB) $< -addheap $@
