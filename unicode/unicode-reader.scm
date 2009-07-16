@@ -147,7 +147,7 @@
 	       (set! res (cons upper res))))
 	 (values i res)))
 
-   (let ((p (open-input-file "SpecialCasing.txt")))
+   (let ((p (open-input-file "data/SpecialCasing.txt")))
       (let loop ((res '())
 		 (i 0))
 	 (let ((l (read-line p)))
@@ -208,7 +208,7 @@
    (when (not (null? (cdr args)))
       (set! *print-vectors?* #f))
    
-   (let ((p (open-input-file "UnicodeData.txt"))
+   (let ((p (open-input-file "data/UnicodeData.txt"))
 	 (category-v (make-vector #x110000))
 	 (upperc-v (make-vector #x110000))
 	 (lowerc-v (make-vector #x110000))

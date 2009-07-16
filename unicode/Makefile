@@ -46,7 +46,7 @@ clean:
 $(UTF_INIT): utf.init.in utf-init-gen
 	./utf-init-gen -o $@ $<
 
-$(UTF_HEAP): make-lib.scm utf.scm .afile
+$(UTF_HEAP): make-lib.scm utf.scm .afile utf.o
 	bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(UTF_LIB) $< -addheap $@
 $(UTF_LIB_A): $(UTF_HEAP) $(UTF_LIB_OBJECTS)
 	rm -f $@ && \

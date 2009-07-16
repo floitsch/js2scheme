@@ -140,7 +140,6 @@
 		    (rev-res '()))
 	    (cond
 	       ((null? L)
-		(print rev-res)
 		(reverse! rev-res))
 	       ((null? (cdr L))
 		(loop '()
@@ -368,7 +367,6 @@
 		 (vector-ref (uc-category-ranges) i)
 		 (loop (+fx i 1)))))))
 
-   (load-modules)
    (let* ((vars (find-variables bindings rules))
 	  ;; hardcoded possible vars...
 	  (possible-vars (vector->list (uc-categories)))
