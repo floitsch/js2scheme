@@ -280,7 +280,7 @@
 (define (toString)                           ;; 15.10.6.4
    (js-fun
     this #f #f
-    (STR "RegExp.toString")
+    (STR "RegExp.prototype.toString")
     ()
     (when (not (Js-RegExp? this))
        (type-error (STR "RegExp-toString applied to") this))

@@ -123,7 +123,7 @@
 ;; Properties
 ;; ===================================
 (define (toString)      ;; 15.2.4.2
-   (js-fun this #f #f (STR "Object.toString")
+   (js-fun this #f #f (STR "Object.prototype.toString")
 	   ()
 	   (js-string-append (STR "[object ")
 			     (js-class-name (safe-js-object this))
@@ -131,24 +131,24 @@
 
 
 (define (toLocalString) ;; 15.2.4.3
-   (js-fun this #f #f (STR "Object.toLocalString")
+   (js-fun this #f #f (STR "Object.prototype.toLocalString")
 	   ()
 	   (js-call (js-property-get this (STR "toString"))
 		    this)))
 
 (define (valueOf)       ;; 15.2.4.4
-   (js-fun this #f #f (STR "Object.valueOf")
+   (js-fun this #f #f (STR "Object.prototype.valueOf")
 	   ()
 	   this))
 
 (define (hasOwnProperty) ;; 15.2.4.5
-   (js-fun this #f #f (STR "Object.hasOwnProperty")
+   (js-fun this #f #f (STR "Object.prototype.hasOwnProperty")
 	   (prop)
 	   (let ((s (any->js-string prop)))
 	      (js-property-one-level-contains? this s))))
 
 (define (isPrototypeOf) ;; 15.2.4.6
-   (js-fun this #f #f (STR "Object.isPrototypeOf")
+   (js-fun this #f #f (STR "Object.prototype.isPrototypeOf")
 	   (other)
 	   (cond
 	      ((js-object other)
@@ -166,7 +166,7 @@
 	       #f))))
 
 (define (propertyIsEnumerable) ;; 15.2.4.7
-   (js-fun this #f #f (STR "Object.propertyIsEnumerable")
+   (js-fun this #f #f (STR "Object.prototype.propertyIsEnumerable")
 	   (prop)
 	   (let ((s (any->js-string prop)))
 	      (js-property-is-enumerable? this s))))

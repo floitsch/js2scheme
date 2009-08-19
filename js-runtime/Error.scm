@@ -177,7 +177,7 @@
       (proto (js-property-get f-o (STR "prototype")))))
 
 (define (toString)
-   (js-fun this #f #f (STR "Error.toString")
+   (js-fun this #f #f (STR "Error.prototype.toString")
 	   ()
 	   (if (not (Js-Error? this))
 	       (STR "ERROR")

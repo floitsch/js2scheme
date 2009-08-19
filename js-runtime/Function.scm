@@ -225,7 +225,7 @@
 
 (define (toString)
    ;; 15.3.4.2
-   (js-fun this #f #f (STR "Function.toString")
+   (js-fun this #f #f (STR "Function.prototype.toString")
 	   ()
 	   (if (not (Js-Function? this))
 	       (type-error (STR "Function-toString applied to") this)
@@ -240,7 +240,7 @@
 
    (define *nb-named-params* 3)
    
-   (js-fun this #f #f (STR "Function.apply")
+   (js-fun this #f #f (STR "Function.prototype.apply")
 	   (thisArg argArray)
 	   (cond
 	      ((not (Js-Function? this))
@@ -295,7 +295,7 @@
 
    (js-fun this #f
 	   (nb-args get-arg)
-	   (STR "Function.call")
+	   (STR "Function.prototype.call")
 	   (thisArg)
 	   (if (not (Js-Function? this))
 	       (type-error (STR "Function.apply applied to") this)

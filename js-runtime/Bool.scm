@@ -85,7 +85,7 @@
 
 (define (toString)
    ;; 15.6.4.1
-   (js-fun this #f #f (STR "Boolean.toString")
+   (js-fun this #f #f (STR "Boolean.prototype.toString")
 	   ()
 	   (if (not (Js-Bool? this))
 	       (type-error (STR "Bool-toString applied to") this)
@@ -94,7 +94,7 @@
 
 (define (valueOf)
    ;; 15.6.4.3
-   (js-fun this #f #f (STR "Boolean.valueOf")
+   (js-fun this #f #f (STR "Boolean.prototype.valueOf")
 	   ()
 	   (if (not (Js-Bool? this))
 	       (type-error (STR "Bool-valueOf applied to") this)

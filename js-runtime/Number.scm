@@ -141,7 +141,7 @@
    #f)
 
 (define (toString)                    ;; 15.7.4.2 (and 15.7.4.3 toLocaleString)
-   (js-fun this #f #f (STR "Number.valueOf")
+   (js-fun this #f #f (STR "Number.prototype.toString")
 	   (radix)
 	   (define (convert radix)
 	      (cond
@@ -170,7 +170,7 @@
 	   (convert radix)))
 
 (define (valueOf)                          ;; 15.7.4.4
-   (js-fun this #f #f (STR "Number.valueOf")
+   (js-fun this #f #f (STR "Number.prototype.valueOf")
 	   ()
 	   (if (not (Js-Number? this))
 	       (type-error (STR "Number.valueOf applied to") this)
@@ -178,7 +178,7 @@
 
 (define (toFixed)                          ;; 15.7.4.5
    (js-fun
-    this #f #f (STR "Number.toFixed")
+    this #f #f (STR "Number.prototype.toFixed")
     (fraction-digits)
     (let ((f (any->integer fraction-digits)))
        (when (or (<fl f 0.0) (>fl f 20.0))
@@ -199,7 +199,7 @@
 
 (define (toExponential)                    ;; 15.7.4.6
    (js-fun
-    this #f #f (STR "Number.toExponential")
+    this #f #f (STR "Number.prototype.toExponential")
     (fraction-digits)
     (when (not (Js-Number? this))
        (type-error (STR "Number.toExponential applied to") this))
@@ -223,7 +223,7 @@
 
 (define (toPrecision)                      ;; 15.7.4.7
    (js-fun
-    this #f #f (STR "Number.toPrecision")
+    this #f #f (STR "Number.prototype.toPrecision")
     (precision)
     (when (not (Js-Number? this))
        (type-error (STR "Number.toPrecision applied to") this))

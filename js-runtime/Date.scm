@@ -362,7 +362,7 @@
 
 
 (define (toString)                       ;; 15.9.5.2
-   (js-fun this #f #f (STR "Date.toString")
+   (js-fun this #f #f (STR "Date.prototype.toString")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -375,7 +375,7 @@
 		  (time->local-string t dst))))))
 
 (define (toDateString)                   ;; 15.9.5.3
-   (js-fun this #f #f (STR "Date.toDateString")
+   (js-fun this #f #f (STR "Date.prototype.toDateString")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -386,7 +386,7 @@
 	       (time->date-string (Js-local-time this))))))
 
 (define (toTimeString)                   ;; 15.9.5.4
-   (js-fun this #f #f "Date.toTimeString"
+   (js-fun this #f #f "Date.prototype.toTimeString"
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -398,7 +398,7 @@
 
 (define (toLocaleString)                       ;; 15.9.5.5
    ;; TODO: adapt for locale strings.
-   (js-fun this #f #f (STR "Date.toLocaleString")
+   (js-fun this #f #f (STR "Date.prototype.toLocaleString")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -412,7 +412,7 @@
 
 (define (toLocaleDateString)                   ;; 15.9.5.6
    ;; TODO: adapt for locale strings.
-   (js-fun this #f #f (STR "Date.toLocaleDateString")
+   (js-fun this #f #f (STR "Date.prototype.toLocaleDateString")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -424,7 +424,7 @@
 
 (define (toLocaleTimeString)                   ;; 15.9.5.7
    ;; TODO: adapt for locale strings.
-   (js-fun this #f #f (STR "Date.toLocaleTimeString")
+   (js-fun this #f #f (STR "Date.prototype.toLocaleTimeString")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -435,7 +435,7 @@
 	       (time->time-string (Js-local-time this))))))
 
 (define (valueOf)                              ;; 15.9.5.8
-   (js-fun this #f #f (STR "Date.valueOf")
+   (js-fun this #f #f (STR "Date.prototype.valueOf")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -444,7 +444,7 @@
 	       (Js-Date-t this)))))
 
 (define (getTime)                              ;; 15.9.5.9
-   (js-fun this #f #f (STR "Date.getTime")
+   (js-fun this #f #f (STR "Date.prototype.getTime")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -453,7 +453,7 @@
 	       (Js-Date-t this)))))
 
 (define (getFullYear)                          ;; 15.9.5.10
-   (js-fun this #f #f (STR "Date.getFullYear")
+   (js-fun this #f #f (STR "Date.prototype.getFullYear")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -464,7 +464,7 @@
 	       (year-from-time (Js-local-time this))))))
 
 (define (getYear)                              ;; B.2.4
-   (js-fun this #f #f (STR "Date.getYear")
+   (js-fun this #f #f (STR "Date.prototype.getYear")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -476,7 +476,7 @@
 		    1900.)))))
 
 (define (getUTCFullYear)                       ;; 15.9.5.11
-   (js-fun this #f #f (STR "Date.getFullYear")
+   (js-fun this #f #f (STR "Date.prototype.getFullYear")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -487,7 +487,7 @@
 	       (year-from-time (Js-Date-t this))))))
    
 (define (getMonth)                             ;; 15.9.5.12
-   (js-fun this #f #f (STR "Date.getMonth")
+   (js-fun this #f #f (STR "Date.prototype.getMonth")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -498,7 +498,7 @@
 	       (month-from-time (Js-local-time this))))))
 
 (define (getUTCMonth)                          ;; 15.9.5.13
-   (js-fun this #f #f (STR "Date.getUTCMonth")
+   (js-fun this #f #f (STR "Date.prototype.getUTCMonth")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -509,7 +509,7 @@
 	       (month-from-time (Js-Date-t this))))))
 
 (define (getDate)                              ;; 15.9.5.14
-   (js-fun this #f #f (STR "Date.getDate")
+   (js-fun this #f #f (STR "Date.prototype.getDate")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -520,7 +520,7 @@
 	       (date-from-time (Js-local-time this))))))
 
 (define (getUTCDate)                           ;; 15.9.5.15
-   (js-fun this #f #f (STR "Date.getUTCDate")
+   (js-fun this #f #f (STR "Date.prototype.getUTCDate")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -531,7 +531,7 @@
 	       (date-from-time (Js-Date-t this))))))
 
 (define (getDay)                              ;; 15.9.5.16
-   (js-fun this #f #f (STR "Date.getDay")
+   (js-fun this #f #f (STR "Date.prototype.getDay")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -542,7 +542,7 @@
 	       (week-day (Js-local-time this))))))
 
 (define (getUTCDay)                           ;; 15.9.5.17
-   (js-fun this #f #f (STR "Date.getUTCDay")
+   (js-fun this #f #f (STR "Date.prototype.getUTCDay")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -553,7 +553,7 @@
 	       (week-day (Js-Date-t this))))))
 
 (define (getHours)                             ;; 15.9.5.18
-   (js-fun this #f #f (STR "Date.getHours")
+   (js-fun this #f #f (STR "Date.prototype.getHours")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -564,7 +564,7 @@
 	       (hours-from-time (Js-local-time this))))))
 
 (define (getUTCHours)                          ;; 15.9.5.19
-   (js-fun this #f #f (STR "Date.getUTCHours")
+   (js-fun this #f #f (STR "Date.prototype.getUTCHours")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -575,7 +575,7 @@
 	       (hours-from-time (Js-Date-t this))))))
 
 (define (getMinutes)                           ;; 15.9.5.20
-   (js-fun this #f #f (STR "Date.getMinutes")
+   (js-fun this #f #f (STR "Date.prototype.getMinutes")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -586,7 +586,7 @@
 	       (min-from-time (Js-local-time this))))))
 
 (define (getUTCMinutes)                        ;; 15.9.5.21
-   (js-fun this #f #f (STR "Date.getUTCMinutes")
+   (js-fun this #f #f (STR "Date.prototype.getUTCMinutes")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -597,7 +597,7 @@
 		(min-from-time (Js-Date-t this))))))
 
 (define (getSeconds)                           ;; 15.9.5.22
-   (js-fun this #f #f (STR "Date.getSeconds")
+   (js-fun this #f #f (STR "Date.prototype.getSeconds")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -608,7 +608,7 @@
 	       (sec-from-time (Js-local-time this))))))
 
 (define (getUTCSeconds)                        ;; 15.9.5.23
-   (js-fun this #f #f (STR "Date.getUTCSeconds")
+   (js-fun this #f #f (STR "Date.prototype.getUTCSeconds")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -619,7 +619,7 @@
 	       (sec-from-time (Js-Date-t this))))))
 
 (define (getMilliseconds)                       ;; 15.9.5.24
-   (js-fun this #f #f (STR "Date.getMilliseconds")
+   (js-fun this #f #f (STR "Date.prototype.getMilliseconds")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -630,7 +630,7 @@
 	       (ms-from-time (Js-local-time this))))))
 
 (define (getUTCMilliseconds)                       ;; 15.9.5.25
-   (js-fun this #f #f (STR "Date.getUTCMilliseconds")
+   (js-fun this #f #f (STR "Date.prototype.getUTCMilliseconds")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -641,7 +641,7 @@
 	       (ms-from-time (Js-Date-t this))))))
 
 (define (getTimezoneOffset)                        ;; 15.9.5.26
-   (js-fun this #f #f (STR "Date.getTimezoneOffset")
+   (js-fun this #f #f (STR "Date.prototype.getTimezoneOffset")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
@@ -655,7 +655,7 @@
 		       ms-per-minute))))))
 
 (define (setTime)                                  ;; 15.9.5.27
-   (js-fun this #f #f (STR "Date.setTime")
+   (js-fun this #f #f (STR "Date.prototype.setTime")
 	   (new-t)
 	   (cond
 	      ((not (Js-Date? this))
@@ -685,7 +685,7 @@
       t))
       
 (define (setMilliseconds)                          ;; 15.9.5.28
-   (js-fun this #f #f (STR "Date.setMilliseconds")
+   (js-fun this #f #f (STR "Date.prototype.setMilliseconds")
 	   (ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -697,7 +697,7 @@
 	       (update-local-time! this #f #f #f (any->number ms))))))
 
 (define (setUTCMilliseconds)                        ;; 15.9.5.29
-   (js-fun this #f #f (STR "Date.setUTCMilliseconds")
+   (js-fun this #f #f (STR "Date.prototype.setUTCMilliseconds")
 	   (ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -708,7 +708,7 @@
 
 (define (setSeconds)                                  ;; 15.9.5.30
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setSeconds")
+	   (STR "Date.prototype.setSeconds")
 	   (s ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -723,7 +723,7 @@
 
 (define (setUTCSeconds)                               ;; 15.9.5.31
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setUTCSeconds")
+	   (STR "Date.prototype.setUTCSeconds")
 	   (s ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -737,7 +737,7 @@
 
 (define (setMinutes)                                  ;; 15.9.5.33
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setMinutes")
+	   (STR "Date.prototype.setMinutes")
 	   (m s ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -750,7 +750,7 @@
 
 (define (setUTCMinutes)                               ;; 15.9.5.34
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setUTCMinutes")
+	   (STR "Date.prototype.setUTCMinutes")
 	   (m s ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -763,7 +763,7 @@
 
 (define (setHours)                                    ;; 15.9.5.35
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setHours")
+	   (STR "Date.prototype.setHours")
 	   (h m s ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -777,7 +777,7 @@
 
 (define (setUTCHours)                                 ;; 15.9.5.36
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setUTCHours")
+	   (STR "Date.prototype.setUTCHours")
 	   (h m s ms)
 	   (cond
 	      ((not (Js-Date? this))
@@ -815,7 +815,7 @@
 ;; Note: there are two 15.9.5.36 subsections...
 
 (define (setDate)                                     ;; 15.9.5.36
-   (js-fun this #f #f (STR "Date.setDate")
+   (js-fun this #f #f (STR "Date.prototype.setDate")
 	   (d)
 	   (cond
 	      ((not (Js-Date? this))
@@ -824,7 +824,7 @@
 	       (update-local-date! this #f #f (any->number d))))))
 
 (define (setUTCDate)                                  ;; 15.9.5.37
-   (js-fun this #f #f (STR "Date.setUTCDate")
+   (js-fun this #f #f (STR "Date.prototype.setUTCDate")
 	   (d)
 	   (cond
 	      ((not (Js-Date? this))
@@ -834,7 +834,7 @@
 
 (define (setMonth)                                     ;; 15.9.5.38
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setMonth")
+	   (STR "Date.prototype.setMonth")
 	   (m d)
 	   (cond
 	      ((not (Js-Date? this))
@@ -846,7 +846,7 @@
 
 (define (setUTCMonth)                                     ;; 15.9.5.39
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setUTCMonth")
+	   (STR "Date.prototype.setUTCMonth")
 	   (m d)
 	   (cond
 	      ((not (Js-Date? this))
@@ -858,7 +858,7 @@
 
 (define (setFullYear)                                 ;; 15.9.5.40
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setFullYear")
+	   (STR "Date.prototype.setFullYear")
 	   (y m d)
 	   (cond
 	      ((not (Js-Date? this))
@@ -873,7 +873,7 @@
 
 (define (setYear)                                 ;; 15.9.5.40
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setYear")
+	   (STR "Date.prototype.setYear")
 	   (year)
 	   (cond
 	      ((not (Js-Date? this))
@@ -891,7 +891,7 @@
 
 (define (setUTCFullYear)                               ;; 15.9.5.41
    (js-fun this #f (nb-args get-arg)
-	   (STR "Date.setUTCFullYear")
+	   (STR "Date.prototype.setUTCFullYear")
 	   (y m d)
 	   (cond
 	      ((not (Js-Date? this))
@@ -905,7 +905,7 @@
 				 (and (>= nb-args 3) (any->number d)))))))
 
 (define (toUTCString)                                 ;; 15.9.5.42
-   (js-fun this #f #f (STR "Date.toUTCString")
+   (js-fun this #f #f (STR "Date.prototype.toUTCString")
 	   ()
 	   (cond
 	      ((not (Js-Date? this))
