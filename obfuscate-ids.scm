@@ -41,6 +41,9 @@
    (this.traverse0))
 
 (define-pmethod (Var-ref-obf)
+   (when (not this.var.obf)
+      (tprint this.id)
+      (tprint this.var.id))
    (this.var.obf))
 
 (define-pmethod (Var-obf)

@@ -7,6 +7,7 @@
 	   html
 	   protobject
 	   nodes
+	   var
 	   obfuscate-ids
 	   fun-bindings
 	   symbol
@@ -61,6 +62,8 @@
    (define imported-vars '())
 
    (config-init!)
+   (nodes-init!)
+   (var-nodes-init!)
    
    (handle-args args)
    (if (not *in-file*)
@@ -99,21 +102,30 @@
 		    (open-input-file *in-file*)))
 	  (out-p (if (string=? *out-file* "-")
 		     (current-output-port)
-		     (open-output-file *out-file*)))
-	  (ast (parse in-p)))
-      (if *obfuscation-mapping-file*
-	  (set! *obfuscation-mapping-p* (open-output-file *obfuscation-mapping-file*)))
-      (fun-bindings! ast)
-      (symbol-resolution! ast imported-vars)
-      (set! *integrate-Var-decl-lists* #f) ;; HACK.
-      (simplify! ast)
-      (obfuscate-ids! ast)
-;      (with-output-to-port out-p
-;	 (lambda () (pobject-dot-out ast)))
-      (js-out ast out-p)
-      (if *obfuscation-mapping-file*
-	  (close-output-port *obfuscation-mapping-p*))
-      (if (not (string=? *in-file* "-"))
-	  (close-input-port in-p))
-      (if (not (string=? *out-file* "-"))
-	  (close-output-port out-p))))
+		     (open-output-file *out-file*))))
+      (when (not in-p)
+	 (error 'obfuscator
+		"Could not open file"
+		*in-file*))
+      (when (not out-p)
+	 (error 'obfuscator
+		"Could not open file"
+		*out-file*))
+      (let ((ast (parse in-p)))
+	 (if *obfuscation-mapping-file*
+	     (set! *obfuscation-mapping-p*
+		   (open-output-file *obfuscation-mapping-file*)))
+	 (fun-bindings! ast)
+	 (symbol-resolution! ast imported-vars)
+	 (set! *integrate-Var-decl-lists* #f) ;; HACK.
+	 (simplify! ast)
+	 (obfuscate-ids! ast)
+	 ;      (with-output-to-port out-p
+	 ;	 (lambda () (pobject-dot-out ast)))
+	 (js-out ast out-p)
+	 (if *obfuscation-mapping-file*
+	     (close-output-port *obfuscation-mapping-p*))
+	 (if (not (string=? *in-file* "-"))
+	     (close-input-port in-p))
+	 (if (not (string=? *out-file* "-"))
+	     (close-output-port out-p)))))

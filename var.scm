@@ -24,6 +24,7 @@
 
 (define-node (This-var)
    (set! this.id 'this))
+(set! This-var.proto (empty-pobject Var))
 
 (define-node (Intercepted-var id obj-id intercepted-var)
    (set! this.id id)
