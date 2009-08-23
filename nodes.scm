@@ -474,15 +474,6 @@
 (set! Access.proto (empty-pobject Node))
 (proto-traverses Access obj field)
 
-(define-node (Dot obj field)
-   (set! this.obj obj)
-   (set! this.field (new String
-			 (string-append "'"
-					(symbol->string field)
-					"'"))))
-(set! Dot.proto (empty-pobject Access))
-(proto-traverses Dot obj field)
-
 ;; we consider This to be a var-ref and not to be
 ;; literal.
 (define-node (This)

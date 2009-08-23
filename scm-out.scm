@@ -98,6 +98,29 @@
 	  (let ((str-id (symbol-append 'jsstr- (gensym))))
 	     (set! *strs* (cons (cons str str-id) *strs*))
 	     str-id))))
+(define (string-var? var::symbol)
+   (string-prefix? "jsstr-" (symbol->string var)))
+
+(define (comp:any->js-string any)
+   (cond
+      ((and (symbol? any) (string-var? any))
+       any)
+      ((flonum? any)
+       (add-str! (js-string->utf8 (any->js-string any))))
+      ((eq? any '(js-undefined))
+       (add-str! "undefined"))
+      ((equal? any '(js-null))
+       (add-str! "null"))
+      ((boolean? any)
+       (add-str! (if any "true" "false")))
+      (else
+       #f)))
+
+(define (comp:any->js-object any)
+   (if (and (symbol? any)
+	    (eq? any 'this))
+       'this
+       #f))
 
 (define (map-node-compile l)
    (map (lambda (n)
@@ -133,10 +156,12 @@
 (define-pmethod (Intercepted-var-access)
    (let ((str-id (add-str! (symbol->string this.id)))
 	 (obj-id this.obj-id)
-	 (intercepted this.intercepted))
-      `(if (js-property-contains ,obj-id ,str-id)
-	   (js-property-get ,obj-id ,str-id)
-	   ,(intercepted.access))))
+	 (intercepted this.intercepted)
+	 (tmp (gensym 'tmp)))
+      `(let ((,tmp (js-property-contains ,obj-id ,str-id)))
+	  (if ,tmp
+	      (unmangle-false ,tmp)
+	      ,(intercepted.access)))))
 (define-pmethod (This-var-access)
    'this)
 (define-pmethod (Imported-var-access)
@@ -165,10 +190,12 @@
 (define-pmethod (Intercepted-var-typeof)
    (let ((str-id (add-str! (symbol->string this.id)))
 	 (obj-id this.obj-id)
-	 (intercepted this.intercepted))
-      `(if (js-property-contains ,obj-id ,str-id)
-	   (js-property-get ,obj-id ,str-id)
-	   ,(intercepted.typeof))))
+	 (intercepted this.intercepted)
+	 (tmp (gensym 'tmp)))
+      `(let ((,tmp (js-property-contains ,obj-id ,str-id)))
+	  (if ,tmp
+	      (unmange-false ,tmp)
+	      ,(intercepted.typeof)))))
 (define-pmethod (This-var-typeof)
    'this)
 (define-pmethod (Imported-var-typeof)
@@ -247,6 +274,9 @@
 ;; slightly HACKish: if the referenced var is inside an object (different from
 ;; an activation object), then it updates (using 'set!') the given
 ;; base-variable.
+;; access+base will return a lambda that should then be executed.
+;; this is in response to 11.2.3 which states that the function is first
+;; evaluated without taking the value.
 (define-pmethod (Var-access+base base)
    ;; mostly similar to Var-access
    (let ((scm-id (get/assign-scm-id! this)))
@@ -258,22 +288,29 @@
 	  (let ((v (gensym 'v))
 		(o (gensym 'o))
 		(str-id (add-str! (symbol->string this.id))))
-	     `(multiple-value-bind (,v ,o)
-		 (env-get+object ,(thread-parameter 'eval-env) ,str-id)
+	     `(let ((,o (env-object ,(thread-parameter 'eval-env) ,str-id)))
 		 (unless (Js-Activation-Object? ,o)
 		    (set! ,base ,o))
-		 ,v)))
+		 (lambda () (js-property-get ,o ,str-id)))))
 	 (this.local-eval?
 	  ;; stupid thing: evals might delete local variables. If there's a
 	  ;; local eval, we need to verify first, if the variable actually
 	  ;; still exists.
 	  `(if (not (js-deleted? ,scm-id))
-	       ,scm-id
+	       (lambda () ,scm-id)
 	       ,(this.eval-next-var.access+base base)))
 	 (this.global?
-	  `(global-read ,scm-id))
+	  `(begin
+	      ;; first read var. this will throw an error if the var is
+	      ;; not declared.
+	      (global-read ,scm-id)
+	      ;; but then return a lambda that will reread again.
+	      (lambda ()
+		 (if (global-declared? ,scm-id)
+		     (global-read ,scm-id)
+		     (js-undefined)))))
 	 (else
-	  scm-id))))
+	  `(lambda () ,scm-id)))))
 (define-pmethod (Intercepted-var-access+base base)
    (let ((str-id (add-str! (symbol->string this.id)))
 	 (obj-id this.obj-id)
@@ -281,9 +318,9 @@
       `(if (js-property-contains ,obj-id ,str-id)
 	   (begin
 	      (set! ,base ,obj-id)
-	      (js-property-get ,obj-id ,str-id))
+	      (lambda () (js-property-get ,obj-id ,str-id)))
 	   ,(intercepted.access+base base))))
-(define-pmethod (This-var-access+base base) 'this)
+(define-pmethod (This-var-access+base base) '(lambda () this))
 (define-pmethod (Imported-var-access+base base)
    (error "scm-out"
 	  "Encountered imported var"
@@ -657,30 +694,26 @@
        (pcall this Vassig-out)))
 
 (define-pmethod (Accsig-out)
-   ;; gcc seems to be broken (quadratic on the number of variables?)
-   ;; special case to avoid temporaries
-   (let ((tmp-o (gensym 'tmp-o))
-	 (tmp-field (gensym 'tmp-field))
-	 (tmp-object-o (gensym 'tmp-object-o))
-	 (tmp-string-field (gensym 'tmp-string-field))
-	 (traversed-obj (this.lhs.obj.traverse))
-	 (traversed-field (this.lhs.field.traverse))
-	 (traversed-val (this.val.traverse)))
-      (if (and (symbol? traversed-obj)
-	       (string? traversed-field))
-	  `(let* ((,tmp-object-o (jsop-any->object ,traversed-obj)))
-	      (js-property-set! ,tmp-object-o
-				(add-str! ,traversed-field)
-				,traversed-val))
-	  ;; we need all these tmp-variables, to ensure the correct order of
-	  ;; evaluation.
-	  `(let* ((,tmp-o ,traversed-obj)
-		  (,tmp-field ,traversed-field)
-		  (,tmp-object-o (jsop-any->object ,tmp-o))
-		  (,tmp-string-field (any->js-string ,tmp-field)))
-	      (js-property-set! ,tmp-object-o
-				,tmp-string-field
-				,traversed-val)))))
+   (let* ((tmp-o (gensym 'tmp-o))
+	  (tmp-field (gensym 'tmp-field))
+	  (tmp-object-o (gensym 'tmp-object-o))
+	  (tmp-string-field (gensym 'tmp-string-field))
+	  (traversed-obj (this.lhs.obj.traverse))
+	  (traversed-obj-object (comp:any->js-object traversed-obj))
+	  (traversed-field (this.lhs.field.traverse))
+	  (traversed-field-string (comp:any->js-string traversed-field))
+	  (traversed-val (this.val.traverse)))
+      ;; we need all these tmp-variables, to ensure the correct order of
+      ;; evaluation.
+      `(let* ((,tmp-o ,(if traversed-obj-object #unspecified traversed-obj))
+	      (,tmp-field ,(if traversed-field-string #unspecified traversed-field))
+	      (,tmp-object-o ,(or traversed-obj-object
+				  `(jsop-any->object ,tmp-o)))
+	      (,tmp-string-field ,(or traversed-field-string
+				      `(any->js-string ,tmp-field))))
+	  (js-property-set! ,tmp-object-o
+			    ,tmp-string-field
+			    ,traversed-val))))
 
 (define (Operator-out this)
    (cond
@@ -713,8 +746,19 @@
 	  `(let* ,bindings
 	      (,(this.op.var.compiled-id) ;; operator call.
 	       ,@tmp-ids))))))
-   
+
+;; we assume:
+;;  - args expressions that need to be put into a let for explicit left to
+;;   right evaluation.
+(define (generate-call fun base args)
+   (if (null? args)
+       `(js-call ,fun ,base)
+       (let ((arg-names (map (lambda (ign) (gensym 'arg)) args)))
+	  `(let* ,(map list arg-names args)
+	      (js-call ,fun ,base ,@arg-names)))))
+
 (define-pmethod (Call-out)
+   ;; 11.2.3
    (cond
       ((and (inherits-from? this.op (node 'Var-ref))
 	    (inherits-from? this.op.var (node 'Runtime-var))
@@ -723,17 +767,18 @@
       ((inherits-from? this.op (node 'Var-ref))
        (let ((base (gensym 'base))
 	     (f (gensym 'f)))
-	  `(let ((,base *js-global-this*))
-	      ;; if the variable has a base, it will update the base-variable
-	      ;; (during runtime). we then perform (implicitely) a method-call.
-	      (let ((,f ,(this.op.var.access+base base)))
-		 (js-call ,f
-			  ,base ;; might have been updated by access+base.
-			  ,@(map-node-compile this.args))))))
+	  `(let* ((,base *js-global-this*)
+		  ;; if the variable has a base, it will update the
+		  ;; base-variable (during runtime). we then perform
+		  ;; (implicitely) a method-call.
+		  (,f ,(this.op.var.access+base base)))
+	      ,(generate-call `(,f)
+			      base ;; might have been updated by access+base.
+			      (map-node-compile this.args)))))
       (else
-       `(js-call ,(this.op.traverse)
-		 #f
-		 ,@(map-node-compile this.args)))))
+       (let ((f (gensym 'f)))
+	  `(let ((,f ,(this.op.traverse)))
+	      ,(generate-call f #f (map-node-compile this.args)))))))
 
 ; (define-pmethod (Binary-out)
 ;    `(,(this.op.traverse)
@@ -747,9 +792,31 @@
 		 ,((cadr this.args).traverse)))
 
 (define-pmethod (Method-call-out)
-   `(js-method-call ,(this.op.obj.traverse)
-		    ,(this.op.field.traverse)
-		    ,@(map-node-compile this.args)))
+   (let* ((tmp-o (gensym 'o))
+	  (tmp-o-object (gensym 'o-object))
+	  (tmp-this (gensym 'this))
+	  (tmp-field (gensym 'field))
+	  (tmp-field-string (gensym 'field-string))
+	  (traversed-o (this.op.obj.traverse))
+	  (traversed-o-object (comp:any->js-object traversed-o))
+	  (traversed-this (this.op.obj.traverse))
+	  (traversed-this-object (comp:any->js-object traversed-o))
+	  (traversed-field (this.op.field.traverse))
+	  (traversed-field-string (comp:any->js-string traversed-field)))
+      ;; we need all these tmp-variables, to ensure the correct order of
+      ;; evaluation.
+      `(let* ((,tmp-o ,(if traversed-o-object #unspecified traversed-o))
+	      (,tmp-field ,(if traversed-field-string
+			       #unspecified
+			       traversed-field))
+	      (,tmp-this ,(or traversed-o-object
+			      `(any->object ,tmp-o)))
+	      (,tmp-o-object (safe-js-object ,tmp-this))
+	      (,tmp-field-string ,(or traversed-field-string
+				      `(any->js-string ,tmp-field))))
+	  ,(generate-call `(js-property-get ,tmp-o-object ,tmp-field-string)
+			  tmp-this
+			  (map-node-compile this.args)))))
 
 (define-pmethod (Eval-call-out)
    (let* ((t (gensym 'tmp))
@@ -775,16 +842,25 @@
 	    ,@(map-node-compile this.args)))
 
 (define-pmethod (Access-out)
-   (let ((tmp-o (gensym 'tmp-o))
-	 (tmp-field (gensym 'tmp-field))
-	 (tmp-object-o (gensym 'tmp-object-o))
-	 (tmp-string-field (gensym 'tmp-string-field)))
+   (let* ((tmp-o (gensym 'tmp-o))
+	  (tmp-field (gensym 'tmp-field))
+	  (tmp-object-o (gensym 'tmp-object-o))
+	  (tmp-string-field (gensym 'tmp-string-field))
+	  (traversed-o (this.obj.traverse))
+	  (traversed-o-object (comp:any->js-object traversed-o))
+	  (traversed-field (this.field.traverse))
+	  (traversed-field-string (comp:any->js-string traversed-field)))
       ;; we need all these tmp-variables, to ensure the correct order of
       ;; evaluation.
-      `(let* ((,tmp-o ,(this.obj.traverse))
-	      (,tmp-field ,(this.field.traverse))
-	      (,tmp-object-o (jsop-any->object ,tmp-o))
-	      (,tmp-string-field (any->js-string ,tmp-field)))
+      `(let* ((,tmp-o ,(if traversed-o-object #unspecified traversed-o))
+	      (,tmp-field ,(if traversed-field-string
+			       #unspecified
+			       traversed-field))
+	      (,tmp-object-o ,(if traversed-o-object
+				  `(safe-js-object ,traversed-o-object)
+				  `(jsop-any->object ,tmp-o)))
+	      (,tmp-string-field ,(or traversed-field-string
+				      `(any->js-string ,tmp-field))))
 	  (js-property-get ,tmp-object-o ,tmp-string-field))))
 
 (define-pmethod (This-out)
@@ -905,7 +981,8 @@
      ,(list 'quasiquote (map-node-compile this.props))))
 
 (define-pmethod (Property-init-out)
-   `(,(this.name.traverse) ,(list 'unquote (this.val.traverse))))
+   `(,(list 'unquote (comp:any->js-string (this.name.traverse)))
+     ,(list 'unquote (this.val.traverse))))
 
 (define-pmethod (Reg-exp-out)
    (let* ((pattern/flags this.pattern)

@@ -28,6 +28,7 @@
  	   (macro global-read)
  	   (macro global-typeof-read)
  	   (macro global-set!)
+	   (macro global-declared?)
 	   (create-global::Js-Global-Box id::Js-Base-String
 					 attributes declared? . Linit-val)))
 
@@ -55,6 +56,9 @@
        (when (not (Js-Global-Box-declared? ,v))
 	  (undeclared-error (Js-Global-Box-id ,v)))
        (unmangle-false (Js-Global-Box-val ,v))))
+
+(define-macro (global-declared? v)
+   `(Js-Global-Box-declared? ,v))
 
 (define-macro (global-typeof-read v)
    `(if (not (Js-Global-Box-declared? ,v))

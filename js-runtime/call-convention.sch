@@ -29,37 +29,15 @@
 		   ,@named-params
 		   ,(list 'quasiquote rest-vec))))))
 
+;; js-method-call will not correctly evaluate left->right.
 (define-macro (js-method-call o m . Largs)
-  (define (js-string? s)
-     (and (symbol? s)
-	  ;; HACK: hardcoded var-prefix for strings. (jsstr-)
-	  (string-prefix? "jsstr-" (symbol->string s))))
-
-   (if (and (symbol? o)
-	    (js-string? m))
-       (let ((tmp-o (gensym 'o))
-	     (tmp-this (gensym 'this)))
-	  `(let* ((,tmp-this (any->object ,o))
-		  (,tmp-o (safe-js-object ,tmp-this)))
-	      (js-call (js-property-get ,tmp-o ,m)
-		       ,tmp-this
-		       ,@Largs)))
-       (let ((tmp-o (gensym 'o))
-	     (tmp-field (gensym 'field))
-	     (tmp-object-o (gensym 'object-o))
-	     (tmp-object-this (gensym 'this))
-	     (tmp-string-field (gensym 'string-field)))
-	  ;; we need all these tmp-variables, to ensure the correct order of
-	  ;; evaluation.
-	  `(let* ((,tmp-o ,o)
-		  (,tmp-field ,m)
-		  (,tmp-object-this (any->object ,tmp-o))
-		  (,tmp-object-o (safe-js-object ,tmp-object-this))
-		  (,tmp-string-field (any->js-string ,tmp-field)))
-	      (js-call (js-property-get ,tmp-object-o
-					,tmp-string-field)
-		       ,tmp-object-this
-		       ,@Largs)))))
+  (let ((tmp-o (gensym 'o))
+	(tmp-this (gensym 'this)))
+     `(let* ((,tmp-this (any->object ,o))
+	     (,tmp-o (safe-js-object ,tmp-this)))
+	 (js-call (js-property-get ,tmp-o (any->js-string ,m))
+		  ,tmp-this
+		  ,@Largs))))
 
 ;; note: this macro is responsible for "uniquizing" each lambda too.
 ;; This is currently done by injecting a conditional expression that is always

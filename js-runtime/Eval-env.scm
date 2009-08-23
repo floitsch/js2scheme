@@ -17,7 +17,7 @@
 	      (objs::pair-nil read-only)
 	      (next-env read-only))
 	   (env-get env::Js-Eval-env id::Js-Base-String)
-	   (env-get+object env::Js-Eval-env id::Js-Base-String)
+	   (env-object env::Js-Eval-env id::Js-Base-String)
 	   (env-typeof-get env::Js-Eval-env id::Js-Base-String)
 	   ;; returns the given new-val
 	   (env-set! env::Js-Eval-env id::Js-Base-String new-val)
@@ -38,20 +38,17 @@
 
 ;; same as env-get but returns containing obj too.
 ;; necessary for fun-calls (see 11.2.3-7)
-(define (env-get+object env id)
+(define (env-object env id)
    (with-access::Js-Eval-env env (objs next-env)
       (let loop ((objs objs))
 	 (cond
 	    ((and (null? objs)
 		  next-env)
-	     (env-get+object next-env id))
+	     (env-object next-env id))
 	    ((null? objs)
 	     (undeclared-error id))
 	    ((js-property-contains (car objs) id)
-	     =>
-	     (lambda (entry)
-		(values (unmangle-false entry)
-			(car objs))))
+	     (car objs))
 	    (else
 	     (loop (cdr objs)))))))
 

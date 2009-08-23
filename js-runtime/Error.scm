@@ -152,6 +152,8 @@
    ;; 15.11.1.1 / 15.11.7.1
    (letrec ((error-proc (js-fun-lambda #f #f #f
 				       (msg)
+				       ;; uniquization-hack
+				       (if (= 1 2) (warning name))
 				       (js-new error-proc msg))))
       error-proc))
 

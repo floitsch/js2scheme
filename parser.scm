@@ -65,7 +65,8 @@
    
    (define (consume! type)
       (let ((token (consume-any!)))
-	 (if (eq? (car token) type)
+	 (if (or (eq? type #t)
+		 (eq? (car token) type))
 	     (cdr token)
 	     (my-error (format "unexpected token. expected ~a got: " type)
 		       (car token)
@@ -587,9 +588,11 @@
 			       (ignore-too (consume! 'RBRACKET)))
 			   (loop (new-node Access expr field))))
 	    ((DOT) (let* ((ignore (consume-any!))
-			  (field (consume! 'ID)))
-		      (loop (new-node Dot expr field))))
-	    
+			  (field (consume! 'ID))
+			  (str-field (string-append "'"
+						    (symbol->string field)
+						    "'")))
+		      (loop (new-node Access expr (new-node String str-field)))))
 	    ((LPAREN) (if call-allowed?
 			  (loop (new-node Call expr (arguments)))
 			  expr))
@@ -663,14 +666,22 @@
    
    (define (object-literal)
       (define (property-name)
+	 (define (symbol->lexer-string sym)
+	    ;; on the fly conversion to string.
+	    (string-append "\""
+			   (symbol->string sym)
+			   "\""))
+	    
 	 (case (peek-token-type)
-	    ((ID) (new-node String
-			    ;; on the fly conversion to string.
-			    (string-append "\""
-					   (symbol->string (consume! 'ID))
-					   "\"")))
-	    ((STRING) (new-node String (consume! 'STRING)))
-	    ((NUMBER) (new-node Number (consume! 'NUMBER)))))
+	    ((ID) (new-node String (symbol->lexer-string (consume! #t))))
+	    ((STRING) (new-node String (consume! #t)))
+	    ((NUMBER) (new-node Number (consume! #t)))
+	    (else
+	     (if (and (config 'liberal-object-literal-name)
+		      (reserved-word? (peek-token-type)))
+		 (new-node String (symbol->lexer-string (consume! #t)))
+		 (let ((t (peek-token)))
+		    (my-error "unexpected token"  t t))))))
       
       (define (property-init)
 	 (let* ((name (property-name))

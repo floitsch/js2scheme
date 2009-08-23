@@ -51,6 +51,7 @@
    ;; If you get this error: the unification is done inside js-fun-lambda.
    ;; Apparently Bigloo is optimizing better now. -> adapt the unification
    ;; technique.
+   ;; There is one in Error.scm, too. Relies on same "trick".
    (when (eq? f1 f2)
       (error 'Function
 	     "Unification check failed. Bigloo changed?"

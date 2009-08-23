@@ -2,7 +2,8 @@
    (library utf)
    (export *JS-grammar*
 	   *care-future-reserved*
-	   *Reg-exp-grammar*))
+	   *Reg-exp-grammar*
+	   (reserved-word?::bool symbol::symbol)))
 
 (define (the-coord input-port)
    (list 'at (input-port-name input-port) (input-port-position input-port)))
@@ -72,6 +73,11 @@
 (for-each (lambda (word)
 	     (putprop! (string->symbol word) 'future-reserved #t))
 	  *future-reserved-list*)
+
+(define (reserved-word? symbol)
+   (or (getprop symbol 'reserved)
+       (and *care-future-reserved*
+	    (getprop symbol 'future-reserved))))
 
 (define-macro (token type value)
    `(econs ,type ,value (the-coord input-port)))

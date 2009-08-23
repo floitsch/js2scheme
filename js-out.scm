@@ -2,7 +2,8 @@
    (include "protobject.sch")
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))
-   (import parser
+   (import lexer
+	   parser
 	   config
 	   protobject
 	   nodes
@@ -37,7 +38,7 @@
 
 (define (member-expr? n)
    (or (primary-expr? n)
-       (inherits-from-any-of? n 'Fun 'Named-fun 'Access 'Dot 'New)))
+       (inherits-from-any-of? n 'Fun 'Named-fun 'Access 'New)))
 
 ;; we merge NewExpressions and MemberExpressions
 ;; we will (for now) never print 'new's without parenthesis.
@@ -635,16 +636,40 @@
 		(cdr this.args)))
    (display ")"))
 
+(define (valid-js-id? field)
+   (define (valid-chars? str)
+      (let loop ((i 0))
+	 (cond
+	    ((=fx i (string-length str))
+	     #t)
+	    ((or (char-alphabetic? (string-ref str i))
+		 (char=? #\_ (string-ref str i)))
+	     (loop (+fx i 1)))
+	    ((and (>fx i 0)
+		  (char-numeric? (string-ref str i)))
+	     (loop (+fx i 1)))
+	    (else #f))))
+
+   (and (inherits-from? field (node 'String))
+	(let* ((delimited-str field.val)
+	       (str (substring delimited-str
+			       1 (-fx (string-length delimited-str) 1))))
+	   (and (valid-chars? str)
+		(not (reserved-word? (string->symbol str)))))))
+
 (define-pmethod (Access-expr-out indent in-for-init? stmt-begin?)
    (expr-out this.obj indent member-expr? in-for-init? stmt-begin?)
-   (display "[")
-   (expr-out this.field indent expr? #f #f)
-   (display "]"))
-
-(define-pmethod (Dot-expr-out indent in-for-init? stmt-begin?)
-   (expr-out this.obj indent member-expr? in-for-init? stmt-begin?)
-   (display ".")
-   (display this.field.val))
+   (let ((field this.field))
+      (if (and (valid-js-id? field)
+	       (not (inherits-from? this.obj (node 'Number))))
+	  (let ((field-str field.val))
+	     (display ".")
+	     (display (substring field-str
+				 1 (-fx (string-length field-str) 1))))
+	  (begin
+	     (display "[")
+	     (expr-out this.field indent expr? #f #f)
+	     (display "]")))))
 
 (define-pmethod (This-expr-out indent in-for-init? stmt-begin?)
    (display "this"))
@@ -789,7 +814,6 @@
 					     Call
 					     New
 					     Access
-					     Dot
 					     This
 					     Literal
 					     Undefined
