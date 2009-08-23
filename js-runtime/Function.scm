@@ -45,6 +45,21 @@
     (Function-init)
     (inline create-empty-object-lambda::Js-Object f-o::Js-Function)))
 
+;; ensure that the unification-technique is still working:
+(let ((f1 (js-fun-lambda #f #f #f () #t))
+      (f2 (js-fun-lambda #f #f #f () #t)))
+   ;; If you get this error: the unification is done inside js-fun-lambda.
+   ;; Apparently Bigloo is optimizing better now. -> adapt the unification
+   ;; technique.
+   (when (eq? f1 f2)
+      (error 'Function
+	     "Unification check failed. Bigloo changed?"
+	     #f))
+   (when (= (get-hashnumber f1) (get-hashnumber f2))
+      (error 'Function
+	     "Unification check failed. Bigloo changed?"
+	     #f)))
+
 (define *jsg-Function* #unspecified)
 (define *js-Function-prototype* ;; ::procedure
    (lambda L (js-undefined))) ;; 15.3.4

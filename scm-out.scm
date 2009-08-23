@@ -680,7 +680,7 @@
 		  (,tmp-string-field (any->js-string ,tmp-field)))
 	      (js-property-set! ,tmp-object-o
 				,tmp-string-field
-				,(this.val.traverse))))))
+				,traversed-val)))))
 
 (define (Operator-out this)
    (cond

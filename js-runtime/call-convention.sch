@@ -61,6 +61,10 @@
 		       ,tmp-object-this
 		       ,@Largs)))))
 
+;; note: this macro is responsible for "uniquizing" each lambda too.
+;; This is currently done by injecting a conditional expression that is always
+;; false.
+;; Function.scm has a check to ensure that this is valid.
 (define-macro (js-fun-lambda maybe-this
 			     maybe-this-callee
 			     arguments
@@ -123,6 +127,8 @@
 	  (bindings (vec-bindings u-formals par-vec vec-size)))
       
       `(lambda (,this ,par-callee ,par-nb ,@params ,par-vec)
+	  ;; the unification conditional:
+	  (if (= 1 2) (warning (gensym)))
 	  (let* ((,vec-size (-fx ,par-nb ,*nb-named-params*))
 		 ,@bindings)
 	     ,(cond

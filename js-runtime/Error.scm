@@ -150,16 +150,9 @@
 
 (define (Error-lambda name)
    ;; 15.11.1.1 / 15.11.7.1
-   ;;
-   ;; Ugly hack to get around fact that Bigloo reuses lambdas if they are
-   ;; semantically the same. test against the name. -> the name must be inside
-   ;; the closure. -> different lambdas. We will fix this differently somewhere
-   ;; else. But for now...
    (letrec ((error-proc (js-fun-lambda #f #f #f
 				       (msg)
-				       (if (js-string=? name (STR "")) ;; HACK here.
-					   (js-new error-proc name) ;; can't happen
-					   (js-new error-proc msg)))))
+				       (js-new error-proc msg))))
       error-proc))
 
 (define (Error-new)

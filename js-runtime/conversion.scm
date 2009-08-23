@@ -78,7 +78,7 @@
    (js-boolify any))
 
 (define (js-string->number str)
-   (define whitespace? js-char-whitespace?)   ;; TODO not spec-conform (white-space)
+   (define whitespace? js-char-whitespace?)
 
    ;; TODO: in C-mode we could theoretically use 'string->real' if the
    ;; base-string has a fitting representation.

@@ -29,6 +29,7 @@
 	     o::Js-Object prop::Js-Base-String
 	     new-val attributes)
     (generic js-property-safe-delete!::bool o::Js-Object prop::Js-Base-String)
+    (js-property-direct-delete!::bool o::Js-Object prop::Js-Base-String)
     (generic js-class-name::Js-Base-String o::Js-Object)
 
     (generic js-property-one-level-for-each o::Js-Object f::procedure)
@@ -203,6 +204,10 @@
 
 (define-generic (js-property-safe-delete!::bool o::Js-Object prop)
    ;; 11.4.1
+   (js-property-direct-delete! o prop))
+
+;; is not generic. Basically introduced for Arguments-object.
+(define (js-property-direct-delete!::bool o::Js-Object prop::Js-Base-String)
    (with-access::Js-Object o (props proto)
       (let ((entry (hashtable-get props prop)))
 	 (cond
