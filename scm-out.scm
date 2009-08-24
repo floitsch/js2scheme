@@ -203,6 +203,21 @@
 	  "Encountered imported var"
 	  this.id))
 
+;; Local variables can be deleted if they contain an 'eval'. However during the
+;; initial assignment of functions these variables just can't be deleted. ->
+;; optimize this case.
+;; Partially copied from 'Var-set!'.
+(define (fun-binding-set! var val)
+   (cond
+      ((and (thread-parameter 'eval?)
+	    var.global?)
+       (var.set! val))
+      (var.local-eval?
+       (let ((scm-id (get/assign-scm-id! var)))
+	  `(begin (set! ,scm-id ,val) ,scm-id)))
+      (else
+       (var.set! val))))
+
 (define-pmethod (Var-set! val)
    (let ((scm-id (get/assign-scm-id! this)))
       (cond
@@ -376,10 +391,10 @@
 		     (strs-alist))
 	      (define this ,tl-this)
 	      ,@(map (lambda (var)
-			`(define ,(var.compiled-id) #unspecified))
+			`(define ,(var.compiled-id) (js-undefined)))
 		     declared-globals-w/o-this)
 	      ,@(map (lambda (decl)
-			`(define ,(decl.var.compiled-id) #unspecified))
+			`(define ,(decl.var.compiled-id) (js-undefined)))
 		     this.implicit-globals)
 	      ,@(if (config 'function-strings)
 		    (hashtable-map this.function-str-ids-ht
@@ -521,7 +536,7 @@
 	    ((null? (cdr clauses))
 	     (cons (list (clause-body-id (car clauses))
 			 `(lambda ()
-			     (let ((fall-through (lambda () #unspecified)))
+			     (let ((fall-through (lambda () (js-undefined))))
 				,(clause-body (car clauses)))))
 		   rev-result))
 	    (else
@@ -691,7 +706,7 @@
        `(js-property-set! ,(thread-parameter 'top-level-object)
 			  ,(add-str! (symbol->string this.lhs.var.id))
 			  ,(this.val.traverse))
-       (pcall this Vassig-out)))
+       (fun-binding-set! this.lhs.var (this.val.traverse))))
 
 (define-pmethod (Accsig-out)
    (let* ((tmp-o (gensym 'tmp-o))
