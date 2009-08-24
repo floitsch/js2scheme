@@ -3,7 +3,8 @@ BIGLOO = bigloo -cc $(CC)
 AFILE = bglafile
 
 BGL_COMMON_FLAGS = -L .. -I utf -L ../unicode -copt -fpic -mkaddlib -library utf
-BGL_FLAGS = $(BGL_COMMON_FLAGS) -g
+BGL_UNSAFE =
+BGL_FLAGS = $(BGL_COMMON_FLAGS) -g $(BGL_UNSAFE)
 
 # basically all modules are included in 'runtime.scm' and thus exported
 # from the library.

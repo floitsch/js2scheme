@@ -10,7 +10,10 @@ AFILE = bglafile
 #TARGET_AFILE = $(TARGET).afile ## currently not possible :(
 TARGET_AFILE="`basename $(TARGET)`.afile"
 
-BGL_FLAGS = -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -L $(UNICODE_DIR) -g -library utf
+BGL_UNSAFE =
+BGL_FLAGS = -g $(BGL_UNSAFE) \
+             -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -L $(UNICODE_DIR) \
+             -library utf
 
 SCM_SOURCES = $(SOURCES:%.js=%.scm)
 OBJS = $(SOURCES:%.js=%.o)
