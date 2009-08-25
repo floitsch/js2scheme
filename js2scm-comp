@@ -22,6 +22,7 @@ echo "Target: " $TARGET
 echo "SOURCE_DIR = " $PWD > $TMPMK
 echo "SOURCES = " $* >> $TMPMK
 echo "TARGET = " $TARGET >> $TMPMK
+echo "JS2SCHEME_DIR = .." >> $TMPMK
 echo "VPATH = " $PWD >> $TMPMK
 echo "include Makefile.include" >> $TMPMK
 

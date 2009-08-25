@@ -65,12 +65,18 @@
    
    (define (consume! type)
       (let ((token (consume-any!)))
-	 (if (or (eq? type #t)
+	 (cond
+	    ((or (eq? type #t)
 		 (eq? (car token) type))
-	     (cdr token)
-	     (my-error (format "unexpected token. expected ~a got: " type)
+	     (cdr token))
+	    ((eq? type 'EOF)
+	     (my-error "unexpected end of file"
+		       'EOF
+		       token))
+	    (else
+	     (my-error (format "unexpected token. expected ~a" type)
 		       (car token)
-		       token))))
+		       token)))))
    
    (define (consume-statement-semicolon!)
       (cond
@@ -81,7 +87,7 @@
 	      (eq? (peek-token-type) 'EOF))
 	  'do-nothing)
 	 (else
-	  (my-error "unexpected token: " (peek-token) (peek-token)))))
+	  (my-error "unexpected token" (peek-token) (peek-token)))))
    
    (define (consume-any!)
       (let ((res (peek-token)))
@@ -105,9 +111,9 @@
    (define (source-element)
       (case (peek-token-type)
 	 ((function) (function-declaration))
-	 ((ERROR EOF)
-	  (let ((t (consume-any!)))
-	     (my-error "eof or error" t t)))
+	 ((EOF) (my-error "unexpected end of file" 'EOF (consume-any!)))
+	 ((ERROR) (let ((t (consume-any!)))
+		     (my-error "unexpected token" t t)))
 	 (else (statement))))
    
    (define (statement)
@@ -630,7 +636,7 @@
 	 ((true false) (new-node Bool (eq? (car (consume-any!)) 'true)))
 	 ((NUMBER) (new-node Number (consume! 'NUMBER))) ;; still as string!
 	 ((STRING) (new-node String (consume! 'STRING)))
-	 ((EOF) (my-error "unexpected end of file" #f (peek-token)))
+	 ((EOF) (my-error "unexpected end of file" 'EOF (peek-token)))
 	 ((/ /=) (let ((reg-exp (read-regexp (peek-token-type))))
 		    ;; consume-any *must* be after having read the reg-exp,
 		    ;; so that the read-regexp works. Only then can we remove
@@ -639,7 +645,7 @@
 		    (new-node Reg-exp reg-exp)))
 	 (else
 	  (let ((t (peek-token)))
-	     (my-error "unexpected token: " t t)))))
+	     (my-error "unexpected token" t t)))))
    
    (define (array-literal)
       ;; basically: every array-element finishes with a ','.

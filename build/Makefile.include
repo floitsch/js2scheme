@@ -1,9 +1,8 @@
 # out of memory can "crash" a machine. avoid this.
 ULIMITS = ulimit -d 400000 -m 400000 -v 400000
 
-JS2SCHEME_DIR = ..
-RUNTIME_DIR = ../js-runtime
-UNICODE_DIR = ../unicode
+RUNTIME_DIR = $(JS2SCHEME_DIR)/js-runtime
+UNICODE_DIR = $(JS2SCHEME_DIR)/unicode
 JS2SCHEME = $(JS2SCHEME_DIR)/js2scheme
 BIGLOO = bigloo
 AFILE = bglafile
@@ -16,9 +15,10 @@ BGL_FLAGS = -g $(BGL_UNSAFE) \
              -library utf
 
 SCM_SOURCES = $(SOURCES:%.js=%.scm)
-OBJS = $(SOURCES:%.js=%.o)
+OBJS = $(SCM_SOURCES:%.scm=%.o)
 
-LD_PATHS_ENV = env LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD/$(JS2SCHEME_DIR):$$PWD/$(RUNTIME_DIR):$$PWD/$(UNICODE_DIR)
+#LD_PATHS_ENV = env LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD/$(JS2SCHEME_DIR):$$PWD/$(RUNTIME_DIR):$$PWD/$(UNICODE_DIR)
+LD_PATHS_ENV = env LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(JS2SCHEME_DIR):$(RUNTIME_DIR):$(UNICODE_DIR)
 
 all.include: run
 
@@ -44,10 +44,6 @@ $(TARGET).exe: $(TARGET).exe.o $(OBJS)
 
 run: $(TARGET).exe
 	$(ULIMITS) && \
-	$(LD_PATHS_ENV) $<
+	$(LD_PATHS_ENV) `dirname $<`/`basename $<`
 
-.PHONY: clean run all.include dirs
-
-clean:
-	rm -f *.afile *.o *.scm *.exe
-	for d in *; do if [ -d "$$d" ]; then rm -rf "$$d"; fi; done
+.PHONY: run all.include dirs
