@@ -221,7 +221,6 @@
    (raise (js-new *js-URI-Error-orig* msg)))
 
 (define (error->js-exception e)
-   (tprint e)
    (cond
       ((&type-error? e)
        (js-new *js-Type-Error-orig*

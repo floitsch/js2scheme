@@ -243,12 +243,13 @@
    ;; 15.3.4.2
    (js-fun this #f #f (STR "Function.prototype.toString")
 	   ()
-	   (if (not (Js-Function? this))
-	       (type-error (STR "Function-toString applied to") this)
-	       (let ((str (Js-Function-text-repr this)))
-		  (if (js-string? str)
-		      str
-		      (js-substring (car str) (cadr str) (caddr str)))))))
+	   (when (not (procedure? this))
+	      (type-error (STR "Function-toString applied to") this))
+	   (let* ((o (procedure-object this))
+		  (str (Js-Function-text-repr o)))
+	      (if (js-string? str)
+		  str
+		  (js-substring (car str) (cadr str) (caddr str))))))
 
 (define (fun-apply)
    ;; 15.3.4.3
@@ -259,14 +260,14 @@
    (js-fun this #f #f (STR "Function.prototype.apply")
 	   (thisArg argArray)
 	   (cond
-	      ((not (Js-Function? this))
+	      ((not (procedure? this))
 	       (type-error (STR "Function.apply applied to") this))
 	      ((not (or (Js-Array? argArray)
 			(Js-Arguments? argArray)))
 	       (type-error (STR "argArray is neither Array nor Arguments object")
 			   argArray))
 	      (else
-	       (let* ((f (Js-Function-fun this))
+	       (let* ((f this)
 		      (call-this (if (or (js-undefined? thisArg)
 					 (js-null? thisArg))
 				     *js-global-this*
@@ -313,32 +314,32 @@
 	   (nb-args get-arg)
 	   (STR "Function.prototype.call")
 	   (thisArg)
-	   (if (not (Js-Function? this))
-	       (type-error (STR "Function.apply applied to") this)
-	       (let* ((f (Js-Function-fun this))
-		      (call-this (if (or (js-undefined? thisArg)
-					 (js-null? thisArg))
-				     *js-global-this*
-				     (any->object thisArg)))
-		      (vec-len (- nb-args *nb-named-params* 1)) ;;rm 1 for this
-		      (vec (make-vector (maxfx vec-len 0))))
-		  ;; start by filling the vector
-		  (let loop ((i 0))
-		     (when (<fx i vec-len)
-			(vector-set! vec i (get-arg (+ i *nb-named-params* 1)))
-			(loop (+fx i 1))))
-		  ;; now get the named params in reverse order
-		  (let loop ((args (list vec))
-			     (i *nb-named-params*)) ;; do not remove 1
-		     (cond
-			((<fx i 1) ;; don't take 0th element.
-			 (apply f (cons* call-this
-					 f
-					 (-fx nb-args 1)
-					 args)))
-			((<fx i nb-args)
-			 (loop (cons (get-arg i) args)
-			       (-fx i 1)))
-			(else
-			 (loop (cons (js-undefined) args)
-			       (-fx i 1)))))))))
+	   (when (not (procedure? this))
+	      (type-error (STR "Function.apply applied to") this))
+	   (let* ((f this)
+		  (call-this (if (or (js-undefined? thisArg)
+				     (js-null? thisArg))
+				 *js-global-this*
+				 (any->object thisArg)))
+		  (vec-len (- nb-args *nb-named-params* 1)) ;;rm 1 for this
+		  (vec (make-vector (maxfx vec-len 0))))
+	      ;; start by filling the vector
+	      (let loop ((i 0))
+		 (when (<fx i vec-len)
+		    (vector-set! vec i (get-arg (+ i *nb-named-params* 1)))
+		    (loop (+fx i 1))))
+	      ;; now get the named params in reverse order
+	      (let loop ((args (list vec))
+			 (i *nb-named-params*)) ;; do not remove 1
+		 (cond
+		    ((<fx i 1) ;; don't take 0th element.
+		     (apply f (cons* call-this
+				     f
+				     (-fx nb-args 1)
+				     args)))
+		    ((<fx i nb-args)
+		     (loop (cons (get-arg i) args)
+			   (-fx i 1)))
+		    (else
+		     (loop (cons (js-undefined) args)
+			   (-fx i 1))))))))
