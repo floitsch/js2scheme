@@ -84,13 +84,25 @@
 
 (define *JS-grammar*
    (utf8-regular-grammar
-	 ;; TODO: are a010 and a013 really correct?
-	 ((blank        (in #\Space #\Tab #a010 #a011 #a012 #a013 #\Newline))
-	  (blank_no_lt  (in #\Space #\Tab #a011 #a012))
-	  (lt           (in #a013 #\Newline))
+	 ((source-char (out))
+	  (blank_no_lt  (or (in #x9 #xB #xC #x20 #xA0) Zs))
+	  (lt           (in #a013 #\Newline #x2028 #x2029))
+	  (not-lt-no-single-quote (out #a013 #\Newline #x2028 #x2029 #\'))
+	  (not-lt-no-double-quote (out #a013 #\Newline #x2028 #x2029 #\"))
+	  (blank        (or blank_no_lt lt))
 	  (nonzero-digit   (in ("19")))
-	  (id_start     (or alpha #\$ #\_))
-	  (id_part      (or alnum #\$ #\_))) ;; TODO: not spec-conform!
+	  (unicode-letter (or Lu Ll Lt Lm Lo Nl))
+	  (unicode-combining-mark (or Mn Mc))
+	  (unicode-digit Nd)
+	  (unicode-connector-punctuation Pc)
+	  (hex-digit (or (in ("09")) (in ("af")) (in ("AF"))))
+	  (unicode-escape-sequence (: #\u hex-digit hex-digit
+					  hex-digit hex-digit))
+	  (id_start (or unicode-letter #\$ #\_
+			(: #\\ unicode-escape-sequence)))
+	  (id_part (or id_start unicode-combining-mark unicode-digit
+		       unicode-connector-punctuation
+		       (: #\\ unicode-escape-sequence))))
 
 
       ((+ blank_no_lt)
@@ -100,7 +112,7 @@
        (token 'NEW_LINE #\newline))
       
       ;; LineComment
-      ((:"//" (* all))
+      ((:"//" (* source-char))
        (ignore))
 
       ;; multi-line comment on one line
@@ -145,10 +157,9 @@
 	   "*=" "%=" "<<=" ">>=" ">>>=" "&=" "^=" "/=" #\/ #\?)
        (token (the-symbol) (the-string)))
 
-      ;; TODO: probably not spec-conform
-      ((: #\" (* (or (out #\" #\\ #\Newline) (: #\\ all))) #\")
+      ((: #\" (* (or not-lt-no-double-quote (: #\\ source-char))) #\")
        (token 'STRING (the-string)))
-      ((: #\' (* (or (out #\' #\\ #\Newline) (: #\\ all))) #\')
+      ((: #\' (* (or not-lt-no-single-quote (: #\\ source-char))) #\')
        (token 'STRING (the-string)))
 
       ;; Identifiers and Keywords
@@ -171,11 +182,23 @@
 	      (token 'ERROR c))))))
 
 (define *Reg-exp-grammar*
-   (regular-grammar
-	 ;; TODO: see TODOs for JS-grammar
-	 ((lt           (in #a013 #\Newline))
-	  (id_part      (or alnum #\$ #\_)))
-      ((: (* (or (out #\/ #\\ lt) (: #\\ (out lt)))) #\/ (* id_part))
+   (utf8-regular-grammar
+	 ((lt           (in #a013 #\Newline #x2028 #x2029))
+	  (not-lt (out #a013 #\Newline #x2028 #x2029))
+	  (not-/-bs-lt (out #a013 #\Newline #x2028 #x2029 #\/ #\\))
+	  (unicode-letter (or Lu Ll Lt Lm Lo Nl))
+	  (unicode-combining-mark (or Mn Mc))
+	  (unicode-digit Nd)
+	  (unicode-connector-punctuation Pc)
+	  (hex-digit (or (in ("09")) (in ("af")) (in ("AF"))))
+	  (unicode-escape-sequence (: #\u hex-digit hex-digit
+					  hex-digit hex-digit))
+	  (id_start (or unicode-letter #\$ #\_
+			(: #\\ unicode-escape-sequence)))
+	  (id_part (or id_start unicode-combining-mark unicode-digit
+		       unicode-connector-punctuation
+		       (: #\\ unicode-escape-sequence))))
+      ((: (* (or not-/-bs-lt (: #\\ not-lt))) #\/ (* id_part))
        (cons 'Reg-exp (the-string)))
       (else
        (let ((c (the-failure)))
