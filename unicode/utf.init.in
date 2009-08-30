@@ -55,25 +55,25 @@
 			    (<=fx (+fx from surrogate-0byte) to))
 		       ;; second char is not important
 		       (loop (+fx 1 (+fx from surrogate-0byte))
-			     (cons `(: ,(string-ref buffer 0) surrogate) res)))
+			     (cons `(,(string-ref buffer 0) surrogate) res)))
 		      ((and (=fx from-len 3)
 			    (char=? surrogate-min (string-ref buffer 2))
 			    (char=? surrogate-min (string-ref buffer 1))
 			    (<=fx (+fx from surrogate-1byte) to))
 		       ;; last two chars are not relevant
 		       (loop (+fx 1 (+fx from surrogate-1byte))
-			     (cons `(: ,(string-ref buffer 0)
-				       surrogate
-				       surrogate)
+			     (cons `(,(string-ref buffer 0)
+				     surrogate
+				     surrogate)
 				   res)))
 		      ((and (=fx from-len 3)
 			    (char=? surrogate-min (string-ref buffer 2))
 			    (<=fx (+fx from surrogate-0byte) to))
 		       ;; last char is not relevant
 		       (loop (+fx 1 (+fx from surrogate-0byte))
-			     (cons `(: ,(string-ref buffer 0)
-				       ,(string-ref buffer 1)
-				       surrogate)
+			     (cons `(,(string-ref buffer 0)
+				     ,(string-ref buffer 1)
+				     surrogate)
 				   res)))
 		      ((and (=fx from-len 4)
 			    (char=? surrogate-min (string-ref buffer 3))
@@ -82,8 +82,8 @@
 			    (<=fx (+fx from surrogate-2byte) to))
 		       ;; last three chars are not relevant.
 		       (loop (+fx 1 (+fx from surrogate-2byte))
-			     (cons `(: ,(string-ref buffer 0)
-				       surrogate surrogate surrogate)
+			     (cons `(,(string-ref buffer 0)
+				     surrogate surrogate surrogate)
 				   res)))
 		      ((and (=fx from-len 4)
 			    (char=? surrogate-min (string-ref buffer 3))
@@ -91,24 +91,27 @@
 			    (<=fx (+fx from surrogate-1byte) to))
 		       ;; last two chars are not relevant
 		       (loop (+fx 1 (+fx from surrogate-1byte))
-			     (cons `(: ,(string-ref buffer 0)
-				       ,(string-ref buffer 1)
-				       surrogate surrogate)
+			     (cons `(,(string-ref buffer 0)
+				     ,(string-ref buffer 1)
+				     surrogate surrogate)
 				   res)))
 		      ((and (=fx from-len 4)
 			    (char=? surrogate-min (string-ref buffer 3))
 			    (<=fx (+fx from surrogate-0byte) to))
 		       ;; last two chars are not relevant
 		       (loop (+fx 1 (+fx from surrogate-1byte))
-			     (cons `(: ,(string-ref buffer 0)
-				       ,(string-ref buffer 1)
-				       ,(string-ref buffer 2)
-				       surrogate)
+			     (cons `(,(string-ref buffer 0)
+				     ,(string-ref buffer 1)
+				     ,(string-ref buffer 2)
+				     surrogate)
 				   res)))
 		      (else
-		       (loop (+fx from 1)
-			     (cons (unicode-char->sequence from)
-				   res))))))))))
+		       (let ((seq (unicode-char->sequence from)))
+			  (loop (+fx from 1)
+				(cons (if (and (pair? seq) (eq? ': (car seq)))
+					  (cdr seq)
+					  seq)
+				      res)))))))))))
 
    (define lower car)
    (define upper cadr)
@@ -228,10 +231,124 @@
 		   (cdr r2)
 		   rev-res)))))
 
-   (define (fixup-range r)
-      (if (fixnum? r)
-	  (car (range-chars r r))
-	  (cons 'or (range-chars (car r) (cadr r)))))
+   (define (sort-ranges ranges)
+      (sort (lambda (x y)
+	       (cond
+		  ((and (char? x) (char? y)) (char<? x y))
+		  ((char? x) #t)
+		  ((char? y) #f)
+		  ((and (symbol? x) (symbol? y))
+		   (string<? (symbol->string x) (symbol->string y)))
+		  ((symbol? x) #t)
+		  ((symbol? y) #f)
+		  ((not (and (pair? x) (pair? y)))
+		   (error 'sort-ranges
+			  "internal error expected sequences"
+			  (list x y)))
+		  ((=fx (length x) (length y))
+		   (let loop ((x x)
+			      (y y))
+		      (cond
+			 ((null? x) #f)
+			 ((and (char? (car x)) (char? (car y)))
+			  (if (char=? (car x) (car y))
+			      (loop (cdr x) (cdr y))
+			      (char<? (car x) (car y))))
+			 ((char? (car x)) #t)
+			 (else #f))))
+		  (else
+		   (<fx (length x) (length y)))))
+	    ranges))
+			      
+			
+   (define (compact-ranges ranges)
+      ;; some abuses in this method: last-char might be a symbol (like
+      ;; 'surrogate)
+      ;; but we will treat it as if it was a char.
+      
+      (define (compact-seqs-and-add-to-res last-char seqs res)
+	 (cond
+	    ((not last-char) res)
+	    ((null? seqs) (cons last-char res))
+	    ((null? (cdr seqs)) (cons `(: ,last-char ,@seqs) res))
+	    (else (cons `(: ,last-char ,(compact-ranges (reverse! seqs)))
+			res))))
+
+      
+      (define (compact-non-surrogates ranges)
+	 (let loop ((ranges (sort-ranges ranges))
+		    (res '())
+		    (last-char #f)
+		    (last-range-was-list? #f)
+		    (last-char-seqs '()))
+	    (cond
+	       ;; no range left, but last-char has not yet been added.
+	       ((null? ranges)
+		(let ((r (compact-seqs-and-add-to-res last-char
+						      last-char-seqs
+						      res)))
+		   (cond
+		      ((null? r) r)
+		      ((null? (cdr r)) (car r))
+		      (else `(or ,@r)))))
+	       ;; range is a char and equal to last-char. simply ignore it.
+	       ((and (not (pair? (car ranges)))
+		     (not last-range-was-list?)
+		     (eqv? last-char (car ranges)))
+		(loop (cdr ranges) res
+		      last-char #f last-char-seqs))
+	       ;;
+	       ((not (pair? (car ranges)))
+		(loop (cdr ranges)
+		      (compact-seqs-and-add-to-res last-char last-char-seqs res)
+		      (car ranges) #f '()))
+	       ;; range is a list, last-char is equal to first char
+	       ((and (eqv? last-char (caar ranges))
+		     last-range-was-list?)
+		(loop (cdr ranges)
+		      res
+		      last-char
+		      #t
+		      (cons (cdr (car ranges)) last-char-seqs)))
+	       (else
+		(loop (cdr ranges)
+		      (compact-seqs-and-add-to-res last-char last-char-seqs res)
+		      (caar ranges)
+		      #t
+		      (cdr (car ranges)))))))
+
+      (define (compact-surrogates ranges)
+	 (let loop ((ranges ranges)
+		    (surrogs '())
+		    (others '()))
+	    (cond
+	       ((and (null? ranges) (null? surrogs))
+		(compact-non-surrogates others))
+	       ((and (null? ranges) (null? others))
+		`(: ,(compact-surrogates surrogs) surrogate))
+	       ((null? ranges)
+		`(or (: ,(compact-surrogates surrogs) surrogate)
+		     ,(compact-non-surrogates others)))
+	       ((and (pair? (car ranges))
+		     (eq? 'surrogate (car (last-pair (car ranges)))))
+		(loop (cdr ranges)
+		      (cons (take (car ranges) (-fx (length (car ranges)) 1))
+			    surrogs)
+		      others))
+	       (else
+		(loop (cdr ranges)
+		      surrogs
+		      (cons (car ranges) others))))))
+      (compact-surrogates ranges))
+
+   
+   ;; takes a list of pairs (int int), where each is a range in the unicode
+   ;; universe.
+   (define (ranges->clause ranges)
+      (compact-ranges (apply append
+			     (map (lambda (r)
+				     (range-chars (car r) (cadr r)))
+				  ranges))))
 
    (define (fixup-re re)
       (match-case re
@@ -241,23 +358,15 @@
 	 ((? fixnum?) (unicode-char->sequence re))
 	 ((posix . ?-) re)
 	 ((in . ?ranges)
-	  (cons 'or
-		(map fixup-range
-		     (normalize-ranges ranges))))
+	  (ranges->clause (normalize-ranges ranges)))
 	 ((out . ?ranges)
-	  (cons 'or
-		(map fixup-range
-		     (invert-ranges (normalize-ranges ranges)))))
+	  (ranges->clause (invert-ranges (normalize-ranges ranges))))
 	 (((kwote and) ?r1 ?r2)
-	  (cons 'or
-		(map fixup-range
-		     (intersect-ranges (normalize-ranges r1)
-				       (normalize-ranges r2)))))
+	  (ranges->clause (intersect-ranges (normalize-ranges r1)
+					   (normalize-ranges r2))))
 	 ((but ?r1 ?r2)
-	  (cons 'or
-		(map fixup-range
-		     (but-ranges (normalize-ranges r1)
-				 (normalize-ranges r2)))))
+	  (ranges->clause (but-ranges (normalize-ranges r1)
+				     (normalize-ranges r2))))
 	 (((or uncase * + ?) ?r)
 	  ;; uncase will be ignored. (for utf8)
 	  (list (car re) (fixup-re r)))
@@ -363,7 +472,7 @@
 		(error 'unicode-category-chars
 		       "Could not find category"
 		       var))
-	     (if (eq? var (vector-ref (uc-categories)))
+	     (if (eq? var (vector-ref (uc-categories) i))
 		 (vector-ref (uc-category-ranges) i)
 		 (loop (+fx i 1)))))))
 
@@ -377,11 +486,12 @@
 	   (map (lambda (var)
 		   (fixup-binding `(,var (in ,@(unicode-category-chars var)))))
 		unicode-vars))
-	  (surrogate `(surrogate ,(surrogate-chars))))
+	  (surrogate `(surrogate ,(surrogate-chars)))
+	  (fixed-bindings (fixup-bindings bindings))
+	  (fixed-rules (fixup-rules rules)))
       `(regular-grammar
-	     ,(cons surrogate (append unicode-bindings
-				      (fixup-bindings bindings)))
-	  ,@(fixup-rules rules))))
+	     ,(cons surrogate (append unicode-bindings fixed-bindings))
+	  ,@fixed-rules)))
 
 ; (define (main args)
 ;    (pp (utf8-regular-grammar

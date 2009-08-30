@@ -41,6 +41,10 @@ clean:
 	      $(UTF_HEAP) \
 	      $(UTF_LIB_A) \
 	      $(UTF_LIB_SO) \
+	      $(UTF_INIT) \
+	      unicode-reader.o unicode-reader \
+	      utf-data.sch utf-category-data.sch \
+	      utf-init-gen utf-init-gen.o \
 	      .afile;
 
 $(UTF_INIT): utf.init.in utf-init-gen
