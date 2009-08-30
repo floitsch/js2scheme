@@ -35,7 +35,7 @@
    (define (read-regexp intro-token)
       (let ((token (read/rp *Reg-exp-grammar* *input-port*)))
 	 (when (eq? (car token) 'EOF)
-	    (my-error "unfinished regular expression literal" #f token))
+	    (my-error "unexpected end of file" 'EOF token))
 	 (when (eq? (car token) 'ERROR)
 	    (my-error "bad regular-expression literal" (cdr token) token))
 	 (string-append (symbol->string intro-token) (cdr token))))
@@ -167,8 +167,11 @@
 			   (or (at-new-line-token?)
 			       (eq? (peek-token-type) 'EOF)))
 		      (new-node Var-decl-list (reverse! rev-vars))
-		      (let ((t (consume-any!)))
-			 (my-error "unexpected token, error or EOF"
+		      (let* ((t (consume-any!))
+			     (eof? (eq? (car t) 'EOF)))
+			 (my-error (if eof?
+				       "unexected end of file"
+				       "unexpected token")
 				   (cdr t)
 				   t)))))))
    

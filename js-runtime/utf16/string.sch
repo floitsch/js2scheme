@@ -344,7 +344,6 @@
 
 ;; downcase must work in unicode (if the implementation allows UC)
 (define-inline (js-string-downcase::Js-Base-String str::Js-Base-String)
-   (tprint "downcasing " str)
    (utf16-downcase str))
 
 ;; upcase must work in unicode (if the implementation allows UC)
