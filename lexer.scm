@@ -82,6 +82,47 @@
 (define-macro (token type value)
    `(econs ,type ,value (the-coord input-port)))
 
+(define (unescape-unicode-escape-sequences str)
+   (define (surrogate-1st? n) (=fx (bit-and n #xFC00) #xD800))
+   (define (surrogate-2nd? n) (=fx (bit-and n #xFC00) #xFC00))
+   (define (surrogate? n) (or (surrogate-1st? n) (surrogate-2nd? n)))
+
+   (let ((i (string-contains str "\\u")))
+      (if (not i)
+	  str
+	  (let ((first-part (substring str 0 i))
+		(u-part (string->integer (substring str (+fx i 2) (+fx i 6))
+					 16))
+		(last-part (substring str (+fx i 6) (string-length str))))
+	     (cond
+		((not (surrogate? u-part))
+		 (let* ((buffer (make-string 4))
+			(len (utf8-string-set! buffer 0 u-part)))
+		    (unescape-unicode-escape-sequences
+		     (string-append first-part
+				    (string-shrink! buffer len)
+				    last-part))))
+		((and (surrogate-1st? u-part)
+		      (>=fx (string-length str) (+fx i 12))
+		      (char=? #\\ (string-ref str (+fx i 6)))
+		      (char=? #\u (string-ref str (+fx i 7)))
+		      (let* ((sub-str (substring str (+fx i 8) (+fx i 12)))
+			     (u-part2 (string->integer sub-str 16)))
+			 (and (surrogate-2nd? u-part2)
+			      u-part2)))
+		 =>
+		 (lambda (u-part2)
+		    (let ((ucs2-buffer (make-ucs2-string 2))
+			  (u1 (unchecked-integer->ucs2 u-part))
+			  (u2 (unchecked-integer->ucs2 u-part2)))
+		       (ucs2-string-set! ucs2-buffer 0 u1)
+		       (ucs2-string-set! ucs2-buffer 1 u2)
+		       (unescape-unicode-escape-sequences
+			(string-append first-part
+				       (utf16-string->utf8-string ucs2-buffer)
+				       last-part)))))
+		(else #f))))))
+   
 (define *JS-grammar*
    (utf8-regular-grammar
 	 ((source-char (out))
@@ -127,12 +168,11 @@
 	  (+ #\*) "/")
        (token 'NEW_LINE #\newline))
 
-      ;; TODO: verify if this is really the correct syntax
       ((or
 	;; integer constant
 	#\0
 	(: nonzero-digit (* digit))
-	(: (uncase "0x") (+ xdigit))
+	(: #\0 (in #\x #\X) (+ xdigit))
 	;; floating-point constant
 	(: (+ digit)
 	   (: (in #\e #\E) (? (in #\- #\+)) (+ digit)))
@@ -172,8 +212,26 @@
 		   (getprop symbol 'future-reserved))
 	      (token symbol symbol))
 	     (else
-	      (token 'ID symbol)))))
-      
+	      (let* ((str (the-string))
+		     (unescaped-str (unescape-unicode-escape-sequences str)))
+		 (cond
+		    ((not unescaped-str)
+		     (token 'ERROR #f))
+		    ((string=? str unescaped-str)
+		     (token 'ID symbol))
+		    (else
+		     ;; try to read it again.
+		     (let ((tkn (read/rp *JS-grammar*
+					 (open-input-string unescaped-str)))
+			   (unescaped-sym (string->symbol unescaped-str)))
+			(cond
+			   ((and (eq? 'ID (car tkn))
+				 (eq? unescaped-sym (cdr tkn)))
+			    (token 'ID unescaped-sym))
+			   ((eq? 'ERROR (car tkn))
+			    (token 'ERROR (cdr tkn)))
+			   (else
+			    (token 'ERROR #f)))))))))))
       ;; error
       (else
        (let ((c (the-failure)))
