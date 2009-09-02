@@ -304,18 +304,10 @@
 
       ((and (or (js-string? v1) (flonum? v1))
 	    (js-object v2))
-       => (lambda (obj)
-	     (jsop-== v1
-		      (js-object->primitive v2 (if (Js-Date? obj)
-						   'string
-						   'number)))))
+       (jsop-== v1 (any->primitive v2 #f)))
       ((and (or (js-string? v2) (flonum? v2))
 	    (js-object v1))
-       => (lambda (obj)
-	     (jsop-== (js-object->primitive v1 (if (Js-Date? obj)
-						   'string
-						   'number))
-		      v2)))
+       (jsop-== (any->primitive v1 #f) v2))
       (else #f)))
 
 ;(define-inline (jsop-!= v1 v2)

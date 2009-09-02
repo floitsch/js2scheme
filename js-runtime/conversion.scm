@@ -24,7 +24,6 @@
 ; 	   (inline any->js-string::bstring any)
 ; 	   (inline any->object::Js-Object any)
 ; 	   (js-object any) ;; TODO we really need a better name...
-; 	   (js-object->primitive o::Js-Object hint::symbol)))
    (export (js-boolify::bool any)
 	   (any->bool::bool any)
 	   (js-string->number::double str::Js-Base-String)
@@ -43,20 +42,20 @@
 	   (any->js-string::Js-Base-String any)
 	   (any->object any)
 	   (js-object any) ;; TODO we really need a better name...
-	   (safe-js-object::Js-Object any) ;; TODO we really need a better name...
-	   (js-object->primitive o::Js-Object hint::symbol)))
+	   (safe-js-object::Js-Object any))) ;; TODO we really need a better name...
 
 ;; return #f if any is not a javascript object.
 ;; otherwise the Js-Object
 (define (js-object any)
    (cond
-      ((or (js-null? any)
-	   (js-undefined? any))
-       #f)
       ((Js-Object? any) any)
       ((procedure? any) (procedure-object any))
       (else
        #f)))
+
+(define (js-object? any)
+   (or (Js-Object? any)
+       (procedure? any)))
 
 (define (safe-js-object any)
    (if (Js-Object? any)
@@ -237,49 +236,49 @@
        (if (exact? any) (exact->inexact any) any)) ;; TODO (numbers)
       (else (any->number (any->primitive any 'number)))))
 
-(define (js-object->primitive o::Js-Object hint::symbol)
-   (define (primitive? v) (not (Js-Object? v)))
+;; any is either a procedure or Js-Object.
+(define (js-object->primitive any hint::symbol)
+   (define (primitive? v) (not (js-object? v)))
 
-   (define (toString)
+   (define (toString any o)
       (let ((toString-prop (js-property-contains o (STR "toString"))))
 	 (if (procedure? toString-prop)
-	     (js-call toString-prop o)
-	     o)))
-   (define (valueOf)
+	     (js-call toString-prop any)
+	     any)))
+   (define (valueOf any o)
       (let ((valueOf-prop (js-property-contains o (STR "valueOf"))))
 	 (if (procedure? valueOf-prop)
-	     (js-call valueOf-prop o)
-	     o)))
-   (case hint
-      ((number)
-       (let ((valueOf-prim (valueOf)))
-	  (if (primitive? valueOf-prim)
-	      valueOf-prim
-	      (let ((toString-prim (toString)))
-		 (if (primitive? toString-prim)
-		     toString-prim
-		     (type-error (STR "could not convert to primitive type")
-				 o))))))
-      ((string)
-       (let ((toString-prim (toString)))
-	  (if (primitive? toString-prim)
-	      toString-prim
-	      (let ((valueOf-prim (valueOf)))
-		 (if (primitive? valueOf-prim)
-		     valueOf-prim
-		     (type-error (STR "could not convert to primitive type")
-				 o))))))))
+	     (js-call valueOf-prop any)
+	     any)))
+   (let ((o (safe-js-object any)))
+      (case hint
+	 ((number)
+	  (let ((valueOf-prim (valueOf any o)))
+	     (if (primitive? valueOf-prim)
+		 valueOf-prim
+		 (let ((toString-prim (toString any o)))
+		    (if (primitive? toString-prim)
+			toString-prim
+			(type-error (STR "could not convert to primitive type")
+				    o))))))
+	 ((string)
+	  (let ((toString-prim (toString any o)))
+	     (if (primitive? toString-prim)
+		 toString-prim
+		 (let ((valueOf-prim (valueOf any o)))
+		    (if (primitive? valueOf-prim)
+			valueOf-prim
+			(type-error (STR "could not convert to primitive type")
+				    o)))))))))
 
 ;; hint may be either #f, 'string or 'number
 (define (any->primitive any hint)
    (cond
-      ((js-object any)
-       =>
-       (lambda (o)
-	  (if (and (not hint)
-		   (Js-Date? o))
-	      (js-object->primitive o 'string)
-	      (js-object->primitive o (or hint 'number)))))
+      ((js-object? any)
+       (if (and (not hint)
+		(Js-Date? any))
+	   (js-object->primitive any 'string)
+	   (js-object->primitive any (or hint 'number))))
       (else any)))
 
 (define (finite->integer n::double)
