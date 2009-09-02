@@ -3,7 +3,10 @@
    (export *JS-grammar*
 	   *care-future-reserved*
 	   *Reg-exp-grammar*
-	   (reserved-word?::bool symbol::symbol)))
+	   (reserved-word?::bool symbol::symbol)
+	   (token-type token)
+	   (token-val token)
+	   (token-pos token)))
 
 (define (the-coord input-port)
    (list 'at (input-port-name input-port) (input-port-position input-port)))
@@ -81,6 +84,9 @@
 
 (define-macro (token type value)
    `(econs ,type ,value (the-coord input-port)))
+(define (token-type token) (car token))
+(define (token-val token) (cdr token))
+(define (token-pos token) (and (epair? token) (cer token)))
 
 (define (unescape-unicode-escape-sequences str)
    (define (surrogate-1st? n) (=fx (bit-and n #xFC00) #xD800))
@@ -167,6 +173,13 @@
 		 (: (+ #\*) (out #\/ #\*))))
 	  (+ #\*) "/")
        (token 'NEW_LINE #\newline))
+
+      ;; unfinished multi-line comment (added for repl)
+      ((eof (: "/*"
+	       (* (or lt
+		      (out #\*)
+		      (: (+ #\*) (out #\/ #\*))))))
+       (token 'ERROR 'eof))
 
       ((or
 	;; integer constant
@@ -257,9 +270,25 @@
 		       unicode-connector-punctuation
 		       (: #\\ unicode-escape-sequence))))
       ((: (* (or not-/-bs-lt (: #\\ not-lt))) #\/ (* id_part))
-       (cons 'Reg-exp (the-string)))
+       (let ((str (the-string)))
+	  (let loop ((i 0))
+	     (cond
+		((char=? #\\ (string-ref str i)) (loop (+fx i 2)))
+		((not (char=? #\/ (string-ref str i))) (loop (+fx i 1)))
+		((not (string-contains str "\\u" i))
+		 (token 'REG-EXP str))
+		(else
+		 (let* ((reg-part (substring str 0 (+fx i 1)))
+			(flags-part (substring str (+fx i 1)
+					       (string-length str)))
+			(unescaped (unescape-unicode-escape-sequences
+				    flags-part)))
+		    (if (not unescaped)
+			(token 'ERROR 'unicode-error)
+			(token 'REG-EXP
+			       (string-append reg-part unescaped)))))))))
       (else
        (let ((c (the-failure)))
 	  (if (eof-object? c)
-	      (cons 'EOF c)
-	      (cons 'ERROR c))))))
+	      (token 'EOF c)
+	      (token 'ERROR c))))))

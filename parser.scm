@@ -15,8 +15,8 @@
        (error "parser"
 	      msg
 	      obj))
-      ((epair? token)
-       (match-case (cer token)
+      ((token-pos token)
+       (match-case (token-pos token)
 	  ((at ?fname ?loc)
 	   (error/location "parser" msg obj fname loc))
 	  (else
@@ -24,6 +24,19 @@
       (else
        (my-error msg obj #f))))
 
+(define (unexpected-token-error token #!optional expected-type)
+   (cond
+      ((or (eq? (token-type token) 'EOF)
+	   (and (eq? (token-type token) 'ERROR)
+		(eq? (token-val token) 'eof)))
+       (my-error "unexpected end of file" 'EOF token))
+      (expected-type
+       (my-error (format "unexpected token. expected ~a" expected-type)
+		 (token-type token)
+		 token))
+      (else
+       (my-error "unexpected token" token token))))
+   
 (define (parse port)
    ;; fun-body at bottom of file
    
@@ -34,19 +47,19 @@
    
    (define (read-regexp intro-token)
       (let ((token (read/rp *Reg-exp-grammar* *input-port*)))
-	 (when (eq? (car token) 'EOF)
-	    (my-error "unexpected end of file" 'EOF token))
-	 (when (eq? (car token) 'ERROR)
-	    (my-error "bad regular-expression literal" (cdr token) token))
-	 (string-append (symbol->string intro-token) (cdr token))))
+	 (case (token-type token)
+	    ((REG-EXP) (string-append (symbol->string intro-token)
+				      (token-val token)))
+	    ((ERROR)
+	     (my-error "bad regular-expression literal" (token-val token) token))
+	    (else (unexpected-token-error token)))))
    
    (define (peek-token)
       (if (null? *peeked-tokens*)
 	  (begin
 	     (set! *peeked-tokens* (list (read/rp *JS-grammar* *input-port*)))
 	     ;(display* (cdar *peeked-tokens*) " ")
-	     (if (eq? (caar *peeked-tokens*)
-		      'NEW_LINE)
+	     (if (eq? 'NEW_LINE (token-type (car *peeked-tokens*)))
 		 (begin
 		    (set! *previous-token-type* 'NEW_LINE)
 		    (set! *peeked-tokens* (cdr *peeked-tokens*))
@@ -58,7 +71,7 @@
       (set! *peeked-tokens* (cons token *peeked-tokens*)))
    
    (define (peek-token-type)
-      (car (peek-token)))
+      (token-type (peek-token)))
    
    (define (at-new-line-token?)
       (eq? *previous-token-type* 'NEW_LINE))
@@ -67,16 +80,9 @@
       (let ((token (consume-any!)))
 	 (cond
 	    ((or (eq? type #t)
-		 (eq? (car token) type))
-	     (cdr token))
-	    ((eq? type 'EOF)
-	     (my-error "unexpected end of file"
-		       'EOF
-		       token))
-	    (else
-	     (my-error (format "unexpected token. expected ~a" type)
-		       (car token)
-		       token)))))
+		 (eq? (token-type token) type))
+	     (token-val token))
+	    (else (unexpected-token-error token type)))))
    
    (define (consume-statement-semicolon!)
       (cond
@@ -87,11 +93,11 @@
 	      (eq? (peek-token-type) 'EOF))
 	  'do-nothing)
 	 (else
-	  (my-error "unexpected token" (peek-token) (peek-token)))))
+	  (unexpected-token-error (peek-token)))))
    
    (define (consume-any!)
       (let ((res (peek-token)))
-	 (set! *previous-token-type* (car res))
+	 (set! *previous-token-type* (token-type res))
 	 (set! *peeked-tokens* (cdr *peeked-tokens*))
 	 (peek-token) ;; prepare new token.
 	 res))
@@ -111,9 +117,8 @@
    (define (source-element)
       (case (peek-token-type)
 	 ((function) (function-declaration))
-	 ((EOF) (my-error "unexpected end of file" 'EOF (consume-any!)))
-	 ((ERROR) (let ((t (consume-any!)))
-		     (my-error "unexpected token" t t)))
+	 ((EOF ERROR)
+	  (unexpected-token-error (consume-any!)))
 	 (else (statement))))
    
    (define (statement)
@@ -167,13 +172,7 @@
 			   (or (at-new-line-token?)
 			       (eq? (peek-token-type) 'EOF)))
 		      (new-node Var-decl-list (reverse! rev-vars))
-		      (let* ((t (consume-any!))
-			     (eof? (eq? (car t) 'EOF)))
-			 (my-error (if eof?
-				       "unexected end of file"
-				       "unexpected token")
-				   (cdr t)
-				   t)))))))
+		      (unexpected-token-error (consume-any!)))))))
    
    (define (var in-for-init?)
       (let ((id (consume! 'ID)))
@@ -394,7 +393,7 @@
    (define (labelled-or-expr)
       (let* ((id-token (consume-any!))
 	     (next-token-type (peek-token-type)))
-	 [assert (id-token) (eq? (car id-token) 'ID)]
+	 [assert (id-token) (eq? (token-type id-token) 'ID)]
 	 (token-push-back! id-token)
 	 (if (eq? next-token-type  ':)
 	     (labelled)
@@ -484,7 +483,7 @@
       (let* ((error-token (peek-token))
 	     (expr (cond-expr in-for-init?)))
 	 (if (assig-operator? (peek-token-type))
-	     (let* ((op (car (consume-any!)))      ;; ops are in car
+	     (let* ((op (token-type (consume-any!)))      ;; ops are in type-field
 		    (rhs (assig-expr in-for-init?)))
 		(cond
 		   ((and (eq? op '=) (inherits-from? expr (node 'Access)))
@@ -540,8 +539,8 @@
 		      ((not new-level)
 		       expr)
 		      ((=fx new-level level)
-		       ;; ops are in car
-		       (let ((token-op (car (consume-any!))))
+		       ;; ops are in token-type field
+		       (let ((token-op (token-type (consume-any!))))
 			  (loop (new-node Binary
 					  expr
 					  (new-node Var-ref token-op)
@@ -553,9 +552,13 @@
    (define (unary)
       (case (peek-token-type)
 	 ((delete void typeof ~ ! ++ --)
-	  (new-node Unary (new-node Var-ref (car (consume-any!))) (unary)))
+	  (new-node Unary (new-node Var-ref (token-type (consume-any!))) (unary)))
 	 ((+ -)
-	  (new-node Unary (new-node Var-ref (symbol-append 'unary- (car (consume-any!)))) (unary)))
+	  (new-node Unary
+		    (new-node Var-ref
+			      (symbol-append 'unary-
+					     (token-type (consume-any!))))
+		    (unary)))
 	 (else
 	  (postfix))))
    
@@ -564,7 +567,7 @@
 	 (if (not (at-new-line-token?))
 	     (case (peek-token-type)
 		((++ --)
-		 (let ((op (car (consume-any!))))
+		 (let ((op (token-type (consume-any!))))
 		    (new-node Postfix expr (new-node Var-ref op))))
 		(else
 		 expr))
@@ -636,10 +639,9 @@
 	 ((LBRACE) (object-literal))
 	 ((null) (consume-any!)
 		 (new-node Null))
-	 ((true false) (new-node Bool (eq? (car (consume-any!)) 'true)))
+	 ((true false) (new-node Bool (eq? (token-type (consume-any!)) 'true)))
 	 ((NUMBER) (new-node Number (consume! 'NUMBER))) ;; still as string!
 	 ((STRING) (new-node String (consume! 'STRING)))
-	 ((EOF) (my-error "unexpected end of file" 'EOF (peek-token)))
 	 ((/ /=) (let ((reg-exp (read-regexp (peek-token-type))))
 		    ;; consume-any *must* be after having read the reg-exp,
 		    ;; so that the read-regexp works. Only then can we remove
@@ -647,8 +649,7 @@
 		    (consume-any!) ;; the / or /=
 		    (new-node Reg-exp reg-exp)))
 	 (else
-	  (let ((t (peek-token)))
-	     (my-error "unexpected token" t t)))))
+	  (unexpected-token-error (peek-token)))))
    
    (define (array-literal)
       ;; basically: every array-element finishes with a ','.
@@ -689,8 +690,7 @@
 	     (if (and (config 'liberal-object-literal-name)
 		      (reserved-word? (peek-token-type)))
 		 (new-node String (symbol->lexer-string (consume! #t)))
-		 (let ((t (peek-token)))
-		    (my-error "unexpected token"  t t))))))
+		 (unexpected-token-error (peek-token))))))
       
       (define (property-init)
 	 (let* ((name (property-name))
