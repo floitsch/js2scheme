@@ -1,14 +1,15 @@
 (module jsre-Array
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
-   (use jsre-natives
+   (use jsre-undefined
 	jsre-Object
 	jsre-Date
 	jsre-Function
 	jsre-String
 	jsre-Number
 	jsre-Bool
-	jsre-primitives
 	jsre-Error
 	jsre-conversion
 	jsre-global-object
@@ -16,7 +17,7 @@
 	)
    (export
     *jsg-Array*
-    (final-class NatO-Array::Js-Object
+    (final-class NatO-Array::Js-HT-Object
        length::double) ;; TODO: really not optimal :(
     (Array-init)
     (js-array-literal length::bint els::pair-nil)

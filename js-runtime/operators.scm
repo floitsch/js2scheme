@@ -1,8 +1,9 @@
 (module jsre-operators
    (import jsre-base-string)
    (use jsre-base-object
-	jsre-natives ;; undefined
-	jsre-primitives
+	jsre-ht-object
+	jsre-property-entry
+	jsre-undefined
 	jsre-Error
 	jsre-Object
 	jsre-Date

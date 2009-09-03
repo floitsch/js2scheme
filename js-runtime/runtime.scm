@@ -1,9 +1,10 @@
 (module jsre-runtime
    (import jsre-base-object
+	   jsre-ht-object
 	   jsre-base-string
-	   jsre-natives
+	   jsre-property-entry
+	   jsre-undefined
 	   jsre-Error
-	   jsre-primitives
 	   jsre-global-object
 	   jsre-scope-object
 	   jsre-globals
@@ -22,10 +23,11 @@
 	   jsre-conversion
 	   jsre-Arguments)
    (from jsre-base-object
+	 jsre-ht-object
 	 jsre-base-string
-	 jsre-natives
+	 jsre-property-entry
+	 jsre-undefined
 	 jsre-Error
-	 jsre-primitives
 	 jsre-global-object
 	 jsre-scope-object
 	 jsre-globals

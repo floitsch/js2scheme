@@ -1,9 +1,10 @@
 (module jsre-global-object
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
-   (use jsre-natives ;; undefined
+   (use jsre-undefined
 	jsre-Error
-	jsre-primitives
 	jsre-Object
 	jsre-Date
 	jsre-String
@@ -12,7 +13,7 @@
 	jsre-Function
 	jsre-conversion
 	jsre-Eval-env)
-   (static (final-class Js-Global::Js-Object))
+   (static (final-class Js-Global::Js-HT-Object))
    (export *js-global-object* ;::Js-Object
 	   *js-global-this* ;::Js-Object ;; alias for js-global-object
 	   *js-global-env*

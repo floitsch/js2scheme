@@ -1,10 +1,11 @@
 (module jsre-scope-object
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
    (use jsre-global-object
-	jsre-natives ;; undefined
+	jsre-undefined
 	jsre-Error
-	jsre-primitives
 	jsre-Object
 	jsre-Date
 	jsre-String
@@ -12,7 +13,7 @@
 	jsre-Number
 	jsre-Function
 	jsre-conversion)
-   (export (class Js-Scope-Object::Js-Object)
+   (export (class Js-Scope-Object::Js-HT-Object)
 	   (class Js-Activation-Object::Js-Scope-Object)
 	   (class Ref
 	      (getter::procedure read-only)
@@ -57,7 +58,7 @@
 
 
 (define (js-scope-property-one-level-contains? scope-object id)
-   (with-access::Js-Object scope-object (props proto)
+   (with-access::Js-Scope-Object scope-object (props proto)
       (let ((ht-entry (hashtable-get props id)))
 	 (and ht-entry
 	      (let ((val (Property-entry-val ht-entry)))
@@ -72,19 +73,19 @@
 (define-method (js-property-is-enumerable? o::Js-Scope-Object
 					   prop::js-string)
    (if (js-scope-property-one-level-contains? o prop)
-       (with-access::Js-Object o (props)
+       (with-access::Js-Scope-Object o (props)
 	  (with-access::Property-entry (hashtable-get props prop) (attr)
 	     (with-access::Attributes attr (enumerable)
 		enumerable)))
        #f))
 (define-method (js-property-contains o::Js-Scope-Object prop::js-string)
    (define (call-proto)
-      (with-access::Js-Object o (proto)
+      (with-access::Js-Scope-Object o (proto)
 	 (if (js-null? proto)
 	     #f
 	     (js-property-contains proto prop))))
 
-   (with-access::Js-Object o (props proto)
+   (with-access::Js-Scope-Object o (props proto)
       (let ((ht-entry (hashtable-get props prop)))
 	 (if ht-entry
 	     (let ((val (Property-entry-val ht-entry)))
@@ -99,7 +100,7 @@
 	     (call-proto)))))
 
 (define-method (js-property-one-level-for-each o::Js-Scope-Object p::procedure)
-   (with-access::Js-Object o (props proto)
+   (with-access::Js-Scope-Object o (props proto)
       (hashtable-for-each
        props
        (lambda (key obj)
@@ -119,7 +120,7 @@
 (define-method (js-property-generic-set! o::Js-Scope-Object prop::js-string
 					 new-val attributes)
 ;   (print "setting " prop)
-   (with-access::Js-Object o (props)
+   (with-access::Js-Scope-Object o (props)
       (hashtable-update!
        props
        prop
@@ -156,12 +157,12 @@
    
 (define-method (js-property-safe-delete! o::Js-Scope-Object prop::js-string)
    (define (proto-delete!)
-      (with-access::Js-Object o (proto)
+      (with-access::Js-Scope-Object o (proto)
 	 (if (js-null? proto)
 	     #t
 	     (js-property-safe-delete! proto prop))))
 
-   (with-access::Js-Object o (props)
+   (with-access::Js-Scope-Object o (props)
       (let ((ht-entry (hashtable-get props prop)))
 	 (if ht-entry
 	     (with-access::Property-entry ht-entry (val attr)

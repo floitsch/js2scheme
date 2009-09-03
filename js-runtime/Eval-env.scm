@@ -1,11 +1,12 @@
 (module jsre-Eval-env
-   (import jsre-base-string)
-   (use jsre-base-object
-	jsre-global-object
+   (import jsre-base-string
+	   jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry)
+   (use jsre-global-object
 	jsre-scope-object
-	jsre-natives ;; undefined
+	jsre-undefined
 	jsre-Error
-	jsre-primitives
 	jsre-Object
 	jsre-Date
 	jsre-String

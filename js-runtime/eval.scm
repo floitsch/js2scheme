@@ -1,8 +1,10 @@
 (module jsre-eval
    (library js2scheme-comp)
-   (import jsre-base-string)
+   (import jsre-base-string
+	   jsre-property-entry)
    (use jsre-Eval-env
 	jsre-global-object
+	jsre-ht-object
 	jsre-scope-object
 	jsre-base-object
 	jsre-Error

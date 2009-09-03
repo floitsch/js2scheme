@@ -10,10 +10,10 @@ BGL_FLAGS = $(BGL_COMMON_FLAGS) -g $(BGL_UNSAFE)
 # from the library.
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
-			natives base-object base-string \
+			undefined base-object base-string \
 			global-object globals \
 			bitset interval-avl-tree \
-			primitives operators scope-object \
+			ht-object property-entry operators scope-object \
 			RegExp
 
 ALL_RUNTIME_BGL_MODULES = $(RUNTIME_BGL_MODULES) \

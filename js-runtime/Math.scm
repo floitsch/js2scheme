@@ -1,5 +1,7 @@
 (module jsre-Math
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
    (use jsre-Error
 	jsre-Object
@@ -8,13 +10,12 @@
 	jsre-String
 	jsre-Number
 	jsre-Bool
-	jsre-natives
-	jsre-primitives
+	jsre-undefined
 	jsre-conversion
 	jsre-global-object
 	jsre-scope-object
 	)
-   (export (final-class NatO-Math::Js-Object)
+   (export (final-class NatO-Math::Js-HT-Object)
 	   *jsg-Math*
 	   (Math-init)))
 

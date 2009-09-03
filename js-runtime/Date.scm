@@ -1,21 +1,22 @@
 (module jsre-Date
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
-   (use jsre-natives
+   (use jsre-undefined
 	jsre-Error
 	jsre-Object
 	jsre-Function
 	jsre-String
 	jsre-Number
 	jsre-Bool
-	jsre-primitives
 	jsre-conversion
 	jsre-global-object
 	jsre-scope-object
 	)
    (include "date-impl.scm")
    (export *jsg-Date*
-	   (final-class NatO-Date::Js-Object
+	   (final-class NatO-Date::Js-HT-Object
 	      t::double
 	      (cached-t::double (default 0.0))
 	      (dst::double (default 0.0)))

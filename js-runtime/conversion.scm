@@ -3,9 +3,10 @@
    (import jsre-double
 	   jsre-base-string)
    (use jsre-base-object
-	jsre-natives ;; undefined
+	jsre-ht-object
+	jsre-property-entry
+	jsre-undefined
 	jsre-Error
-	jsre-primitives
 	jsre-Object
 	jsre-Date
 	jsre-Function

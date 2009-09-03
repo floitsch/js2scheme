@@ -1,24 +1,30 @@
 (module jsre-Object
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string
-	   jsre-natives)
+	   jsre-undefined)
    (use jsre-Function
 	jsre-Date
 	jsre-String
 	jsre-Number
 	jsre-Bool
-	jsre-natives
 	jsre-Error
-	jsre-primitives
 	jsre-conversion
 	jsre-global-object
 	jsre-scope-object
 	)
-   (export (final-class NatO-Object::Js-Object)
+   (export (final-class NatO-Object::Js-HT-Object)
+	   (create-empty-NatO-Object::NatO-Object proto)
 	   *jsg-Object*
 	   (natO-object-prototype::NatO-Object)
 	   (Object-init)
 	   (natO-object-literal properties::pair-nil)))
+
+(define (create-empty-NatO-Object proto)
+   (instantiate::NatO-Object
+      (props (make-props-hashtable))
+      (proto proto)))
 
 (define *jsg-Object* #unspecified)
 (define *natO-object-prototype*::NatO-Object (NatO-Object-nil))

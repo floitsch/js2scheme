@@ -1,4 +1,4 @@
-(module jsre-natives
+(module jsre-undefined
    (export
     (inline js-undefined)
     (inline js-undefined? v)))

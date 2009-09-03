@@ -1,7 +1,9 @@
 (module jsre-RegExp
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
-   (use jsre-natives
+   (use jsre-undefined
 	jsre-Object
 	jsre-Function
 	jsre-String
@@ -9,7 +11,6 @@
 	jsre-Error
 	jsre-global-object
 	jsre-scope-object
-	jsre-primitives
 	jsre-conversion)
    (import jsre-RegExp-classes
 	   jsre-RegExp-fsm
@@ -19,7 +20,7 @@
    (export
     *jsg-RegExp*
     *js-RegExp-exec*
-    (final-class NatO-RegExp::Js-Object
+    (final-class NatO-RegExp::Js-HT-Object
        re)
     (RegExp-init)
     (RegExp-first-match-pos re::NatO-RegExp str::js-string)
@@ -57,9 +58,8 @@
 						 (RegExp-new)
 						 RegExp-construct
 						 text-repr))
-	  (prototype (instantiate::Js-Object             ;; 15.10.6
-			(props (make-props-hashtable))
-			(proto (natO-object-prototype)))))
+	  ;; 15.10.6
+	  (prototype (create-empty-NatO-Object (natO-object-prototype))))
       
       (set! *js-RegExp-prototype* prototype)
 

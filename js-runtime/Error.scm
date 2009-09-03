@@ -1,13 +1,14 @@
 (module jsre-Error
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
    (use jsre-Function
 	jsre-Array
 	jsre-Math
 	jsre-Arguments
 	jsre-scope-object
-	jsre-primitives
-	jsre-natives
+	jsre-undefined
 	jsre-Date
 	jsre-Bool
 	jsre-String
@@ -24,7 +25,7 @@
 	   *jsg-Type-Error*
 	   *jsg-URI-Error*
 	   (Error-init)
-	   (final-class NatO-Error::Js-Object)
+	   (final-class NatO-Error::Js-HT-Object)
 	   (range-error msg::js-string val)
 	   (type-error msg::js-string val)
 	   (type-procedure-error val)

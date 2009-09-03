@@ -1,21 +1,22 @@
 (module jsre-Bool
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
-   (use jsre-natives
+   (use jsre-undefined
 	jsre-Object
 	jsre-Date
 	jsre-Function
 	jsre-String
 	jsre-Number
 	jsre-Error
-	jsre-primitives
 	jsre-conversion
 	jsre-global-object
 	jsre-scope-object
 	)
    (export *jsg-Bool*
 	   *js-Bool-orig* ; ::procedure ;; Bigloo recently had bugs with types
-	   (final-class NatO-Bool::Js-Object
+	   (final-class NatO-Bool::Js-HT-Object
 	      val::bool)
 	   (Bool-init)))
 

@@ -1,8 +1,10 @@
 (module jsre-Arguments
    (import jsre-scope-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
    (use jsre-base-object
-	jsre-natives
+	jsre-undefined
 	jsre-conversion)
    (export (class Js-Arguments::Js-Scope-Object))
    (export (macro make-arguments))

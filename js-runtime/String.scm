@@ -1,7 +1,9 @@
 (module jsre-String
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
-   (use jsre-natives
+   (use jsre-undefined
 	jsre-Object
 	jsre-Date
 	jsre-Array
@@ -12,14 +14,13 @@
 	jsre-RegExp
 	jsre-RegExp-match
 	jsre-RegExp-fsm
-	jsre-primitives
 	jsre-conversion
 	jsre-global-object
 	jsre-scope-object
 	)
    (export *jsg-String*
 	   *js-String-orig*::procedure
-	   (final-class NatO-String::Js-Object
+	   (final-class NatO-String::Js-HT-Object
 	      (str::js-string read-only))
 	   (String-init)))
 

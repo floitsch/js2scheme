@@ -1,7 +1,9 @@
 (module jsre-Function
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string)
-   (use jsre-natives
+   (use jsre-undefined
 	jsre-eval
 	jsre-Object
 	jsre-Date
@@ -11,7 +13,6 @@
 	jsre-Error
 	jsre-Arguments
 	jsre-Array
-	jsre-primitives
 	jsre-conversion
 	jsre-global-object
 	jsre-scope-object
@@ -25,7 +26,7 @@
    (include "call-convention.sch")
    (export
     *jsg-Function*
-    (class NatO-Function::Js-Object
+    (class NatO-Function::Js-HT-Object
        fun::procedure      ;;the procedure (a js-fun-lambda)
        new::procedure      ;;when called as constructor. usually same as 'fun'.
 
@@ -149,13 +150,12 @@
 				(STR "call")
 				(call)
 				(built-in-attributes))))
-				  
+
+;; 13.2.2
 (define-inline (create-empty-object-lambda::Js-Object f-o::NatO-Function)
    (let ((proto (or (js-object (js-property-get f-o (STR "prototype")))
 		    (natO-object-prototype))))
-      (instantiate::Js-Object
-	 (props (make-props-hashtable))
-	 (proto proto))))
+      (create-empty-NatO-Object proto)))
 
 (define *js-function-objects-ht* (make-hashtable #unspecified #unspecified eq?))
 
@@ -170,7 +170,6 @@
    (let* ((fun-prototype (js-new (global-read *jsg-Object*)))
 	  (fun-obj (create-function-object js-lambda ;; lambda
 					   js-lambda ;; new
-					   ;;constructed object will be ignored
 					   create-empty-object-lambda
 					   text-repr)))
 

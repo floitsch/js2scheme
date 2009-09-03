@@ -1,20 +1,21 @@
 (module jsre-Number
    (import jsre-base-object
+	   jsre-ht-object
+	   jsre-property-entry
 	   jsre-base-string
 	   jsre-double)
-   (use jsre-natives
+   (use jsre-undefined
 	jsre-Error
 	jsre-Object
 	jsre-Date
 	jsre-Function
 	jsre-String
 	jsre-Bool
-	jsre-primitives
 	jsre-conversion
 	jsre-global-object
 	jsre-scope-object
 	)
-   (export (final-class NatO-Number::Js-Object
+   (export (final-class NatO-Number::Js-HT-Object
 	      (value::double read-only))
 	   *jsg-Number* ;; can be modified by user -> can't be ::procedure
 	   *js-Number-orig*::procedure

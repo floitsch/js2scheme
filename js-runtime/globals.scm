@@ -1,8 +1,9 @@
 (module jsre-globals
    (use jsre-base-object
+	jsre-ht-object
+	jsre-property-entry
 	jsre-base-string
-	jsre-natives ;; undefined
-	jsre-primitives
+	jsre-undefined
 	jsre-Error
 	jsre-Object
 	jsre-Date
