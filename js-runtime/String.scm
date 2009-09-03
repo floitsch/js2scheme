@@ -19,8 +19,8 @@
 	)
    (export *jsg-String*
 	   *js-String-orig*::procedure
-	   (class Js-String::Js-Object
-	      (str::Js-Base-String read-only))
+	   (final-class NatO-String::Js-Object
+	      (str::js-string read-only))
 	   (String-init)))
 
 ;; 15.5 String Objects
@@ -29,7 +29,7 @@
 (define *js-String-orig* (lambda () 'to-be-replaced))
 (define *js-String-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::Js-Base-String o::Js-String)
+(define-method (js-class-name::js-string o::NatO-String)
    (STR "String")) ;; 15.5.2.1
 
 (define (String-init)
@@ -41,9 +41,9 @@
 						 (String-new)
 						 String-construct
 						 text-repr))
-	  (prototype (instantiate::Js-String
+	  (prototype (instantiate::NatO-String
 			(props (make-props-hashtable))
-			(proto (js-object-prototype))
+			(proto (natO-object-prototype))
 			(str (STR "")))))
 
       (set! *js-String-prototype* prototype)
@@ -165,7 +165,7 @@
 		    (STR "")
 		    (any->js-string value)))
 	   (str-len (js-string-length str))
-	   (o (instantiate::Js-String
+	   (o (instantiate::NatO-String
 		 (props (make-props-hashtable))
 		 (proto *js-String-prototype*)
 		 (str str))))
@@ -176,7 +176,7 @@
 						 read-only))
        o)))
 
-(define (String-construct f-o::Js-Function)
+(define (String-construct f-o::NatO-Function)
    #f)
 
 (define (fromCharCode) ;; 15.5.3.2
@@ -195,16 +195,16 @@
 (define (toString)                       ;; 15.5.4.2
    (js-fun this #f #f (STR "String.prototype.toString")
 	   ()
-	   (if (not (Js-String? this))
+	   (if (not (NatO-String? this))
 	       (type-error (STR "String-toString applied to") this)
-	       (Js-String-str this))))
+	       (NatO-String-str this))))
 	   
 (define (valueOf)                        ;; 15.5.4.3
    (js-fun this #f #f (STR "String.prototype.valueOf")
 	   ()
-	   (if (not (Js-String? this))
+	   (if (not (NatO-String? this))
 	       (type-error (STR "String-valueOf applied to") this)
-	       (Js-String-str this))))
+	       (NatO-String-str this))))
 
 (define (checked-string-ref str pos-any)         ;; 15.5.4.4 && 15.5.4.5
    (let* ((str-len (js-string-length str))
@@ -223,8 +223,8 @@
    (js-fun
     this #f #f (STR "String.prototype.charAt")
     (pos)
-    (let* ((str (if (Js-String? this)
-		    (Js-String-str this)
+    (let* ((str (if (NatO-String? this)
+		    (NatO-String-str this)
 		    (any->js-string this)))
 	   (c (checked-string-ref str pos)))
        (if c
@@ -235,8 +235,8 @@
    (js-fun
     this #f #f (STR "String.prototype.charCodeAt")
     (pos-any)
-    (let* ((str (if (Js-String? this)
-		    (Js-String-str this)
+    (let* ((str (if (NatO-String? this)
+		    (NatO-String-str this)
 		    (any->js-string this)))
 	   (c (checked-string-ref str pos-any)))
        (if c
@@ -249,8 +249,8 @@
     (nb-args get-arg)
     (STR "String.prototype.concat")
     (str1)
-    (let ((this-str (if (Js-String? this)
-			(Js-String-str this)
+    (let ((this-str (if (NatO-String? this)
+			(NatO-String-str this)
 			(any->js-string this))))
        (cond
 	  ((=fx nb-args 0)
@@ -280,8 +280,8 @@
       
 ;; 15.5.4.7 15.5.4.8
 (define (first/last-index-of this search-str-any pos-any find-first?)
-   (let* ((this-str (if (Js-String? this)
-			(Js-String-str this)
+   (let* ((this-str (if (NatO-String? this)
+			(NatO-String-str this)
 			(any->js-string this)))
 	  (len (js-string-length this-str))
 	  (search-str (any->js-string search-str-any))
@@ -321,8 +321,8 @@
    (js-fun
     this #f #f (STR "String.prototype.localeCompare")
     (that)
-    (let* ((this-str (if (Js-String? this)
-			 (Js-String-str this)
+    (let* ((this-str (if (NatO-String? this)
+			 (NatO-String-str this)
 			 (any->js-string this)))
 	   (that-str (any->js-string that)))
        (fixnum->flonum (js-string-compare3 this-str that-str)))))
@@ -331,19 +331,19 @@
    (js-fun
     this #f #f (STR "String.prototype.match")
     (regexp)
-    (let* ((re (if (Js-RegExp? regexp) ;; re does not need to be an object
+    (let* ((re (if (NatO-RegExp? regexp) ;; re does not need to be an object
 		   regexp
 		   (js-new (global-read *jsg-RegExp*) regexp)))
-	   (s (if (Js-String? this)
-		  (Js-String-str this)
+	   (s (if (NatO-String? this)
+		  (NatO-String-str this)
 		  (any->js-string this))))
-       (when (not (Js-RegExp? re))
+       (when (not (NatO-RegExp? re))
 	  (type-error (STR "RegExp required") re))
        (let ((global? (js-property-get re (STR "global"))))
 	  (if (not global?)
 	      (js-call *js-RegExp-exec* re s)
 	      ;; mostly copied from RegExp.
-	      (let ((native-re (Js-RegExp-re re))
+	      (let ((native-re (NatO-RegExp-re re))
 		    (len (js-string-length s))
 		    (res-a (empty-js-Array)))
 		 (let loop ((s-pos 0)
@@ -486,7 +486,7 @@
 		    (loop (cons m rev-ms) new-last-index))))))))
 
 (define $-v (char->integer #\$))
-(define (str-contains-$? str::Js-Base-String)
+(define (str-contains-$? str::js-string)
    (let ((str-len (js-string-length str)))
       (let loop ((i 0))
 	 (cond
@@ -500,19 +500,19 @@
    (js-fun
     this #f #f (STR "String.prototype.replace")
     (searchValue replaceValue)
-    (let* ((this-str (if (Js-String? this)
-			 (Js-String-str this)
+    (let* ((this-str (if (NatO-String? this)
+			 (NatO-String-str this)
 			 (any->js-string this)))
 	   (this-len (js-string-length this-str))
-	   (search-str (and (not (Js-RegExp? searchValue))
+	   (search-str (and (not (NatO-RegExp? searchValue))
 			    (any->js-string searchValue)))
 	   (search-len (and search-str (js-string-length search-str)))
 	   (matches (cond
-		       ((and (Js-RegExp? searchValue)
+		       ((and (NatO-RegExp? searchValue)
 			     (not (js-property-get searchValue
 						   (STR "global"))))
 			(js-call *js-RegExp-exec* searchValue this-str))
-		       ((Js-RegExp? searchValue)
+		       ((NatO-RegExp? searchValue)
 			(all-matches this-str searchValue))
 		       (else
 			(js-string-contains this-str search-str)))))
@@ -548,7 +548,7 @@
 		     (js-string-append (js-substring this-str 0 from)
 				       (replace-matched match from to)
 				       (js-substring this-str to this-len))))
-		 ((Js-Array? matches)
+		 ((NatO-Array? matches)
 		  (let* ((from (flonum->fixnum
 				(js-property-get matches (STR "index"))))
 			 (matched-str (js-property-get matches (STR "0")))
@@ -585,13 +585,13 @@
    (js-fun
     this #f #f (STR "String.prototype.search")
     (regexp)
-    (let* ((re (if (Js-RegExp? regexp) ;; re does not need to be an object
+    (let* ((re (if (NatO-RegExp? regexp) ;; re does not need to be an object
 		   regexp
 		   (js-new (global-read *jsg-RegExp*) regexp)))
-	   (s (if (Js-String? this)
-		  (Js-String-str this)
+	   (s (if (NatO-String? this)
+		  (NatO-String-str this)
 		  (any->js-string this))))
-       (when (not (Js-RegExp? re))
+       (when (not (NatO-RegExp? re))
 	  (type-error (STR "RegExp required") re))
        (let ((match-index (RegExp-first-match-pos re s)))
 	  (if match-index
@@ -602,8 +602,8 @@
    (js-fun
     this #f #f (STR "String.prototype.slice")
     (start-any end-any)
-    (let* ((s (if (Js-String? this)
-		  (Js-String-str this)
+    (let* ((s (if (NatO-String? this)
+		  (NatO-String-str this)
 		  (any->js-string this)))
 	   (len (js-string-length s))
 	   (len-fl (fixnum->flonum len))
@@ -641,8 +641,8 @@
    (js-fun
     this #f #f (STR "String.prototype.split")
     (separator-any limit-any)
-    (let* ((s (if (Js-String? this)
-		  (Js-String-str this)
+    (let* ((s (if (NatO-String? this)
+		  (NatO-String-str this)
 		  (any->js-string this)))
 	   (len (js-string-length s))
 	   (a (js-new (global-read *jsg-Array*))) ;; may throw an error
@@ -650,7 +650,7 @@
 		      (maxvalfx) ;; TODO: should be maxuint32
 		      ;; TODO using bints here.
 		      (flonum->fixnum (any->uint32 limit-any))))
-	   (separator (if (Js-RegExp? separator-any)
+	   (separator (if (NatO-RegExp? separator-any)
 			  separator-any
 			  (any->js-string separator-any))))
        (cond
@@ -660,7 +660,7 @@
 	   (js-property-set! a (STR "0") s)
 	   a)
 	  ((and (zerofx? len)
-		(Js-RegExp? separator))
+		(NatO-RegExp? separator))
 	   (when (RegExp-test separator s 0)
 	      (js-property-set! a (STR "0") s))
 	   a)
@@ -680,7 +680,7 @@
 				    (cached-char-string (js-string-ref s i)))
 		  (loop (+fx i 1))))))
 	  ((and (js-string? separator)
-		(orig-Js-Array?)) ;; we can optimize this case.
+		(orig-jsg-Array?)) ;; we can optimize this case.
 	   ;; simply remove all matched occurences and put all
 	   ;; interleaved elements into a new array.
 	   (let loop ((array-pos 0)
@@ -727,7 +727,7 @@
 		 ;; returns 4 values: 1) did we find something? 2) start-pos
 		 ;;   of matched 3) end-pos 4) a (string) scheme-list of
 		 ;;   matched clusters.
-		 (if (Js-RegExp? separator)
+		 (if (NatO-RegExp? separator)
 		     (let ((m (RegExp-exec separator s pos)))
 			(if (js-null? m)
 			    (values #f 0 0 '())
@@ -770,8 +770,8 @@
    (js-fun
     this #f #f (STR "String.prototype.substring")
     (start-any end-any)
-    (let* ((str (if (Js-String? this)
-		    (Js-String-str this)
+    (let* ((str (if (NatO-String? this)
+		    (NatO-String-str this)
 		    (any->js-string this)))
 	   (str-len (js-string-length str))
 	   (str-len-fl (fixnum->flonum str-len))
@@ -793,8 +793,8 @@
    (js-fun
     this #f #f (STR "String.prototype.toLowerCase")
     ()
-    (let ((str (if (Js-String? this)
-		   (Js-String-str this)
+    (let ((str (if (NatO-String? this)
+		   (NatO-String-str this)
 		   (any->js-string this))))
        (js-string-downcase str))))
 
@@ -802,8 +802,8 @@
    (js-fun
     this #f #f (STR "String.prototype.toLocaleLowerCase")
     ()
-    (let ((str (if (Js-String? this)
-		   (Js-String-str this)
+    (let ((str (if (NatO-String? this)
+		   (NatO-String-str this)
 		   (any->js-string this))))
        (js-string-downcase str))))
 
@@ -811,8 +811,8 @@
    (js-fun
     this #f #f (STR "String.prototype.toUpperCase")
     ()
-    (let ((str (if (Js-String? this)
-		   (Js-String-str this)
+    (let ((str (if (NatO-String? this)
+		   (NatO-String-str this)
 		   (any->js-string this))))
        (js-string-upcase str))))
 
@@ -820,7 +820,7 @@
    (js-fun
     this #f #f (STR "String.prototype.toLocaleUpperCase")
     ()
-    (let ((str (if (Js-String? this)
-		   (Js-String-str this)
+    (let ((str (if (NatO-String? this)
+		   (NatO-String-str this)
 		   (any->js-string this))))
        (js-string-upcase str))))

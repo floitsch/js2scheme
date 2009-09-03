@@ -16,13 +16,13 @@
 	)
    (export
     *jsg-Array*
-    (class Js-Array::Js-Object
+    (final-class NatO-Array::Js-Object
        length::double) ;; TODO: really not optimal :(
     (Array-init)
     (js-array-literal length::bint els::pair-nil)
-    (scm-list->js-array::Js-Array els::pair-nil)
-    (orig-Js-Array?::bool)
-    (empty-js-Array::Js-Array)))
+    (scm-list->js-array::NatO-Array els::pair-nil)
+    (orig-jsg-Array?::bool)
+    (empty-js-Array::NatO-Array)))
 
 ;; TODO: Array is really not optimal: number operations are bad, and
 ;;       the array implementation based on hashtables is slow.
@@ -66,36 +66,36 @@
 		(hashtable-put! ht index
 				(cons key val))))))))
    
-(define-method (js-property-one-level-contains? o::Js-Array prop)
+(define-method (js-property-one-level-contains? o::NatO-Array prop)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (if (js-string=? prop (STR "length"))
        #t
        (call-next-method)))
-(define-method (js-property-is-enumerable? o::Js-Array prop)
+(define-method (js-property-is-enumerable? o::NatO-Array prop)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (if (js-string=? prop (STR "length"))
        #f
        (call-next-method)))
-(define-method (js-property-contains o::Js-Array prop)
+(define-method (js-property-contains o::NatO-Array prop)
    (if (js-string=? prop (STR "length"))
-       (Js-Array-length o)
+       (NatO-Array-length o)
        (call-next-method)))
 
-(define-method (js-property-one-level-for-each o::Js-Array p::procedure)
+(define-method (js-property-one-level-for-each o::NatO-Array p::procedure)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
-   (with-access::Js-Array o (length)
+   (with-access::NatO-Array o (length)
       (p (STR "length") length #f #f #f)
       (call-next-method)))
    
 (define *array-index-limit* 4294967295.0) ;; #xffffffff))
-(define-method (js-property-generic-set! o::Js-Array prop new-val attributes)
+(define-method (js-property-generic-set! o::NatO-Array prop new-val attributes)
    (define (property-index prop)
       (let ((index (any->uint32 prop)))
 	 (and (js-string=? (any->js-string index) prop)
 	      (<fl index *array-index-limit*)
 	      index)))
 
-   (with-access::Js-Array o (length props)
+   (with-access::NatO-Array o (length props)
       (if (js-string=? prop (STR "length"))
 	  (let ((nb-uint32 (any->uint32 new-val)))
 	     (if (=fl new-val nb-uint32)
@@ -118,13 +118,13 @@
 		(set! length (+fl index 1.0)))
 	     (call-next-method)))))
 
-(define-method (js-property-safe-delete! o::Js-Array prop)
+(define-method (js-property-safe-delete! o::NatO-Array prop)
    ;; length-attribute is dontEnum dontDelete (15.4.5.2)
    (if (js-string=? prop (STR "length"))
        #f
        (call-next-method)))
 
-(define-method (js-class-name o::Js-Array)
+(define-method (js-class-name o::NatO-Array)
    (STR "Array"))
 
 (define (Array-init)
@@ -135,9 +135,9 @@
 						(Array-new)
 						Array-construct
 						text-repr))
-	  (prototype (instantiate::Js-Array            ;; 15.4.4
+	  (prototype (instantiate::NatO-Array            ;; 15.4.4
 		       (props (make-props-hashtable))
-		       (proto (js-object-prototype))
+		       (proto (natO-object-prototype))
 		       (length 0.0))))
 
       (set! *js-Array-prototype* prototype)
@@ -231,7 +231,7 @@
     #f
     (nb-args get-arg)
     ()
-    (let ((a (instantiate::Js-Array
+    (let ((a (instantiate::NatO-Array
 		(props (make-props-hashtable))
 		(proto *js-Array-prototype*)
 		(length 0.0))))
@@ -246,8 +246,8 @@
     ()
     (fill-Array this nb-args get-arg)))
    
-(define (Array-construct::Js-Array f-o)   
-   (instantiate::Js-Array
+(define (Array-construct::NatO-Array f-o)   
+   (instantiate::NatO-Array
       (props (make-props-hashtable))
       (proto *js-Array-prototype*)
       (length 0.0)))
@@ -265,7 +265,7 @@
 		els)
       a))
 
-(define (orig-Js-Array?)
+(define (orig-jsg-Array?)
    (eq? (global-typeof-read *jsg-Array*)
 	*js-Array-orig*))
 
@@ -328,7 +328,7 @@
    ;; 15.4.4.2
    (js-fun this #f #f (STR "Array.prototype.toString")
 	   ()
-	   (if (not (Js-Array? this))
+	   (if (not (NatO-Array? this))
 	       (type-error (STR "Array-toString applied to") this)
 	       (join-array this (js-undefined) any->js-string))))
 
@@ -336,7 +336,7 @@
    ;; 15.4.4.3
    (js-fun this #f #f (STR "Array.prototype.toLocaleString")
 	   ()
-	   (if (not (Js-Array? this))
+	   (if (not (NatO-Array? this))
 	       (type-error (STR "Array-toLocaleString applied to") this)
 	       (join-array this
 			   "," ;; locale-specific way of separating elements
@@ -346,7 +346,7 @@
 (define (arrays-concat nb-arrays get-array)
    ;; 15.4.4.4
    (define (add-els new-a offset a)
-      (let* ((len (Js-Array-length a))
+      (let* ((len (NatO-Array-length a))
 	     (ht (make-hashtable)))
 	 (extract-index-els-in-range a ht #l0 (flonum->llong len) #t)
 	 (hashtable-for-each
@@ -362,15 +362,15 @@
 		 (new-length #l0))
 	 (if (=fx array-counter nb-arrays)
 	     (begin
-		(Js-Array-length-set! new-a (llong->flonum new-length))
+		(NatO-Array-length-set! new-a (llong->flonum new-length))
 		 new-a)
 	     (let ((a (get-array array-counter)))
-		(if (Js-Array? a)
+		(if (NatO-Array? a)
 		    (begin
 		       (add-els new-a new-length a)
 		       (loop (+ array-counter 1)
 			     (+llong new-length
-				     (flonum->llong (Js-Array-length a)))))
+				     (flonum->llong (NatO-Array-length a)))))
 		    (let ((str (any->js-string a)))
 		       (js-property-set! new-a
 					 (llong->js-string new-length)

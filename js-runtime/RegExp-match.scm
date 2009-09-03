@@ -7,8 +7,8 @@
    (use jsre-conversion
 	jsre-base-object)
    (import multi-top-level)
-   (export (regexp-match fsm::FSM str::Js-Base-String start-index::bint)
-	   (regexp-test fsm::FSM str::Js-Base-String start-index::bint)
+   (export (regexp-match fsm::FSM str::js-string start-index::bint)
+	   (regexp-test fsm::FSM str::js-string start-index::bint)
 	   *debug*) ;; only for now...
    (static
     (wide-class FSM-opt-disjunction::FSM-disjunction
@@ -305,12 +305,12 @@
 
 
 (define (propagate-check n::FSM-node state::FSM-state
-			 str::Js-Base-String index::bint)
+			 str::js-string index::bint)
    (unless (forbidden? n)
       (propagate n state str index)))
 
 (define-generic (propagate n::FSM-node state::FSM-state
-			   str::Js-Base-String index::bint)
+			   str::js-string index::bint)
    (error "FSM-match"
 	  "forgot node-type"
 	  n))
@@ -699,7 +699,7 @@
       (push-state! state)))
 
 ;; 'advance' may _not_ change a state! we have propagate for that...
-(define (advance n::FSM-node state::FSM-state str::Js-Base-String index::bint)
+(define (advance n::FSM-node state::FSM-state str::js-string index::bint)
    (let ((next (consume n state str index)))
       (when next
 	 (wait-at next state))))
@@ -709,7 +709,7 @@
 ;; allows for instance for dispatching nodes.
 ;; must _not_ change a state! we have propagate for that...
 (define-generic (consume n::FSM-node state::FSM-state
-			 str::Js-Base-String index::bint)
+			 str::js-string index::bint)
    (error "FSM-match"
 	  "forgot node-type"
 	  n))

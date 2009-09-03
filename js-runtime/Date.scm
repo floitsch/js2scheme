@@ -15,7 +15,7 @@
 	)
    (include "date-impl.scm")
    (export *jsg-Date*
-	   (class Js-Date::Js-Object
+	   (final-class NatO-Date::Js-Object
 	      t::double
 	      (cached-t::double (default 0.0))
 	      (dst::double (default 0.0)))
@@ -24,7 +24,7 @@
 (define *jsg-Date* #unspecified)
 (define *js-Date-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::Js-Base-String o::Js-Date)
+(define-method (js-class-name::js-string o::NatO-Date)
    (STR "Date"))
 
 (define (Date-init)
@@ -34,9 +34,9 @@
 					       (Date-new)
 					       Date-construct
 					       text-repr))
-	  (prototype (instantiate::Js-Date    ;; 15.9.5
+	  (prototype (instantiate::NatO-Date    ;; 15.9.5
 			(props (make-props-hashtable))
-			(proto (js-object-prototype))
+			(proto (natO-object-prototype))
 			(t +nan.0))))
 
       (set! *jsg-Date* (create-runtime-global (STR "Date") date-fun))
@@ -256,15 +256,15 @@
     ()
     (case nb-args
        ((0) ;; 15.9.3.3
-	(Js-Date-t-set! this (llong->flonum
+	(NatO-Date-t-set! this (llong->flonum
 			       (/llong (current-microseconds) 1000))))
        ((1) ;; 15.9.3.2
 	(let ((prim (any->primitive (get-arg 0) #f)))
 	   (if (js-string? prim)
-	       (Js-Date-t-set! this (js-string->time prim))
+	       (NatO-Date-t-set! this (js-string->time prim))
 	       (let* ((v (any->number prim))
 		      (t (time-clip v)))
-		  (Js-Date-t-set! this t)))))
+		  (NatO-Date-t-set! this t)))))
        (else ;; 15.9.3.1
 	(let* ((year (any->number (get-arg 0)))
 	       (month (any->number (get-arg 1)))
@@ -294,18 +294,18 @@
 	       (js-day (make-js-day normalized-year month date))
 	       (js-time (make-js-time hours minutes seconds ms))
 	       (js-date (make-js-date js-day js-time)))
-	   (Js-Date-t-set! this (time-clip (UTC js-date))))))
+	   (NatO-Date-t-set! this (time-clip (UTC js-date))))))
     this))
 
 (define (Date-construct c)
-   (instantiate::Js-Date
+   (instantiate::NatO-Date
       (props (make-props-hashtable))
       (proto *js-Date-prototype*)
       (t +nan.0)))
 
 ;; CARE: cache is clearly not thread-safe...
 (define (local-info-update! d)
-   (with-access::Js-Date d (t cached-t dst)
+   (with-access::NatO-Date d (t cached-t dst)
       (cond
 	 ((=fl t cached-t)
 	  #t) ;; already set.
@@ -314,10 +314,10 @@
 	  (set! cached-t t)))))
 	 
 
-;; same as 'local-time', but uses cached info, and directly takes Js-Date
-(define (Js-local-time::double d::Js-Date)
+;; same as 'local-time', but uses cached info, and directly takes NatO-Date
+(define (Js-local-time::double d::NatO-Date)
    (local-info-update! d)
-   (with-access::Js-Date d (t dst)
+   (with-access::NatO-Date d (t dst)
       (+fl (+fl t *localTZA*) dst)))
 
 (define (parse) ;; 15.9.4.2
@@ -365,22 +365,22 @@
    (js-fun this #f #f (STR "Date.prototype.toString")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-toString applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       (STR "Invalid Date"))
 	      (else
 	       (local-info-update! this)
-	       (with-access::Js-Date this (t dst)
+	       (with-access::NatO-Date this (t dst)
 		  (time->local-string t dst))))))
 
 (define (toDateString)                   ;; 15.9.5.3
    (js-fun this #f #f (STR "Date.prototype.toDateString")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-toDateString applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       (STR "Invalid Date"))
 	      (else
 	       (time->date-string (Js-local-time this))))))
@@ -389,9 +389,9 @@
    (js-fun this #f #f "Date.prototype.toTimeString"
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-toTimeString applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       (STR "Invalid Date"))
 	      (else
 	       (time->time-string (Js-local-time this))))))
@@ -401,13 +401,13 @@
    (js-fun this #f #f (STR "Date.prototype.toLocaleString")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-toLocaleString applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       (STR "Invalid Date"))
 	      (else
 	       (local-info-update! this)
-	       (with-access::Js-Date this (t dst)
+	       (with-access::NatO-Date this (t dst)
 		  (time->local-string t dst))))))
 
 (define (toLocaleDateString)                   ;; 15.9.5.6
@@ -415,9 +415,9 @@
    (js-fun this #f #f (STR "Date.prototype.toLocaleDateString")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-toLocaleDateString applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       (STR "Invalid Date"))
 	      (else
 	       (time->date-string (Js-local-time this))))))
@@ -427,9 +427,9 @@
    (js-fun this #f #f (STR "Date.prototype.toLocaleTimeString")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-toLocaleTimeString applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       (STR "Invalid Date"))
 	      (else
 	       (time->time-string (Js-local-time this))))))
@@ -438,27 +438,27 @@
    (js-fun this #f #f (STR "Date.prototype.valueOf")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-valueOf applied to") this))
 	      (else
-	       (Js-Date-t this)))))
+	       (NatO-Date-t this)))))
 
 (define (getTime)                              ;; 15.9.5.9
    (js-fun this #f #f (STR "Date.prototype.getTime")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getTime applied to") this))
 	      (else
-	       (Js-Date-t this)))))
+	       (NatO-Date-t this)))))
 
 (define (getFullYear)                          ;; 15.9.5.10
    (js-fun this #f #f (STR "Date.prototype.getFullYear")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getFullYear applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (year-from-time (Js-local-time this))))))
@@ -467,9 +467,9 @@
    (js-fun this #f #f (STR "Date.prototype.getYear")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getYear applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (-fl (year-from-time (Js-local-time this))
@@ -479,20 +479,20 @@
    (js-fun this #f #f (STR "Date.prototype.getFullYear")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCFullYear applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (year-from-time (Js-Date-t this))))))
+	       (year-from-time (NatO-Date-t this))))))
    
 (define (getMonth)                             ;; 15.9.5.12
    (js-fun this #f #f (STR "Date.prototype.getMonth")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getMonth applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (month-from-time (Js-local-time this))))))
@@ -501,20 +501,20 @@
    (js-fun this #f #f (STR "Date.prototype.getUTCMonth")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCMonth applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (month-from-time (Js-Date-t this))))))
+	       (month-from-time (NatO-Date-t this))))))
 
 (define (getDate)                              ;; 15.9.5.14
    (js-fun this #f #f (STR "Date.prototype.getDate")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getDate applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (date-from-time (Js-local-time this))))))
@@ -523,20 +523,20 @@
    (js-fun this #f #f (STR "Date.prototype.getUTCDate")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCDate applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (date-from-time (Js-Date-t this))))))
+	       (date-from-time (NatO-Date-t this))))))
 
 (define (getDay)                              ;; 15.9.5.16
    (js-fun this #f #f (STR "Date.prototype.getDay")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getDay applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (week-day (Js-local-time this))))))
@@ -545,20 +545,20 @@
    (js-fun this #f #f (STR "Date.prototype.getUTCDay")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCDay applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (week-day (Js-Date-t this))))))
+	       (week-day (NatO-Date-t this))))))
 
 (define (getHours)                             ;; 15.9.5.18
    (js-fun this #f #f (STR "Date.prototype.getHours")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getHours applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (hours-from-time (Js-local-time this))))))
@@ -567,20 +567,20 @@
    (js-fun this #f #f (STR "Date.prototype.getUTCHours")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCHours applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (hours-from-time (Js-Date-t this))))))
+	       (hours-from-time (NatO-Date-t this))))))
 
 (define (getMinutes)                           ;; 15.9.5.20
    (js-fun this #f #f (STR "Date.prototype.getMinutes")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getMinutes applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (min-from-time (Js-local-time this))))))
@@ -589,20 +589,20 @@
    (js-fun this #f #f (STR "Date.prototype.getUTCMinutes")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCMinutes applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-		(min-from-time (Js-Date-t this))))))
+		(min-from-time (NatO-Date-t this))))))
 
 (define (getSeconds)                           ;; 15.9.5.22
    (js-fun this #f #f (STR "Date.prototype.getSeconds")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getSeconds applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (sec-from-time (Js-local-time this))))))
@@ -611,20 +611,20 @@
    (js-fun this #f #f (STR "Date.prototype.getUTCSeconds")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCSeconds applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (sec-from-time (Js-Date-t this))))))
+	       (sec-from-time (NatO-Date-t this))))))
 
 (define (getMilliseconds)                       ;; 15.9.5.24
    (js-fun this #f #f (STR "Date.prototype.getMilliseconds")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getMilliseconds applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
 	       (ms-from-time (Js-local-time this))))))
@@ -633,23 +633,23 @@
    (js-fun this #f #f (STR "Date.prototype.getUTCMilliseconds")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getUTCMilliseconds applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (ms-from-time (Js-Date-t this))))))
+	       (ms-from-time (NatO-Date-t this))))))
 
 (define (getTimezoneOffset)                        ;; 15.9.5.26
    (js-fun this #f #f (STR "Date.prototype.getTimezoneOffset")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-getTimezoneOffset applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       +nan.0)
 	      (else
-	       (let ((t (Js-Date-t this))
+	       (let ((t (NatO-Date-t this))
 		     (ms-per-minute 60000.0))
 		  (/fl (-fl t (Js-local-time this))
 		       ms-per-minute))))))
@@ -658,10 +658,10 @@
    (js-fun this #f #f (STR "Date.prototype.setTime")
 	   (new-t)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setTime applied to") this))
 	      (else
-	       (with-access::Js-Date this (t)
+	       (with-access::NatO-Date this (t)
 		  (set! t (time-clip (any->number new-t)))
 		  t)))))
 
@@ -674,13 +674,13 @@
 	     (ms (or maybe-ms (ms-from-time t))))
 	  (make-js-date (day t) (make-js-time h m s ms)))))
 
-(define (update-UTC-time! d::Js-Date h m s ms)
-   (with-access::Js-Date d (t)
+(define (update-UTC-time! d::NatO-Date h m s ms)
+   (with-access::NatO-Date d (t)
       (set! t (time-clip (update-time t h m s ms)))
       t))
 
-(define (update-local-time! d::Js-Date h m s ms)
-   (with-access::Js-Date d (t)
+(define (update-local-time! d::NatO-Date h m s ms)
+   (with-access::NatO-Date d (t)
       (set! t (time-clip (UTC (update-time (Js-local-time d) h m s ms))))
       t))
       
@@ -688,7 +688,7 @@
    (js-fun this #f #f (STR "Date.prototype.setMilliseconds")
 	   (ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setMilliseconds applied to") this))
 	      (else
 	       ;; UTC and local-time are ridiculous, but if the
@@ -700,7 +700,7 @@
    (js-fun this #f #f (STR "Date.prototype.setUTCMilliseconds")
 	   (ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setUTCMilliseconds applied to") this))
 	      (else
 	       (update-UTC-time! this #f #f #f (any->number ms))))))
@@ -711,7 +711,7 @@
 	   (STR "Date.prototype.setSeconds")
 	   (s ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setSeconds applied to") this))
 	      (else
 	       ;; UTC and local-time are ridiculous here, but if the
@@ -726,7 +726,7 @@
 	   (STR "Date.prototype.setUTCSeconds")
 	   (s ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setUTCSeconds applied to") this))
 	      (else
 	       (update-UTC-time! this #f #f
@@ -740,7 +740,7 @@
 	   (STR "Date.prototype.setMinutes")
 	   (m s ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setMinutes applied to") this))
 	      (else
 	       (update-local-time! this #f
@@ -753,7 +753,7 @@
 	   (STR "Date.prototype.setUTCMinutes")
 	   (m s ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setUTCMinutes applied to") this))
 	      (else
 	       (update-UTC-time! this #f
@@ -766,7 +766,7 @@
 	   (STR "Date.prototype.setHours")
 	   (h m s ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setHours applied to") this))
 	      (else
 	       (update-local-time! this
@@ -780,7 +780,7 @@
 	   (STR "Date.prototype.setUTCHours")
 	   (h m s ms)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setUTCHours applied to") this))
 	      (else
 	       (update-UTC-time! this
@@ -803,12 +803,12 @@
 				     (or d old-d))
 			(time-within-day t))))))
 
-(define (update-UTC-date! jdate::Js-Date y m d)
-   (with-access::Js-Date jdate (t)
+(define (update-UTC-date! jdate::NatO-Date y m d)
+   (with-access::NatO-Date jdate (t)
       (set! t (time-clip (update-date t y m d)))
       t))
-(define (update-local-date! jdate::Js-Date y m d)
-   (with-access::Js-Date jdate (t)
+(define (update-local-date! jdate::NatO-Date y m d)
+   (with-access::NatO-Date jdate (t)
       (set! t (time-clip (UTC (update-date (Js-local-time jdate) y m d))))
       t))
 
@@ -818,7 +818,7 @@
    (js-fun this #f #f (STR "Date.prototype.setDate")
 	   (d)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setDate applied to") this))
 	      (else
 	       (update-local-date! this #f #f (any->number d))))))
@@ -827,7 +827,7 @@
    (js-fun this #f #f (STR "Date.prototype.setUTCDate")
 	   (d)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setUTCDate applied to") this))
 	      (else
 	       (update-UTC-date! this #f #f (any->number d))))))
@@ -837,7 +837,7 @@
 	   (STR "Date.prototype.setMonth")
 	   (m d)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setMonth applied to") this))
 	      (else
 	       (update-local-date! this #f
@@ -849,7 +849,7 @@
 	   (STR "Date.prototype.setUTCMonth")
 	   (m d)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setMonth applied to") this))
 	      (else
 	       (update-UTC-date! this #f
@@ -861,10 +861,10 @@
 	   (STR "Date.prototype.setFullYear")
 	   (y m d)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setFullYear applied to") this))
 	      (else
-	       (with-access::Js-Date this (t)
+	       (with-access::NatO-Date this (t)
 		  (if (nanfl? t) (set! t 0.0)))
 	       (update-local-date! this
 				   (any->number y)
@@ -876,10 +876,10 @@
 	   (STR "Date.prototype.setYear")
 	   (year)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setYear applied to") this))
 	      (else
-	       (with-access::Js-Date this (t)
+	       (with-access::NatO-Date this (t)
 		  (if (nanfl? t) (set! t 0.0)))
 	       (let* ((y (any->number year))
 		      (yint (any->integer y)))
@@ -894,10 +894,10 @@
 	   (STR "Date.prototype.setUTCFullYear")
 	   (y m d)
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-setUTCFullYear applied to") this))
 	      (else
-	       (with-access::Js-Date this (t)
+	       (with-access::NatO-Date this (t)
 		  (if (nanfl? t) (set! t 0.0)))
 	       (update-UTC-date! this
 				 (any->number y)
@@ -908,10 +908,10 @@
    (js-fun this #f #f (STR "Date.prototype.toUTCString")
 	   ()
 	   (cond
-	      ((not (Js-Date? this))
+	      ((not (NatO-Date? this))
 	       (type-error (STR "Date-toUTCString applied to") this))
-	      ((nanfl? (Js-Date-t this))
+	      ((nanfl? (NatO-Date-t this))
 	       (STR "Invalid Date"))
 	      (else
-	       (with-access::Js-Date this (t)
+	       (with-access::NatO-Date this (t)
 		  (time->utc-js-string t))))))

@@ -17,7 +17,7 @@
 	 (nb-named (length param-vars)))
       `(let ((,arguments (instantiate::Js-Arguments
 			    (props (make-props-hashtable))
-			    (proto (js-object-prototype)))))
+			    (proto (natO-object-prototype)))))
 	  (js-property-generic-set! ,arguments
 				    (STR "callee")
 				    ,callee

@@ -3,7 +3,7 @@
    (use jsre-base-object
 	jsre-conversion)
 ;   (main my-main)
-   (export (js-regexp->scm-regexp pattern::Js-Base-String)))
+   (export (js-regexp->scm-regexp pattern::js-string)))
 
 ;; Bigloo's regexp-parser does not feature multi-lines... so we can't reuse it.
 

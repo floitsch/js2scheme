@@ -25,7 +25,7 @@
    (include "call-convention.sch")
    (export
     *jsg-Function*
-    (class Js-Function::Js-Object
+    (class NatO-Function::Js-Object
        fun::procedure      ;;the procedure (a js-fun-lambda)
        new::procedure      ;;when called as constructor. usually same as 'fun'.
 
@@ -43,7 +43,7 @@
 			    text-repr)
     (procedure-object::Js-Object p::procedure)
     (Function-init)
-    (inline create-empty-object-lambda::Js-Object f-o::Js-Function)))
+    (inline create-empty-object-lambda::Js-Object f-o::NatO-Function)))
 
 ;; ensure that the unification-technique is still working:
 (let ((f1 (js-fun-lambda #f #f #f () #t))
@@ -66,7 +66,7 @@
    (lambda L (js-undefined))) ;; 15.3.4
 (define *js-Function-prototype-object*::Js-Object (js-null))
 
-(define-method (js-class-name::Js-Base-String o::Js-Function)
+(define-method (js-class-name::js-string o::NatO-Function)
    (STR "Function"))
 
 (define *function-prototype-initialized?* #f)
@@ -76,10 +76,10 @@
    (unless *function-prototype-initialized?*
        (let* ((f *js-Function-prototype*)
 	      (text-repr (STR "function() { /* Function.prototype */ }"))
-	      (fun-obj (instantiate::Js-Function
+	      (fun-obj (instantiate::NatO-Function
 			  (props (make-props-hashtable))
 			  ;; The only function with object-prototype!
-			  (proto (js-object-prototype))
+			  (proto (natO-object-prototype))
 			  (fun f)
 			  (new f)
 			  (construct create-empty-object-lambda)
@@ -150,9 +150,9 @@
 				(call)
 				(built-in-attributes))))
 				  
-(define-inline (create-empty-object-lambda::Js-Object f-o::Js-Function)
+(define-inline (create-empty-object-lambda::Js-Object f-o::NatO-Function)
    (let ((proto (or (js-object (js-property-get f-o (STR "prototype")))
-		    (js-object-prototype))))
+		    (natO-object-prototype))))
       (instantiate::Js-Object
 	 (props (make-props-hashtable))
 	 (proto proto))))
@@ -201,7 +201,7 @@
 				new
 				construct
 				text-repr)
-   (let ((fun-obj (instantiate::Js-Function
+   (let ((fun-obj (instantiate::NatO-Function
 		     (props (make-props-hashtable))
 		     (proto (js-function-prototype-object))
 		     (fun js-lambda)
@@ -246,7 +246,7 @@
 	   (when (not (procedure? this))
 	      (type-error (STR "Function-toString applied to") this))
 	   (let* ((o (procedure-object this))
-		  (str (Js-Function-text-repr o)))
+		  (str (NatO-Function-text-repr o)))
 	      (if (js-string? str)
 		  str
 		  (js-substring (car str) (cadr str) (caddr str))))))
@@ -262,7 +262,7 @@
 	   (cond
 	      ((not (procedure? this))
 	       (type-error (STR "Function.apply applied to") this))
-	      ((not (or (Js-Array? argArray)
+	      ((not (or (NatO-Array? argArray)
 			(Js-Arguments? argArray)))
 	       (type-error (STR "argArray is neither Array nor Arguments object")
 			   argArray))

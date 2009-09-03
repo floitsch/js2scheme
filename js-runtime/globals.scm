@@ -353,7 +353,7 @@
    )
 
 ;; 15.1.3 URI functions
-(define-inline (uri-encode str::Js-Base-String in-unescaped-set?)
+(define-inline (uri-encode str::js-string in-unescaped-set?)
    (define (escaped-byte-push! buf b)
       (define (hex-digit->integer d)
 	 (cond
@@ -432,7 +432,7 @@
 			  (escaped-byte-push! res-buf b4)
 			  (loop))))))))))
 
-(define-inline (uri-decode str::Js-Base-String in-reserved-set?)
+(define-inline (uri-decode str::js-string in-reserved-set?)
    ;; the str is supposed to be encoded. Therefore all chars should be ASCII.
    ;; we will therefore simply use js-string-ref to traverse the string.
 

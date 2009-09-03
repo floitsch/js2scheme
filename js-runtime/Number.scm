@@ -14,7 +14,7 @@
 	jsre-global-object
 	jsre-scope-object
 	)
-   (export (class Js-Number::Js-Object
+   (export (final-class NatO-Number::Js-Object
 	      (value::double read-only))
 	   *jsg-Number* ;; can be modified by user -> can't be ::procedure
 	   *js-Number-orig*::procedure
@@ -24,7 +24,7 @@
 (define *js-Number-orig* (lambda () 'to-be-replaced))
 (define *js-Number-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::bstring o::Js-Number)
+(define-method (js-class-name::bstring o::NatO-Number)
    (STR "Number"))
 
 (define (Number-init)
@@ -36,9 +36,9 @@
 						 (Number-new)
 						 Number-construct
 						 text-repr))
-	  (prototype (instantiate::Js-Number       ;; 15.7.4
+	  (prototype (instantiate::NatO-Number       ;; 15.7.4
 			(props (make-props-hashtable))
-			(proto (js-object-prototype))
+			(proto (natO-object-prototype))
 			(value 0.0))))
       (set! *js-Number-prototype* prototype)
 
@@ -128,14 +128,14 @@
     #f
     (nb-args get-arg)
     ()
-    (instantiate::Js-Number
+    (instantiate::NatO-Number
        (props (make-props-hashtable))
        (proto *js-Number-prototype*)
        (value (if (= nb-args 0)
 		  0.0
 		  (any->number (get-arg 0)))))))
    
-(define (Number-construct f-o::Js-Function)
+(define (Number-construct f-o::NatO-Function)
    ;; Number-new always returns an Object.
    ;; so we can ignore this one.
    #f)
@@ -145,12 +145,12 @@
 	   (radix)
 	   (define (convert radix)
 	      (cond
-		 ((not (Js-Number? this))
+		 ((not (NatO-Number? this))
 		  (type-error (STR "Number.toString applied to") this))
 		 ((or (js-undefined? radix)
 		      (and (flonum? radix)
 			   (=fl radix 10.0)))
-		  (any->js-string (Js-Number-value this)))
+		  (any->js-string (NatO-Number-value this)))
 		 ;; we are allowed to return a limited form of toString here.
 		 ;; spec explicitely allows a implementation dependent
 		 ;; representation.
@@ -158,13 +158,13 @@
 		       (>= radix 2.0)
 		       (<= radix 36.0)
 		       (=fl radix (any->integer radix)))
-		  (llong->js-string (flonum->llong (Js-Number-value this))
+		  (llong->js-string (flonum->llong (NatO-Number-value this))
 				    (flonum->fixnum radix)))
 		 
 		 ;; unspecified in spec.
 		 ;; v v v v v v v v v v 
 		 ((flonum? radix) ;; outside boundary
-		  (any->js-string (Js-Number-value this)))
+		  (any->js-string (NatO-Number-value this)))
 		 (else
 		  (convert (any->number radix)))))
 	   (convert radix)))
@@ -172,9 +172,9 @@
 (define (valueOf)                          ;; 15.7.4.4
    (js-fun this #f #f (STR "Number.prototype.valueOf")
 	   ()
-	   (if (not (Js-Number? this))
+	   (if (not (NatO-Number? this))
 	       (type-error (STR "Number.valueOf applied to") this)
-	       (Js-Number-value this))))
+	       (NatO-Number-value this))))
 
 (define (toFixed)                          ;; 15.7.4.5
    (js-fun
@@ -185,9 +185,9 @@
 	  (range-error
 	   (STR "invalide parameter to 'toFixed'. must be in range 0-20")
 	   f))
-       (when (not (Js-Number? this))
+       (when (not (NatO-Number? this))
 	  (type-error (STR "Number.toFixed applied to") this))
-       (let ((x (Js-Number-value this)))
+       (let ((x (NatO-Number-value this)))
 	  (cond
 	     ((nanfl? x) (STR "NaN"))
 	     ((or (>fl x 10e21)
@@ -201,9 +201,9 @@
    (js-fun
     this #f #f (STR "Number.prototype.toExponential")
     (fraction-digits)
-    (when (not (Js-Number? this))
+    (when (not (NatO-Number? this))
        (type-error (STR "Number.toExponential applied to") this))
-    (let* ((x (Js-Number-value this))
+    (let* ((x (NatO-Number-value this))
 	   (f (any->integer fraction-digits)))
        (cond
 	  ((nanfl? x) (STR "NaN"))
@@ -225,9 +225,9 @@
    (js-fun
     this #f #f (STR "Number.prototype.toPrecision")
     (precision)
-    (when (not (Js-Number? this))
+    (when (not (NatO-Number? this))
        (type-error (STR "Number.toPrecision applied to") this))
-    (let ((x (Js-Number-value this)))
+    (let ((x (NatO-Number-value this)))
        (if (js-undefined? precision)
 	   (utf8->js-string (double->string x 'shortest 0))
 	   (let ((p (any->integer precision)))

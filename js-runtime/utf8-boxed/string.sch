@@ -2,43 +2,42 @@
    (import jsre-conversion
 	   jsre-base-object)
    (export
-    (final-class Js-Base-String
+    (final-class js-string
        (str::bstring read-only)
        (hash::long read-only))
-    (inline js-string?::bool str)
     (macro ascii->js-string-literal)
-    (inline utf8->js-string-literal::Js-Base-String utf8-str::bstring
+    (inline utf8->js-string-literal::js-string utf8-str::bstring
 	    #!optional (needs-unescaping? #f))
-    (inline utf8->js-string::Js-Base-String utf8-str::bstring)
-    (inline js-string->utf8::bstring str::Js-Base-String)
-    (inline js-string=ascii?::bool js-str::Js-Base-String ascii-str::bstring)
-    (inline js-string-ref::js-char str::Js-Base-String i::long)
-    (inline js-string=?::bool str1::Js-Base-String str2::Js-Base-String)
-    (inline js-string-hash::long str::Js-Base-String)
-    (inline js-string-null?::bool str::Js-Base-String)
-    (inline js-string-length::long str::Js-Base-String)
-    (inline js-substring::Js-Base-String str::Js-Base-String
+    (inline utf8->js-string::js-string utf8-str::bstring)
+    (inline js-string->utf8::bstring str::js-string)
+    (inline js-string=ascii?::bool js-str::js-string ascii-str::bstring)
+    (inline js-string-ref::js-char str::js-string i::long)
+    (inline js-string=?::bool str1::js-string str2::js-string)
+    (inline js-string-hash::long str::js-string)
+    (inline js-string-null?::bool str::js-string)
+    (inline js-string-length::long str::js-string)
+    (inline js-substring::js-string str::js-string
 	    from::long to::long)
     (macro js-string-append)
-    (js-string-append::Js-Base-String . Lstrs)
-    (inline js-string<?::bool str1::Js-Base-String str2::Js-Base-String)
-    (inline js-ascii-substring-at?::bool str1::bstring str::Js-Base-String
+    (js-string-append::js-string . Lstrs)
+    (inline js-string<?::bool str1::js-string str2::js-string)
+    (inline js-ascii-substring-at?::bool str1::bstring str::js-string
 	    pos::long)
-    (inline js-substring-at?::bool str1::Js-Base-String str::Js-Base-String
+    (inline js-substring-at?::bool str1::js-string str::js-string
 	    pos::long)
-    (inline js-string->real::double str::Js-Base-String)
-    (inline js-string->integer::long str::Js-Base-String #!optional (base #f))
-    (inline integer->js-string::Js-Base-String i::long)
-    (inline real->js-string::Js-Base-String d::double)
-    (inline llong->js-string::Js-Base-String i::llong #!optional (base #f))
-    (inline vector->js-string::Js-Base-String v::vector)
-    (inline js-char->js-string::Js-Base-String c::js-char)
-    (inline js-string-contains str1::Js-Base-String str2::Js-Base-String
+    (inline js-string->real::double str::js-string)
+    (inline js-string->integer::long str::js-string #!optional (base #f))
+    (inline integer->js-string::js-string i::long)
+    (inline real->js-string::js-string d::double)
+    (inline llong->js-string::js-string i::llong #!optional (base #f))
+    (inline vector->js-string::js-string v::vector)
+    (inline js-char->js-string::js-string c::js-char)
+    (inline js-string-contains str1::js-string str2::js-string
 	    #!optional (pos::long 0))
-    (inline js-string-compare3::long str1::Js-Base-String str2::Js-Base-String)
-    (inline js-string-downcase::Js-Base-String str::Js-Base-String)
-    (inline js-string-upcase::Js-Base-String str::Js-Base-String)
-    (js-string-uc-iterator str::Js-Base-String)
+    (inline js-string-compare3::long str1::js-string str2::js-string)
+    (inline js-string-downcase::js-string str::js-string)
+    (inline js-string-upcase::js-string str::js-string)
+    (js-string-uc-iterator str::js-string)
     (open-js-string-buffer size)
     (js-string-buffer-uc-push! buf c::long)
     (js-string-buffer-verbatim-push! buf js-c::js-char)
@@ -52,69 +51,69 @@
    (utf8->js-string str))
 
 (define-inline (js-string?::bool str)
-   (Js-Base-String? str))
+   (js-string? str))
 
-(define-inline (utf8->js-string::Js-Base-String utf8-str)
-   (instantiate::Js-Base-String (str utf8-str)
+(define-inline (utf8->js-string::js-string utf8-str)
+   (instantiate::js-string (str utf8-str)
 				(hash (string-hash utf8-str))))
-(define-inline (js-string->utf8 str::Js-Base-String)
-   (Js-Base-String-str str))
+(define-inline (js-string->utf8 str::js-string)
+   (js-string-str str))
 
 (define-inline (js-string=ascii? js-str ascii-str)
-   (string=? (Js-Base-String-str js-str) ascii-str))
+   (string=? (js-string-str js-str) ascii-str))
 
-(define-inline (js-string-ref str::Js-Base-String i::long)
-   (string-ref (Js-Base-String-str str) i))
+(define-inline (js-string-ref str::js-string i::long)
+   (string-ref (js-string-str str) i))
 
-(define-inline (js-string=? str1::Js-Base-String str2::Js-Base-String)
-   (and (=fx (Js-Base-String-hash str1) (Js-Base-String-hash str2))
-	(string=? (Js-Base-String-str str1) (Js-Base-String-str str2))))
+(define-inline (js-string=? str1::js-string str2::js-string)
+   (and (=fx (js-string-hash str1) (js-string-hash str2))
+	(string=? (js-string-str str1) (js-string-str str2))))
 
-(define-inline (js-string-hash::long str::Js-Base-String)
-   (Js-Base-String-hash str))
+(define-inline (js-string-hash::long str::js-string)
+   (js-string-hash str))
 
-(define-inline (js-string-null?::bool str::Js-Base-String)
-   (string-null? (Js-Base-String-str str)))
+(define-inline (js-string-null?::bool str::js-string)
+   (string-null? (js-string-str str)))
 
-(define-inline (js-string-length::long str::Js-Base-String)
-   (string-length (Js-Base-String-str str)))
+(define-inline (js-string-length::long str::js-string)
+   (string-length (js-string-str str)))
 
-(define-inline (js-substring::Js-Base-String str::Js-Base-String
+(define-inline (js-substring::js-string str::js-string
 					     from::long to::long)
-   (utf8->js-string (substring (Js-Base-String-str str) from to)))
+   (utf8->js-string (substring (js-string-str str) from to)))
 
 (define-macro (js-string-append . L)
    `(utf8->js-string
-     (string-append ,@(map (lambda (s) `(Js-Base-String-str ,s)) L))))
-(define (js-string-append::Js-Base-String . L)
-   (utf8->js-string (apply string-append (map Js-Base-String-str L))))
+     (string-append ,@(map (lambda (s) `(js-string-str ,s)) L))))
+(define (js-string-append::js-string . L)
+   (utf8->js-string (apply string-append (map js-string-str L))))
 
-(define-inline (js-string<?::bool str1::Js-Base-String str2::Js-Base-String)
-   (string<? (Js-Base-String-str str1) (Js-Base-String-str str2)))
+(define-inline (js-string<?::bool str1::js-string str2::js-string)
+   (string<? (js-string-str str1) (js-string-str str2)))
 
 (define-inline (js-ascii-substring-at?::bool str1::bstring
-					     str2::Js-Base-String
+					     str2::js-string
 					     pos::long)
-   (substring-at? str1 (Js-Base-String-str str2) pos))
+   (substring-at? str1 (js-string-str str2) pos))
 
-(define-inline (js-substring-at?::bool str1::Js-Base-String
-				       str2::Js-Base-String
+(define-inline (js-substring-at?::bool str1::js-string
+				       str2::js-string
 				       pos::long)
-   (substring-at? (Js-Base-String-str str1) (Js-Base-String-str str2) pos))
+   (substring-at? (js-string-str str1) (js-string-str str2) pos))
 
-(define-inline (js-string->real::double str::Js-Base-String)
-   (string->real (Js-Base-String-str str)))
-(define-inline (js-string->integer::long str::Js-Base-String
+(define-inline (js-string->real::double str::js-string)
+   (string->real (js-string-str str)))
+(define-inline (js-string->integer::long str::js-string
 					 #!optional (base #f))
    (if base
-       (string->integer (Js-Base-String-str str) base)
-       (string->integer (Js-Base-String-str str))))
+       (string->integer (js-string-str str) base)
+       (string->integer (js-string-str str))))
 
-(define-inline (integer->js-string::Js-Base-String i::long)
+(define-inline (integer->js-string::js-string i::long)
    (utf8->js-string (integer->string i)))
-(define-inline (real->js-string::Js-Base-String d::double)
+(define-inline (real->js-string::js-string d::double)
    (utf8->js-string (real->string d)))
-(define-inline (llong->js-string::Js-Base-String l::llong #!optional (base #f))
+(define-inline (llong->js-string::js-string l::llong #!optional (base #f))
    (if base
        (utf8->js-string (llong->string l base))
        (utf8->js-string (llong->string l))))
@@ -135,24 +134,24 @@
 (define-inline (js-char->js-string c::js-char)
    (utf8->js-string (string c)))
 
-(define-inline (js-string-contains str1::Js-Base-String str2::Js-Base-String
+(define-inline (js-string-contains str1::js-string str2::js-string
 				   #!optional (pos::long 0))
-   (string-contains (Js-Base-String-str str1) (Js-Base-String-str str2) pos))
+   (string-contains (js-string-str str1) (js-string-str str2) pos))
 
-(define-inline (js-string-compare3 str1::Js-Base-String str2::Js-Base-String)
-   (string-compare3 (Js-Base-String-str str1) (Js-Base-String-str str2)))
+(define-inline (js-string-compare3 str1::js-string str2::js-string)
+   (string-compare3 (js-string-str str1) (js-string-str str2)))
 
 ;; downcase must work in unicode (if the implementation allows UC)
-(define-inline (js-string-downcase::Js-Base-String base-str::Js-Base-String)
-   (with-access::Js-Base-String base-str (str)
+(define-inline (js-string-downcase::js-string base-str::js-string)
+   (with-access::js-string base-str (str)
       (let ((downcased (utf8-downcase str)))
 	 (if (eq? downcased str)
 	     base-str
 	     (utf8->js-string downcased)))))
 
 ;; upcase must work in unicode (if the implementation allows UC)
-(define-inline (js-string-upcase::Js-Base-String base-str::Js-Base-String)
-   (with-access::Js-Base-String base-str (str)
+(define-inline (js-string-upcase::js-string base-str::js-string)
+   (with-access::js-string base-str (str)
       (let ((upcased (utf8-upcase str)))
 	 (if (eq? upcased str)
 	     base-str
@@ -160,8 +159,8 @@
 
 ;; raises an error if the string is not a correct Unicode string.
 ;; the iterator (a closure) must return integers or #f (eos).
-(define (js-string-uc-iterator str::Js-Base-String)
-   (utf8-uc-iterator (Js-Base-String-str str)))
+(define (js-string-uc-iterator str::js-string)
+   (utf8-uc-iterator (js-string-str str)))
 
 (define (open-js-string-buffer size)
    (open-utf8-string-buffer size))

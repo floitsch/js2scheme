@@ -13,7 +13,7 @@
     (RegExp-class-match re-class c::js-char)
     (RegExp-class-subset?::bool re-class1 re-class2)
     (RegExp-class-overlap?::bool re-class1 re-class2)
-    (word-boundary str::Js-Base-String index::bint)
+    (word-boundary str::js-string index::bint)
     (js-char-terminator? c::js-char)
     (canonicalize-char::js-char c::js-char ignore-case?::bool))
    (include "RegExp-constant-classes.scm"))

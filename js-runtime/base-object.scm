@@ -21,16 +21,16 @@
        (props read-only) ;; hashtable
        (proto::Js-Object read-only)) ;; prototype
     (generic js-property-one-level-contains?::bool o::Js-Object
-	     prop::Js-Base-String)
+	     prop::js-string)
     (generic js-property-is-enumerable?::bool o::Js-Object
-	     prop::Js-Base-String)
-    (generic js-property-contains o::Js-Object prop::Js-Base-String)
+	     prop::js-string)
+    (generic js-property-contains o::Js-Object prop::js-string)
     (generic js-property-generic-set!
-	     o::Js-Object prop::Js-Base-String
+	     o::Js-Object prop::js-string
 	     new-val attributes)
-    (generic js-property-safe-delete!::bool o::Js-Object prop::Js-Base-String)
-    (js-property-direct-delete!::bool o::Js-Object prop::Js-Base-String)
-    (generic js-class-name::Js-Base-String o::Js-Object)
+    (generic js-property-safe-delete!::bool o::Js-Object prop::js-string)
+    (js-property-direct-delete!::bool o::Js-Object prop::js-string)
+    (generic js-class-name::js-string o::Js-Object)
 
     (generic js-property-one-level-for-each o::Js-Object f::procedure)
 
@@ -207,7 +207,7 @@
    (js-property-direct-delete! o prop))
 
 ;; is not generic. Basically introduced for Arguments-object.
-(define (js-property-direct-delete!::bool o::Js-Object prop::Js-Base-String)
+(define (js-property-direct-delete!::bool o::Js-Object prop::js-string)
    (with-access::Js-Object o (props proto)
       (let ((entry (hashtable-get props prop)))
 	 (cond
@@ -225,7 +225,7 @@
 	    (else
 	     (js-property-safe-delete! proto prop))))))
 
-(define-generic (js-class-name::Js-Base-String o::Js-Object)
+(define-generic (js-class-name::js-string o::Js-Object)
    (STR "Object"))
 
 ;; calls f with prop::string val read-only? deletable? enumerable?

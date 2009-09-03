@@ -15,7 +15,7 @@
 	)
    (export *jsg-Bool*
 	   *js-Bool-orig* ; ::procedure ;; Bigloo recently had bugs with types
-	   (class Js-Bool::Js-Object
+	   (final-class NatO-Bool::Js-Object
 	      val::bool)
 	   (Bool-init)))
 
@@ -23,7 +23,7 @@
 (define *js-Bool-orig* (lambda () 'to-be-replaced))
 (define *js-Bool-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::Js-Base-String o::Js-Bool)
+(define-method (js-class-name::js-string o::NatO-Bool)
    (STR "Boolean"))
 
 (define (Bool-init)
@@ -35,9 +35,9 @@
 					       (Bool-new)
 					       Bool-construct
 					       text-repr))
-	  (prototype (instantiate::Js-Bool ;; 15.6.4
+	  (prototype (instantiate::NatO-Bool ;; 15.6.4
 		       (props (make-props-hashtable))
-		       (proto (js-object-prototype))
+		       (proto (natO-object-prototype))
 		       (val #f))))
       
       (set! *js-Bool-prototype* prototype)
@@ -75,27 +75,27 @@
    ;; 15.6.2.1
    (js-fun-lambda #f #f #f
     (value)
-    (instantiate::Js-Bool
+    (instantiate::NatO-Bool
        (props (make-props-hashtable))
        (proto *js-Bool-prototype*)
        (val (any->bool value)))))
 
-(define (Bool-construct f-o::Js-Function)
+(define (Bool-construct f-o::NatO-Function)
    #f)
 
 (define (toString)
    ;; 15.6.4.1
    (js-fun this #f #f (STR "Boolean.prototype.toString")
 	   ()
-	   (if (not (Js-Bool? this))
+	   (if (not (NatO-Bool? this))
 	       (type-error (STR "Bool-toString applied to") this)
-	       (let ((val (Js-Bool-val this)))
+	       (let ((val (NatO-Bool-val this)))
 		  (if val (STR "true") (STR "false"))))))
 
 (define (valueOf)
    ;; 15.6.4.3
    (js-fun this #f #f (STR "Boolean.prototype.valueOf")
 	   ()
-	   (if (not (Js-Bool? this))
+	   (if (not (NatO-Bool? this))
 	       (type-error (STR "Bool-valueOf applied to") this)
-	       (Js-Bool-val this))))
+	       (NatO-Bool-val this))))

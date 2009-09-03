@@ -24,7 +24,7 @@
    (export (macro scope-var-add))
    (eval (class Ref)))
 
-;; id (the variable) must be of type Js-Base-String
+;; id (the variable) must be of type js-string
 (define-macro (scope-var-add scope-object
 			     id v attributes)
    (let ((ref (gensym 'ref))
@@ -52,7 +52,7 @@
       (props (make-props-hashtable))
       (proto (js-null))))
 
-(define-method (js-class-name::Js-Base-String o::Js-Scope-Object)
+(define-method (js-class-name::js-string o::Js-Scope-Object)
    (utf8->js-string "scope-object should never be seen"))
 
 
@@ -67,17 +67,17 @@
 			(not (js-deleted? ref-val)))
 		     #t))))))
 (define-method (js-property-one-level-contains? o::Js-Scope-Object
-						prop::Js-Base-String)
+						prop::js-string)
    (js-scope-property-one-level-contains? o prop))
 (define-method (js-property-is-enumerable? o::Js-Scope-Object
-					   prop::Js-Base-String)
+					   prop::js-string)
    (if (js-scope-property-one-level-contains? o prop)
        (with-access::Js-Object o (props)
 	  (with-access::Property-entry (hashtable-get props prop) (attr)
 	     (with-access::Attributes attr (enumerable)
 		enumerable)))
        #f))
-(define-method (js-property-contains o::Js-Scope-Object prop::Js-Base-String)
+(define-method (js-property-contains o::Js-Scope-Object prop::js-string)
    (define (call-proto)
       (with-access::Js-Object o (proto)
 	 (if (js-null? proto)
@@ -116,7 +116,7 @@
 				   val)))
 		       (p key tmp read-only deletable enumerable))))))))))
 	  
-(define-method (js-property-generic-set! o::Js-Scope-Object prop::Js-Base-String
+(define-method (js-property-generic-set! o::Js-Scope-Object prop::js-string
 					 new-val attributes)
 ;   (print "setting " prop)
    (with-access::Js-Object o (props)
@@ -154,7 +154,7 @@
 	  (val new-val)
 	  (attr (or attributes (default-attributes)))))))
    
-(define-method (js-property-safe-delete! o::Js-Scope-Object prop::Js-Base-String)
+(define-method (js-property-safe-delete! o::Js-Scope-Object prop::js-string)
    (define (proto-delete!)
       (with-access::Js-Object o (proto)
 	 (if (js-null? proto)

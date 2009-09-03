@@ -18,7 +18,7 @@
 	   *js-global-env*
 	   ;; reuse the Property-entry
  	   (wide-class Js-Global-Box::Property-entry
- 	      id::Js-Base-String
+ 	      id::js-string
  	      declared?::bool)
 	   (global-object-init)
  	   (macro create-declared-global)
@@ -29,7 +29,7 @@
  	   (macro global-typeof-read)
  	   (macro global-set!)
 	   (macro global-declared?)
-	   (create-global::Js-Global-Box id::Js-Base-String
+	   (create-global::Js-Global-Box id::js-string
 					 attributes declared? . Linit-val)))
 
 ;; should be in global-object.scm
@@ -137,7 +137,7 @@
    (let ((tmp-props-table (Js-Global-props *js-global-object*)))
       (set! *js-global-object* (instantiate::Js-Global
 				  (props tmp-props-table)
-				  (proto (js-object-prototype)))))
+				  (proto (natO-object-prototype)))))
    (set! *js-global-this* *js-global-object*) ;; alias
    (set! *js-global-env* (instantiate::Js-Eval-env
 			    (objs (list *js-global-object*))
@@ -151,7 +151,7 @@
 
 ;; ======= implementation of Js-Global.
 
-(define-method (js-class-name::Js-Base-String o::Js-Global)
+(define-method (js-class-name::js-string o::Js-Global)
    ;; not defined in ECMA.
    (STR "global"))
 

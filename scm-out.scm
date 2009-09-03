@@ -619,7 +619,7 @@
       `(lambda (,exc-scm-id)
 	  (lambda ()
 	     (let* ((,exc-scm-id (error->js-exception ,exc-scm-id))
-		    (,obj-id (js-create-scope-object (js-object-literal '()))))
+		    (,obj-id (js-create-scope-object (natO-object-literal '()))))
 		;; 12.14
 		(scope-var-add ,obj-id
 			       ,exc-js-str
@@ -632,7 +632,7 @@
 	 (fun-js-str (add-str! (symbol->string this.decl.var.id)))
 	 (obj-id this.obj-id)
 	 (compiled-body (this.body.traverse)))
-      `(let ((,obj-id (js-create-scope-object (js-object-literal '()))))
+      `(let ((,obj-id (js-create-scope-object (natO-object-literal '()))))
 	  (letrec ((,fun-scm-id ,compiled-body))
 	     ;; 13
 	     (scope-var-add ,obj-id
@@ -992,7 +992,7 @@
 	 (list 'unquote (this.expr.traverse))))
 
 (define-pmethod (Obj-init-out)
-   `(js-object-literal
+   `(natO-object-literal
      ,(list 'quasiquote (map-node-compile this.props))))
 
 (define-pmethod (Property-init-out)

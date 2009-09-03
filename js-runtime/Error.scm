@@ -24,15 +24,15 @@
 	   *jsg-Type-Error*
 	   *jsg-URI-Error*
 	   (Error-init)
-	   (class Js-Error::Js-Object)
-	   (range-error msg::Js-Base-String val)
-	   (type-error msg::Js-Base-String val)
+	   (final-class NatO-Error::Js-Object)
+	   (range-error msg::js-string val)
+	   (type-error msg::js-string val)
 	   (type-procedure-error val)
-	   (undeclared-error id::Js-Base-String)
-	   (syntax-error msg::Js-Base-String obj)
+	   (undeclared-error id::js-string)
+	   (syntax-error msg::js-string obj)
 	   (eval-error)
-	   (delete-error msg::Js-Base-String)
-	   (uri-error msg::Js-Base-String)
+	   (delete-error msg::js-string)
+	   (uri-error msg::js-string)
 	   (any->safe-string::bstring any)
 	   (error->js-exception e)))
 
@@ -69,13 +69,13 @@
 						   (Error-new)
 						   Error-construct
 						   text-repr))
-	     (prototype (instantiate::Js-Error
+	     (prototype (instantiate::NatO-Error
 			   (props (make-props-hashtable))
 			   ;; prototype is either object-prototype (15.11.4) or
 			   ;; the Error-prototype (15.11.7.7)
 			   (proto (if native-error?
 				      *error-prototype*
-				      (js-object-prototype))))))
+				      (natO-object-prototype))))))
 	 
 	 (unless native-error? (set! *error-prototype* prototype))
 
@@ -145,7 +145,7 @@
 						*js-URI-Error-orig*)))
 
 
-(define-method (js-class-name::bstring o::Js-Error)
+(define-method (js-class-name::bstring o::NatO-Error)
    "Error")
 
 (define (Error-lambda name)
@@ -166,15 +166,15 @@
 				       (any->safe-js-string msg)))
 		  this))
 
-(define (Error-construct::Js-Error f-o::Js-Function)
-   (instantiate::Js-Error
+(define (Error-construct::NatO-Error f-o::NatO-Function)
+   (instantiate::NatO-Error
       (props (make-props-hashtable))
       (proto (js-property-get f-o (STR "prototype")))))
 
 (define (toString)
    (js-fun this #f #f (STR "Error.prototype.toString")
 	   ()
-	   (if (not (Js-Error? this))
+	   (if (not (NatO-Error? this))
 	       (STR "ERROR")
 	       (js-string-append
 		;; (format "~a: ~a" ...)
@@ -259,33 +259,33 @@
 	   (flonum? any))
        (any->js-string any))
       ((Js-Arguments? any) (STR "Arguments"))
-      ((Js-Array? any) (STR "Array"))
-      ((Js-Bool? any) (if (Js-Bool-val any)
+      ((NatO-Array? any) (STR "Array"))
+      ((NatO-Bool? any) (if (NatO-Bool-val any)
 			  (STR "Bool<true>")
 			  (STR "Bool<false>")))
-      ((Js-Date? any)
+      ((NatO-Date? any)
        ;; (format "Date<~a>"
        (js-string-append
 	(STR "Date<")
-	(if (nanfl? (Js-Date-t any))
+	(if (nanfl? (NatO-Date-t any))
 	    (STR "invalid")
 	    (utf8->js-string
 	     (date->string (seconds->date (flonum->elong
-					   (/fl (Js-Date-t any) 1000.0))))))
+					   (/fl (NatO-Date-t any) 1000.0))))))
 	(STR ">")))
-      ((Js-Function? any) (STR "Function-object"))
-      ((Js-Math? any) (STR "Math"))
-      ((Js-Number? any)
-       ;; (format "Number<~a>" (Js-Number-value any)))
+      ((NatO-Function? any) (STR "Function-object"))
+      ((NatO-Math? any) (STR "Math"))
+      ((NatO-Number? any)
+       ;; (format "Number<~a>" (NatO-Number-value any)))
        (js-string-append (STR "Number<")
-			 (real->js-string (Js-Number-value any))
+			 (real->js-string (NatO-Number-value any))
 			 (STR ">")))
-      ((Js-String? any)
-       ;; (format "String<~a>" (Js-String-str any)))
+      ((NatO-String? any)
+       ;; (format "String<~a>" (NatO-String-str any)))
        (js-string-append (STR "String<")
-			 (Js-String-str any)
+			 (NatO-String-str any)
 			 (STR ">")))
-      ((Js-Error? any)
+      ((NatO-Error? any)
        (let ((name (js-property-get any (STR "name")))
 	     (msg (js-property-get any (STR "message"))))
 	  (if (and (js-string? name)

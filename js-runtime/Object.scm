@@ -14,25 +14,26 @@
 	jsre-global-object
 	jsre-scope-object
 	)
-   (export *jsg-Object*
-	   (js-object-prototype::Js-Object)
+   (export (final-class NatO-Object::Js-Object)
+	   *jsg-Object*
+	   (natO-object-prototype::NatO-Object)
 	   (Object-init)
-	   (js-object-literal properties::pair-nil)))
+	   (natO-object-literal properties::pair-nil)))
 
 (define *jsg-Object* #unspecified)
-(define *js-Object-prototype*::Js-Object (js-null))
+(define *natO-object-prototype*::NatO-Object (NatO-Object-nil))
 
 (define *object-prototype-initialized?* #f)
-(define (js-object-prototype)
+(define (natO-object-prototype)
    (unless *object-prototype-initialized?*
-      (let ((proto (instantiate::Js-Object
+      (let ((proto (instantiate::NatO-Object
 		      (props (make-props-hashtable))
 		      (proto (js-null)))))
-	 (set! *js-Object-prototype* proto)
+	 (set! *natO-object-prototype* proto)
 	 (set! *object-prototype-initialized?* #t)))
-   *js-Object-prototype*)
+   *natO-object-prototype*)
 
-(define-method (js-class-name::Js-Base-String o::Js-Object)
+(define-method (js-class-name::js-string o::NatO-Object)
    (STR "Object"))
 
 (define (Object-init)
@@ -43,9 +44,9 @@
 					       (Object-new)
 					       Object-construct
 					       text-repr))
-	  (prototype (js-object-prototype)))
+	  (prototype (natO-object-prototype)))
 
-      ;; no need to safe the prototype in *js-object-prototype*. that's already
+      ;; no need to safe the prototype in *natO-object-prototype*. that's already
       ;; done.
 
       (js-property-generic-set! proc-object ;; 15.2.3
@@ -110,12 +111,12 @@
 (define (Object-construct c)
    (create-empty-object-lambda c))
 
-(define (js-object-literal properties)
+(define (natO-object-literal properties)
    (let ((o (js-new (global-read *jsg-Object*))))
       (for-each (lambda (prop)
 		   (let ((name (any->js-string (car prop)))
 			 (val (cadr prop)))
-		      ;; TODO: js-object-literal can be optimized
+		      ;; TODO: natO-object-literal can be optimized
 		      (js-property-set! o name val)))
 		properties)
       o))
@@ -154,7 +155,7 @@
 	      ((js-object other)
 	       => (lambda (o)
 		     (let loop ((o o))
-			(let ((prototype (Js-Object-proto o)))
+			(let ((prototype (NatO-Object-proto o)))
 			   (cond
 			      ((js-null? prototype)
 			       #f)

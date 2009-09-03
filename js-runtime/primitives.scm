@@ -4,10 +4,10 @@
 	jsre-base-string
 	jsre-natives ;; undefined
 	jsre-conversion)
-   (export (js-property-get o::Js-Object prop::Js-Base-String)
+   (export (js-property-get o::Js-Object prop::js-string)
 	   ;; returns the given value
-	   (js-property-set! o::Js-Object prop::Js-Base-String new-val)
-	   (js-property-update! o::Js-Object prop::Js-Base-String new-val)
+	   (js-property-set! o::Js-Object prop::js-string new-val)
+	   (js-property-update! o::Js-Object prop::js-string new-val)
 
 	   (js-property-for-each o::Js-Object f::procedure)
 
@@ -16,7 +16,7 @@
 	   
 
 
-(define (js-property-get o::Js-Object prop::Js-Base-String)
+(define (js-property-get o::Js-Object prop::js-string)
    ;(write-circle o)(print)
    ;(write-circle prop)(print)
    (let ((res (js-property-contains o prop)))
@@ -26,11 +26,11 @@
 	  (js-undefined))))
 
 ;; non-generic. but js-property-generic-set! is.
-(define (js-property-set! o::Js-Object prop::Js-Base-String new-value)
+(define (js-property-set! o::Js-Object prop::js-string new-value)
    (js-property-generic-set! o prop (mangle-false new-value) #f)
    new-value)
 
-(define (js-property-update! o::Js-Object prop::Js-Base-String new-value)
+(define (js-property-update! o::Js-Object prop::js-string new-value)
    (cond
       ((js-null? o) #f)
       ((js-property-one-level-contains? o prop)

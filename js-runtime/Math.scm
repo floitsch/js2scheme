@@ -14,7 +14,7 @@
 	jsre-global-object
 	jsre-scope-object
 	)
-   (export (class Js-Math::Js-Object)
+   (export (final-class NatO-Math::Js-Object)
 	   *jsg-Math*
 	   (Math-init)))
 
@@ -22,13 +22,13 @@
 
 (define *jsg-Math* #unspecified)
 
-(define-method (js-class-name::Js-Base-String o::Js-Math)
+(define-method (js-class-name::js-string o::NatO-Math)
    (STR "Math"))
 
 (define (Math-init)
-   (let ((math (instantiate::Js-Math
+   (let ((math (instantiate::NatO-Math
 		  (props (make-props-hashtable))
-		  (proto (js-object-prototype)))))
+		  (proto (natO-object-prototype)))))
       
       (set! *jsg-Math* (create-runtime-global (STR "Math") math))
       

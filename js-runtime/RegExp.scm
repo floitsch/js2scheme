@@ -19,25 +19,25 @@
    (export
     *jsg-RegExp*
     *js-RegExp-exec*
-    (class Js-RegExp::Js-Object
+    (final-class NatO-RegExp::Js-Object
        re)
     (RegExp-init)
-    (RegExp-first-match-pos re::Js-RegExp str::Js-Base-String)
+    (RegExp-first-match-pos re::NatO-RegExp str::js-string)
 
-    (RegExp-test re::Js-RegExp str::Js-Base-String start-pos::bint)
-    (RegExp-exec re::Js-RegExp str::Js-Base-String start-pos::bint)
+    (RegExp-test re::NatO-RegExp str::js-string start-pos::bint)
+    (RegExp-exec re::NatO-RegExp str::js-string start-pos::bint)
     ;; maybe put the following into a RegExp-facade module?
-    (RegExp-res-matched::Js-Base-String re-res str::Js-Base-String)
+    (RegExp-res-matched::js-string re-res str::js-string)
     (RegExp-res-start-pos::bint re-res)
     (RegExp-res-stop-pos::bint re-res)
     (RegExp-res-clusters re-res)
-    (RegExp-res-capture re-res i::bint str::Js-Base-String)
-    (RegExp-res-captures re-res str::Js-Base-String)
+    (RegExp-res-capture re-res i::bint str::js-string)
+    (RegExp-res-captures re-res str::js-string)
     (RegExp-cluster-length::bint re-cluster)
     (RegExp-cluster-start-pos re-cluster i::bint)
     (RegExp-cluster-stop-pos re-cluster i::bint)
-    (RegExp-cluster-capture re-cluster i::bint str::Js-Base-String)
-    (RegExp-cluster-captures re-cluster str::Js-Base-String)
+    (RegExp-cluster-capture re-cluster i::bint str::js-string)
+    (RegExp-cluster-captures re-cluster str::js-string)
     ))
 
 (define *jsg-RegExp* #unspecified)
@@ -45,7 +45,7 @@
 (define *js-RegExp-prototype*::Js-Object (js-null))
 (define *js-RegExp-exec* #unspecified)
 
-(define-method (js-class-name::Js-Base-String o::Js-RegExp)
+(define-method (js-class-name::js-string o::NatO-RegExp)
    (STR "RegExp"))
 
 (define (RegExp-init)
@@ -59,7 +59,7 @@
 						 text-repr))
 	  (prototype (instantiate::Js-Object             ;; 15.10.6
 			(props (make-props-hashtable))
-			(proto (js-object-prototype)))))
+			(proto (natO-object-prototype)))))
       
       (set! *js-RegExp-prototype* prototype)
 
@@ -97,7 +97,7 @@
    (js-fun-lambda
     #f #f #f
     (pattern flags)
-    (if (and (Js-RegExp? pattern)
+    (if (and (NatO-RegExp? pattern)
 	     (js-undefined? flags))
 	pattern
 	(js-new *js-RegExp-orig* pattern flags))))
@@ -107,10 +107,10 @@
     this #f #f
     (pattern flags)
     (cond
-       ((and (Js-RegExp? pattern)
+       ((and (NatO-RegExp? pattern)
 	     (js-undefined? flags))
 	pattern)
-       ((Js-RegExp? pattern)
+       ((NatO-RegExp? pattern)
 	(type-error
 	 (STR "new RegExp with RegExp as pattern and not undefined flags")
 	 flags))
@@ -152,7 +152,7 @@
 					    0.0
 					    (get-Attributes dont-delete
 							    dont-enum))
-		  (with-access::Js-RegExp this (re)
+		  (with-access::NatO-RegExp this (re)
 		     (let ((scm-re (js-regexp->scm-regexp pattern)))
 			(when (not scm-re)
 			   (syntax-error (STR "Bad RegExp pattern") pattern))
@@ -175,8 +175,8 @@
 		  (syntax-error (STR "Bad RegExp flags") norm-flags)))))))
     this))
 
-(define (RegExp-construct::Js-RegExp c)
-   (instantiate::Js-RegExp
+(define (RegExp-construct::NatO-RegExp c)
+   (instantiate::NatO-RegExp
       (props (make-props-hashtable))
       (proto *js-RegExp-prototype*)
       (re #f)))
@@ -186,7 +186,7 @@
     this #f #f
     (STR "RegExp.prototype.exec")
     (string)
-    (when (not (Js-RegExp? this))
+    (when (not (NatO-RegExp? this))
        (type-error (STR "RegExp-exec applied to") this))
     (let* ((s (any->js-string string))
 	   (len (js-string-length s))
@@ -201,7 +201,7 @@
 	       (>fx i len))
 	   (js-property-set! this (STR "lastIndex") 0.0)
 	   (js-null))
-	  ((regexp-match (Js-RegExp-re this) s i)
+	  ((regexp-match (NatO-RegExp-re this) s i)
 	   =>
 	   (lambda (match)
 	      (let ((start-index (car match))
@@ -246,7 +246,7 @@
     this #f #f
     (STR "RegExp.prototype.test")
     (string)
-    (when (not (Js-RegExp? this))
+    (when (not (NatO-RegExp? this))
        (type-error (STR "RegExp-test applied to") this))
     (let* ((s (any->js-string string))
 	   (len (js-string-length s))
@@ -262,7 +262,7 @@
 	   (js-property-set! this (STR "lastIndex") 0.0)
 	   #f)
 	  (global?
-	   (let ((match (regexp-match (Js-RegExp-re this) s i)))
+	   (let ((match (regexp-match (NatO-RegExp-re this) s i)))
 	      (if match
 		  (begin
 		     (js-property-set! this (STR "lastIndex")
@@ -282,7 +282,7 @@
     this #f #f
     (STR "RegExp.prototype.toString")
     ()
-    (when (not (Js-RegExp? this))
+    (when (not (NatO-RegExp? this))
        (type-error (STR "RegExp-toString applied to") this))
     ;; currently implement the "cheap" variant.
     ;; TODO: return a RegularExpressionLiteral
@@ -296,25 +296,25 @@
 			 (if multiline? (STR "m") (STR ""))))))
 
 ;; basic test. either #t or #f
-(define (RegExp-test re::Js-RegExp str::Js-Base-String start-pos::bint)
-   (regexp-test (Js-RegExp-re re) str start-pos))
+(define (RegExp-test re::NatO-RegExp str::js-string start-pos::bint)
+   (regexp-test (NatO-RegExp-re re) str start-pos))
 
-(define (RegExp-exec re::Js-RegExp str::Js-Base-String start-pos::bint)
-   (regexp-match (Js-RegExp-re re) str start-pos))
+(define (RegExp-exec re::NatO-RegExp str::js-string start-pos::bint)
+   (regexp-match (NatO-RegExp-re re) str start-pos))
 
 (define (RegExp-res-start-pos::bint re-res)
    (car re-res))
 (define (RegExp-res-stop-pos::bint re-res)
    (cadr re-res))
-(define (RegExp-res-matched::Js-Base-String re-res str::Js-Base-String)
+(define (RegExp-res-matched::js-string re-res str::js-string)
    (js-substring str
 		 (RegExp-res-start-pos re-res)
 		 (RegExp-res-stop-pos re-res)))
 (define (RegExp-res-clusters re-res)
    (caddr re-res))
-(define (RegExp-res-capture re-res i::bint str::Js-Base-String)
+(define (RegExp-res-capture re-res i::bint str::js-string)
    (RegExp-cluster-capture (RegExp-res-clusters re-res) i str))
-(define (RegExp-res-captures re-res str::Js-Base-String)
+(define (RegExp-res-captures re-res str::js-string)
    (RegExp-cluster-captures (RegExp-res-clusters re-res) str))
 (define (RegExp-cluster-length::bint re-cluster)
    (/fx (vector-length re-cluster) 2))
@@ -322,14 +322,14 @@
    (vector-ref re-cluster (*fx i 2)))
 (define (RegExp-cluster-stop-pos re-cluster i::bint)
    (vector-ref re-cluster (+fx (*fx i 2) 1)))
-(define (RegExp-cluster-capture re-cluster i::bint str::Js-Base-String)
+(define (RegExp-cluster-capture re-cluster i::bint str::js-string)
    (let ((start-pos (RegExp-cluster-start-pos re-cluster i)))
       (if start-pos
 	  (js-substring str
 			start-pos
 			(RegExp-cluster-stop-pos re-cluster i))
 	  (js-undefined))))
-(define (RegExp-cluster-captures re-cluster str::Js-Base-String)
+(define (RegExp-cluster-captures re-cluster str::js-string)
    (let ((nb-clusters (RegExp-cluster-length re-cluster)))
       (let loop ((i (-fx nb-clusters 1))
 		 (res '()))
@@ -341,7 +341,7 @@
 
 ;; used by String.prototype.search 15.5.4.12
 (define (RegExp-first-match-pos re str)
-   (let ((m (regexp-match (Js-RegExp-re re) str 0)))
+   (let ((m (regexp-match (NatO-RegExp-re re) str 0)))
       (if m
 	  (car m)
 	  #f)))

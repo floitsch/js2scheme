@@ -26,7 +26,7 @@
 ; 	   (js-object any) ;; TODO we really need a better name...
    (export (js-boolify::bool any)
 	   (any->bool::bool any)
-	   (js-string->number::double str::Js-Base-String)
+	   (js-string->number::double str::js-string)
 	   (any->number any)
 	   (any->primitive any hint)
 	   (finite->integer::double n::double)
@@ -39,7 +39,7 @@
 	   (any->uint16fx::ucs2 any)
 	   (any->uint8fx::char any)
 
-	   (any->js-string::Js-Base-String any)
+	   (any->js-string::js-string any)
 	   (any->object any)
 	   (js-object any) ;; TODO we really need a better name...
 	   (safe-js-object::Js-Object any))) ;; TODO we really need a better name...
@@ -48,7 +48,9 @@
 ;; otherwise the Js-Object
 (define (js-object any)
    (cond
-      ((Js-Object? any) any)
+      ((and (Js-Object? any)
+	    (not (js-null? any)))
+       any)
       ((procedure? any) (procedure-object any))
       (else
        #f)))
@@ -276,7 +278,7 @@
    (cond
       ((js-object? any)
        (if (and (not hint)
-		(Js-Date? any))
+		(NatO-Date? any))
 	   (js-object->primitive any 'string)
 	   (js-object->primitive any (or hint 'number))))
       (else any)))
@@ -389,8 +391,8 @@
 	     ;; most of the time tr will be < #x10FFFF anyways.
 	     (modulofx (bit-and #xFFFFFF tr) #x10FFFF))))))
 
-(define (any->js-string::Js-Base-String any)
-   (define (any->string2::Js-Base-String any)
+(define (any->js-string::js-string any)
+   (define (any->string2::js-string any)
       (cond
 	 ((js-string? any) any)
 	 ((js-null? any) (STR "null"))
