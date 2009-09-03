@@ -19,8 +19,7 @@
 	   *js-global-env*
 	   ;; reuse the Property-entry
  	   (wide-class Js-Global-Box::Property-entry
- 	      id::js-string
- 	      declared?::bool)
+ 	      id::js-string)
 	   (global-object-init)
  	   (macro create-declared-global)
  	   (macro create-implicit-global)
@@ -33,48 +32,44 @@
 	   (create-global::Js-Global-Box id::js-string
 					 attributes declared? . Linit-val)))
 
-;; should be in global-object.scm
 (define-macro (create-declared-global id . Linit-val)
-   (if (null? Linit-val)
-       `(create-global ,id (declared-attributes) #t)
-       `(create-global ,id (declared-attributes) #t ,(car Linit-val))))
+   `(create-global ,id (declared-attributes) #t ,@Linit-val))
 
 (define-macro (create-implicit-global id)
    `(create-global ,id (implicit-attributes) #f))
 
 (define-macro (create-special-global id attributes . Linit-val)
-   (if (null? Linit-val)
-       `(create-global ,id ,attributes #t)
-       `(create-global ,id ,attributes #t ,(car Linit-val))))
+   `(create-global ,id ,attributes #t ,@Linit-val))
 
 (define-macro (create-runtime-global id . Linit-val)
-   (if (null? Linit-val)
-       `(create-global ,id (runtime-attributes) #t)
-       `(create-global ,id (runtime-attributes) #t ,(car Linit-val))))
+   `(create-global ,id (runtime-attributes) #t ,@Linit-val))
 
 (define-macro (global-read v)
-   `(begin
-       (when (not (Js-Global-Box-declared? ,v))
+   (let ((tmp (gensym 'tmp)))
+   `(let ((,tmp (Property-entry-val ,v)))
+       (when (not ,tmp)
 	  (undeclared-error (Js-Global-Box-id ,v)))
-       (unmangle-false (Js-Global-Box-val ,v))))
+       (unmangle-false ,tmp))))
 
 (define-macro (global-declared? v)
-   `(Js-Global-Box-declared? ,v))
+   `(and (Property-entry-val ,v) #t))
 
 (define-macro (global-typeof-read v)
-   `(if (not (Js-Global-Box-declared? ,v))
-	(js-undefined)
-	(unmangle-false (Js-Global-Box-val ,v))))
+   (let ((tmp (gensym 'tmp)))
+      `(let ((,tmp (Property-entry-val ,v)))
+	  (if (not ,tmp)
+	      (js-undefined)
+	      (unmangle-false ,tmp)))))
 
 ;; always returns the set value.
 (define-macro (global-set! v val)
    (let ((tmp-val (gensym 'tmp-val)))
       `(let ((,tmp-val ,val))
-	  (if (not (Js-Global-Box-declared? ,v))
+	  (if (not (global-declared? ,v))
 	      (js-property-generic-set! *js-global-this*
 					(Js-Global-Box-id ,v)
 					(mangle-false ,tmp-val) #f)
-	      (Js-Global-Box-val-set! ,v (mangle-false ,tmp-val)))
+	      (Property-entry-val-set! ,v (mangle-false ,tmp-val)))
 	  ,tmp-val)))
 
 (define-method (object-display o::Js-Global . Lport)
@@ -105,32 +100,35 @@
    (let ((box (hashtable-get *global-boxes* id)))
       (if (not box)
 	  (let ((new-box (instantiate::Property-entry
-			    (val (if (null? Lnewval)
-				     (js-undefined)
-				     (car Lnewval)))
+			    (val (cond
+				    ((not declared?) #f)
+				    ((null? Lnewval) (js-undefined))
+				    (else (mangle-false (car Lnewval)))))
 			    (attr attributes))))
 	     (widen!::Js-Global-Box new-box
-		(id id)
-		(declared? declared?))
+		(id id))
 	     (hashtable-put! *global-boxes* id new-box)
 	     (when declared?
 		(with-access::Js-Global *js-global-this* (props)
 		   (hashtable-put! props id new-box)))
 	     new-box)
-	  (let ((new-declared? declared?))
-	     (with-access::Js-Global-Box box (declared? attr val)
-		;; 10.1.3: If a property of the same name exists already then
-		;; its attributes are used
-		;; In our case we have one exception: only declared actually
-		;; exist already.
-		(when (not declared?)
-		   (set! attr attributes)
-		   (set! declared? new-declared?)
-		   (when new-declared?
-		      (with-access::Js-Global *js-global-this* (props)
-			 (hashtable-put! props id box))))
-		(unless (null? Lnewval)
-		   (set! val (car Lnewval))))
+	  (with-access::Js-Global-Box box (attr val)
+	     ;; 10.1.3: If a property of the same name exists already then
+	     ;; its attributes are used
+	     ;; In our case we have one exception: only declared actually
+	     ;; exist already.
+	     (if (not val)
+		 (begin
+		    (set! attr attributes)
+		    (set! val (cond
+				 ((not declared?) #f)
+				 ((null? Lnewval) (js-undefined))
+				 (else (mangle-false (car Lnewval)))))
+		    (when declared?
+		       (with-access::Js-Global *js-global-this* (props)
+			  (hashtable-put! props id box))))
+		 (unless (null? Lnewval)
+		    (set! val (mangle-false (car Lnewval)))))
 	     box))))
 
 
@@ -145,10 +143,10 @@
 			    (next-env #f)))
    (let ((globals-ht (Js-Global-props *js-global-object*)))
       (hashtable-for-each *global-boxes*
-			  (lambda (key val)
-			     (with-access::Js-Global-Box val (declared?)
-				(when declared?
-				   (hashtable-put! globals-ht key val)))))))
+			  (lambda (key box)
+			     (with-access::Js-Global-Box box (val)
+				(when val
+				   (hashtable-put! globals-ht key box)))))))
 
 ;; ======= implementation of Js-Global.
 
@@ -199,8 +197,7 @@
 	     ;; an implicit variable, or one, that had been deleted.
 	     ;; in either case use it.
 	     => (lambda (box)
-		   (with-access::Js-Global-Box box (val declared? attr)
-		      (set! declared? #t)
+		   (with-access::Property-entry box (val attr)
 		      (set! val new-value)
 		      ;; implicit-attributes == default-attributes.
 		      (set! attr (implicit-attributes)))
@@ -222,9 +219,9 @@
 		       (begin
 			  (hashtable-remove! props prop)
 			  (if (Js-Global-Box? entry)
-			      (with-access::Js-Global-Box entry (declared? val)
-				 (set! val #f) ;; release memory
-				 (set! declared? #f))
+			      (with-access::Js-Global-Box entry (val)
+				 ;; mark as undeclared and release memory:
+				 (set! val #f))
 			      (widen!::Deleted-Property entry))
 			  #t)
 		       #f)))))))
@@ -236,10 +233,9 @@
        (lambda (key obj)
 	  (cond
 	     ((Deleted-Property? obj) 'do-nothing)
-	     ((and (Js-Global-Box? obj)
-		   (not (Js-Global-Box-declared? obj)))
-	      'do-nothing)
 	     (else
-	     (with-access::Property-entry obj (attr val)
-		(with-access::Attributes attr (read-only deletable enumerable)
-		   (p key val read-only deletable enumerable)))))))))
+	      (with-access::Property-entry obj (attr val)
+		 (when val
+		    (with-access::Attributes attr
+			  (read-only deletable enumerable)
+		       (p key val read-only deletable enumerable))))))))))
