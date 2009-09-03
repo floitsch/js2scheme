@@ -133,7 +133,8 @@
    (utf8-regular-grammar
 	 ((source-char (out))
 	  (blank_no_lt  (or (in #x9 #xB #xC #x20 #xA0) Zs))
-	  (lt           (in #a013 #\Newline #x2028 #x2029))
+	  (lt           (in  #a013 #\Newline #x2028 #x2029))
+	  (not-lt       (out #a013 #\Newline #x2028 #x2029))
 	  (not-lt-no-single-quote (out #a013 #\Newline #x2028 #x2029 #\'))
 	  (not-lt-no-double-quote (out #a013 #\Newline #x2028 #x2029 #\"))
 	  (blank        (or blank_no_lt lt))
@@ -159,7 +160,7 @@
        (token 'NEW_LINE #\newline))
       
       ;; LineComment
-      ((:"//" (* source-char))
+      ((:"//" (* not-lt))
        (ignore))
 
       ;; multi-line comment on one line
