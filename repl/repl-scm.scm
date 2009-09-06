@@ -2,6 +2,7 @@
    (library js2scheme-runtime)
    (export init-declared-repl-scm
 	   init-implicit-repl-scm
+	   init-regexps-repl-scm
 	   run-top-level-repl-scm))
 
 (define readLine #unspecified)
@@ -13,6 +14,8 @@
    (set! js-display
 	 (create-declared-global (ascii->js-string-literal "display"))))
 (define (init-implicit-repl-scm)
+   #unspecified)
+(define (init-regexps-repl-scm)
    #unspecified)
 (define (run-top-level-repl-scm)
    (global-set! readLine

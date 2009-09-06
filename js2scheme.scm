@@ -80,6 +80,8 @@
    (string->symbol (format "init-declared-~a" u)))
 (define (unique->init-implicit u)
    (string->symbol (format "init-implicit-~a" u)))
+(define (unique->init-regexps u)
+   (string->symbol (format "init-regexps-~a" u)))
 (define (unique->run-top-level u)
    (string->symbol (format "run-top-level-~a" u)))
 
@@ -90,15 +92,18 @@
 	  (module-name (unique->module-name u))
 	  (init-declared (unique->init-declared u))
 	  (init-implicit (unique->init-implicit u))
+	  (init-regexps (unique->init-regexps u))
 	  (run-top-level (unique->run-top-level u)))
       (pp `(module ,module-name
 	      (library js2scheme-runtime)
 	      (export (,init-declared)
 		      (,init-implicit)
+		      (,init-regexps)
 		      (,run-top-level)))
 	  out-p)
       (pp `(define (,init-declared) (js-init-declared)) out-p)
       (pp `(define (,init-implicit) (js-init-implicit)) out-p)
+      (pp `(define (,init-regexps) (js-init-regexps)) out-p)
       (pp `(define (,run-top-level) (js-run-top-level)) out-p)
       (pp body out-p)))
 
@@ -195,6 +200,8 @@
 			(print (any->safe-string
 				(error->js-exception e))))))
 	      (exit 3))
+	   ,@(map (lambda (u) `(,(unique->init-regexps u)))
+		  linked-tokens)
 	   ,@(map (lambda (u) `(,(unique->run-top-level u)))
 		  linked-tokens)
 	   (let ((js-main (js-property-get *js-global-this*

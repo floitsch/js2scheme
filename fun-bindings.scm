@@ -8,7 +8,7 @@
 	   verbose)
    (export (fun-bindings! tree::pobject)))
 
-;; move fun-bindings (declarations) to beginning of functions
+;; move fun-bindings (declarations) to beginning of functions.
 ;; order matters. (do not inverse declarations)
 
 (define (fun-bindings! tree::pobject)

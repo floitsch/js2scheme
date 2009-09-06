@@ -87,6 +87,14 @@
 		       (overload traverse out (Label)
 				 (tree.traverse))))))))))
 
+(define *regexps* '())
+(define (regexps-reset!) (set! *regexps* '()))
+(define (regexps-alist) *regexps*)
+(define (add-regexp! pattern flags)
+   (let ((reg-id (symbol-append 'jsreg- (gensym))))
+      (set! *regexps* (cons (list reg-id pattern flags) *regexps*))
+      reg-id))
+
 ;; not thread-safe: we have a global variable here.
 (define *strs* '())
 (define (strs-reset!) (set! *strs* '()))
@@ -368,6 +376,7 @@
 
 (define-pmethod (Program-out)
    (strs-reset!)
+   (regexps-reset!)
    (let* ((tlo (thread-parameter 'top-level-object))
 	  (in-eval? (thread-parameter 'eval?))
 	  (tl-this (thread-parameter 'top-level-this))
@@ -381,8 +390,10 @@
 	      ;; declare strings
 	      ;; create 'this'
 	      ;; declare global variables (declared and implicit)
+	      ;; declare regexp-variables
 	      ;; create fun-strings (when configured this way)
-	      ;; create 'init-declared', 'init-implicit' and 'run-top-level
+	      ;; create 'init-declared', 'init-implicit', 'init-regexps' and
+	      ;;      'run-top-level
 	      ;; if not in module execute these funs. (otherwise somebody else
 	      ;;   needs to invoke them.)
 	      ,@(map (lambda (p)
@@ -396,6 +407,9 @@
 	      ,@(map (lambda (decl)
 			`(define ,(decl.var.compiled-id) (js-undefined)))
 		     this.implicit-globals)
+	      ,@(map (lambda (l)
+			`(define ,(car l) (js-null)))
+		     (regexps-alist))
 	      ,@(if (config 'function-strings)
 		    (hashtable-map this.function-str-ids-ht
 				   (lambda (str-id str)
@@ -419,26 +433,38 @@
 				      ,(utf8->js-string-literal
 					(symbol->string var.id))))))
 			this.implicit-globals))
+	      (define (js-init-regexps)
+		 #unspecified ;; so the fun is never empty
+		 ,@(map (lambda (l)
+			   (let ((id (car l))
+				 (pattern (cadr l))
+				 (flags (caddr l)))
+			      `(set! ,id (regexp-literal ,pattern ,flags))))
+			(regexps-alist)))
 	      (define (js-run-top-level)
 		 ,compiled-body)
 	      ,@(if (config 'module)
 		    '()
 		    '((js-init-declared)
 		      (js-init-implicit)
+		      (js-init-regexps)
 		      (js-run-top-level))))
 
 	  ;; eval does not do anything for implicit vars.
 	  ;; declared globals: if the var is a declared function, then it
 	  ;; must replace the original entry (including the attributes).
 	  ;; otherwise just make sure there is an entry.
-	  `(let ((this ,tl-this)
-		 ,@(map (lambda (p)
+	  `(let* ((this ,tl-this)
+		  ,@(map (lambda (p)
 			   `(,(cdr p) ,(utf8->js-string-literal (car p))))
-			(strs-alist))
-		 ,@(if (config 'function-strings)
-		       (hashtable-map this.function-str-ids-ht
-				      (lambda (id str)
-					 `(,id (utf8->js-string-literal ,str))))
+			 (strs-alist))
+		  ,@(map (lambda (l)
+			    `(,(car l) (regexp-literal ,(cadr l) ,(caddr l))))
+			 (regexps-alist))
+		  ,@(if (config 'function-strings)
+			(hashtable-map this.function-str-ids-ht
+				       (lambda (id str)
+					  `(,id (utf8->js-string-literal ,str))))
 		       '()))
 	      ,@(map (lambda (var)
 			(let ((id-str (symbol->string var.id))
@@ -1006,6 +1032,4 @@
 	  (flags (substring pattern/flags
 			    (+ last-/ 1)
 			    (string-length pattern/flags))))
-      `(js-new (global-read *jsg-RegExp*)
-	       ,(add-str! pattern)
-	       ,(add-str! flags))))
+      (add-regexp! (add-str! pattern) (add-str! flags))))

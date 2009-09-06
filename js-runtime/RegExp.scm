@@ -19,6 +19,7 @@
 	   jsre-RegExp-match)
    (export
     *jsg-RegExp*
+    (regexp-literal pattern flags)
     *js-RegExp-exec*
     (final-class NatO-RegExp::Js-HT-Object
        re)
@@ -45,6 +46,9 @@
 (define *js-RegExp-orig* (lambda () 'to-be-replaced))
 (define *js-RegExp-prototype*::Js-Object (js-null))
 (define *js-RegExp-exec* #unspecified)
+
+(define (regexp-literal pattern flags)
+   (js-new *js-RegExp-orig* pattern flags))
 
 (define-method (js-class-name::js-string o::NatO-RegExp)
    (STR "RegExp"))
