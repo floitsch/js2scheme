@@ -9,6 +9,9 @@ AFILE = bglafile
 #TARGET_AFILE = $(TARGET).afile ## currently not possible :(
 TARGET_AFILE="`basename $(TARGET)`.afile"
 
+#JS2SCHEME_FLAGS=--non-strict-literals --non-strict-fields
+JS2SCHEME_FLAGS=
+
 BGL_UNSAFE =
 BGL_FLAGS = -g $(BGL_UNSAFE) \
              -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -L $(UNICODE_DIR) \
@@ -27,10 +30,10 @@ dirs:
 
 %.scm: %.js
 	mkdir -p `dirname "$@"`;
-	$(LD_PATHS_ENV) $(JS2SCHEME) -c -o $@ $^
+	$(LD_PATHS_ENV) $(JS2SCHEME) $(JS2SCHEME_FLAGS) -c -o $@ $^
 
 $(TARGET).exe.scm: $(SCM_SOURCES)
-	$(LD_PATHS_ENV) $(JS2SCHEME) -o $@ $^
+	$(LD_PATHS_ENV) $(JS2SCHEME) $(JS2SCHEME_FLAGS) -o $@ $^
 
 $(TARGET_AFILE): $(SCM_SOURCES)
 	 $(AFILE) -o $(TARGET_AFILE) $^

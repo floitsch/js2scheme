@@ -593,6 +593,14 @@
 	  (access-or-call (primary) #f)))
    
    (define (access-or-call expr call-allowed?)
+      (define (parse-field-name)
+	 (cond
+	    ((eq? 'ID (peek-token-type)) (consume! 'ID))
+	    ((and (config 'liberal-access-field-name)
+		  (reserved-word? (peek-token-type)))
+	     (token-val (consume-any!)))
+	    (else (unexpected-token-error (consume-any!)))))
+	 
       (let loop ((expr expr))
 	 (case (peek-token-type)
 	    ((LBRACKET) (let* ((ignore (consume-any!))
@@ -600,7 +608,7 @@
 			       (ignore-too (consume! 'RBRACKET)))
 			   (loop (new-node Access expr field))))
 	    ((DOT) (let* ((ignore (consume-any!))
-			  (field (consume! 'ID))
+			  (field (parse-field-name))
 			  (str-field (string-append "'"
 						    (symbol->string field)
 						    "'")))
