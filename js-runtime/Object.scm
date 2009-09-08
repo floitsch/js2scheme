@@ -16,6 +16,7 @@
 	)
    (export (final-class NatO-Object::Js-HT-Object)
 	   (create-empty-NatO-Object::NatO-Object proto)
+	   (new-Object) ;; shortcut for (js-new (global-read *jsg-Object*))
 	   *jsg-Object*
 	   (natO-object-prototype::NatO-Object)
 	   (Object-init)
@@ -27,6 +28,8 @@
       (proto proto)))
 
 (define *jsg-Object* #unspecified)
+(define *js-orig-Object* (lambda () (js-null))) ;; going to be replaced soon.
+
 (define *natO-object-prototype*::NatO-Object (NatO-Object-nil))
 
 (define *object-prototype-initialized?* #f)
@@ -44,6 +47,7 @@
 
 (define (Object-init)
    (set! *jsg-Object* (create-runtime-global (STR "Object") (Object-lambda)))
+   (set! *js-orig-Object* *jsg-Object*)
 
    (let* ((text-repr (STR "function(v) {/*native Object*/ throw 'native'; }"))
 	  (proc-object (create-function-object (global-read *jsg-Object*)
@@ -117,8 +121,15 @@
 (define (Object-construct c)
    (create-empty-object-lambda c))
 
+;; simply a shortcut to create an empty Object, as if done by 'new Object'
+(define (new-Object)
+   (let ((gobj (global-read *jsg-Object*)))
+      (if (eq? gobj *js-orig-Object*)
+	  (Object-construct (procedure-object *js-orig-Object*))
+	  (js-new gobj))))
+
 (define (natO-object-literal properties)
-   (let ((o (js-new (global-read *jsg-Object*))))
+   (let ((o (new-Object)))
       (for-each (lambda (prop)
 		   (let ((name (any->js-string (car prop)))
 			 (val (cadr prop)))

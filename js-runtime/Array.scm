@@ -29,7 +29,7 @@
 ;;       the array implementation based on hashtables is slow.
 
 (define *jsg-Array* #unspecified)
-(define *js-Array-orig* (lambda () 'to-be-replaced))
+(define *js-Array-orig* (lambda () (js-null))) ;; going to be replaced soon.
 (define *js-Array-prototype* (js-null))
 
 ;; extracts requested indices from object o and prototypes (if requested).

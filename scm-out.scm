@@ -5,6 +5,7 @@
    (include "nodes.sch")
    (option (loadq "protobject-eval.sch"))
    (import parser
+	   symbol
 	   config
 	   protobject
 	   nodes
@@ -645,7 +646,7 @@
       `(lambda (,exc-scm-id)
 	  (lambda ()
 	     (let* ((,exc-scm-id (error->js-exception ,exc-scm-id))
-		    (,obj-id (js-create-scope-object (natO-object-literal '()))))
+		    (,obj-id (js-create-scope-object (new-Object))))
 		;; 12.14
 		(scope-var-add ,obj-id
 			       ,exc-js-str
@@ -658,7 +659,7 @@
 	 (fun-js-str (add-str! (symbol->string this.decl.var.id)))
 	 (obj-id this.obj-id)
 	 (compiled-body (this.body.traverse)))
-      `(let ((,obj-id (js-create-scope-object (natO-object-literal '()))))
+      `(let ((,obj-id (js-create-scope-object (new-Object))))
 	  (letrec ((,fun-scm-id ,compiled-body))
 	     ;; 13
 	     (scope-var-add ,obj-id
@@ -879,8 +880,17 @@
 	      (js-call ,t #f ,@(map-node-compile this.args))))))
 
 (define-pmethod (New-out)
-   `(js-new ,(this.class.traverse)
-	    ,@(map-node-compile this.args)))
+   (let ((traversed-class (this.class.traverse))
+	 (traversed-args (map-node-compile this.args)))
+      (if (and (null? this.args)
+	       (symbol? traversed-class)
+	       (eq? traversed-class (id->runtime-var 'Object)))
+	  '(new-Object)
+	  (let ((f-id (gensym 'f))
+		(arg-ids (map (lambda (x) (gensym 'arg)) traversed-args)))
+	     `(let* ((,f-id ,traversed-class)
+		     ,@(map list arg-ids traversed-args))
+		 (js-new ,f-id ,@arg-ids))))))
 
 (define-pmethod (Access-out)
    (let* ((tmp-o (gensym 'tmp-o))

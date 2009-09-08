@@ -13,7 +13,9 @@ TARGET_AFILE="`basename $(TARGET)`.afile"
 JS2SCHEME_FLAGS=
 
 BGL_UNSAFE =
-BGL_FLAGS = -g $(BGL_UNSAFE) \
+#BGL_OPTIM_FLAG = -O3
+BGL_OPTIM_FLAG = -g
+BGL_FLAGS = $(BGL_OPTIM_FLAG) $(BGL_UNSAFE) \
              -L $(JS2SCHEME_DIR) -L $(RUNTIME_DIR) -L $(UNICODE_DIR) \
              -library utf
 
