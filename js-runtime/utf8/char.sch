@@ -1,6 +1,6 @@
 (directives
-   (type (alias char js-char))
    (export
+    (typedef char js-char)
     (inline js-char-max::long)
     (inline js-char?::bool c) ;; can't make difference between char and js-char
     (inline js-char->integer::int c::js-char)

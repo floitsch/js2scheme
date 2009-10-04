@@ -1,8 +1,8 @@
 (directives
-   (type (alias ucs2string js-string))
    (import jsre-conversion
 	   jsre-base-object)
    (export
+    (typedef ucs2string js-string)
     (macro ascii->js-string-literal)
     (utf8->js-string-literal::js-string str::bstring #!optional (unescape? #f))
     (inline js-string?::bool str)

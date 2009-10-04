@@ -45,6 +45,11 @@
 	   (js-object any) ;; TODO we really need a better name...
 	   (safe-js-object::Js-Object any))) ;; TODO we really need a better name...
 
+(define (integer->ucs2-ur n)
+   (cond-expand
+      (bigloo-c (fast-integer->ucs2 n))
+      (else     (integer->ucs2 n))))
+
 ;; return #f if any is not a javascript object.
 ;; otherwise the Js-Object
 (define (js-object any)
@@ -370,12 +375,10 @@
 	 ((or (nanfl? nb)
 	      (infinitefl? nb)
 	      (=fl 0.0 nb)) ;; covers -0.0 too.
-	  #u0000)
+	  (integer->ucs2-ur 0))
 	 (else
 	  (let ((n (bit-and #xFFFF (flonum->truncated-fixnum nb))))
-	     (cond-expand
-		(bigloo-c (fast-integer->ucs2 n))
-		(else     (integer->ucs2 n))))))))
+	     (integer->ucs2-ur n))))))
 
 ;; this one should be used for utf32 (or similar implementations)
 ;; it returns the unicode-value of the given number.
@@ -386,7 +389,7 @@
 	 ((or (nanfl? nb)
 	      (infinitefl? nb)
 	      (=fl 0.0 nb)) ;; covers -0.0 too.
-	  #u0000)
+	  0)
 	 (else
 	  (let ((tr (flonum->truncated-fixnum nb)))
 	     ;; most of the time tr will be < #x10FFFF anyways.
