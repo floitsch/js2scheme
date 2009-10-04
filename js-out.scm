@@ -36,18 +36,16 @@
 (define (primary-expr? n)
    (inherits-from-any-of? n 'This 'Var-ref 'Literal 'Reg-exp 'Array 'Obj-init))
 
-(define (member-expr? n)
+(define (call-expr? n)
    (or (primary-expr? n)
-       (inherits-from-any-of? n 'Fun 'Named-fun 'Access 'New)))
+       (inherits-from-any-of? n 'Fun 'Named-fun 'Access 'New 'Call)))
 
-;; we merge NewExpressions and MemberExpressions
+;; we merge NewExpressions, CallExpressions and MemberExpressions
 ;; we will (for now) never print 'new's without parenthesis.
 ;;           eg: 'new X;' becomes 'new X();'
 ;; this simplifies the requirements.
 
-(define (lhs-expr? n)
-   (or (member-expr? n)
-       (inherits-from? n (node 'Call))))
+(define (lhs-expr? n) (call-expr? n))
 
 (define (unary-expr? n)
    (or (lhs-expr? n)
@@ -625,7 +623,7 @@
    ;; same as for Call. As we always add the parenthesis we have simpler
    ;; requirements.
    (display "new ")
-   (expr-out this.class indent member-expr? in-for-init? #f)
+   (expr-out this.class indent call-expr? in-for-init? #f)
    (display "(")
    (unless (null? this.args)
       (expr-out (car this.args) indent assig-expr? #f #f)
@@ -658,7 +656,7 @@
 		(not (reserved-word? (string->symbol str)))))))
 
 (define-pmethod (Access-expr-out indent in-for-init? stmt-begin?)
-   (expr-out this.obj indent member-expr? in-for-init? stmt-begin?)
+   (expr-out this.obj indent call-expr? in-for-init? stmt-begin?)
    (let ((field this.field))
       (if (and (valid-js-id? field)
 	       (not (inherits-from? this.obj (node 'Number))))
