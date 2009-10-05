@@ -1,5 +1,4 @@
 (module jsre-conversion
-   (extern (macro fast-integer->ucs2::ucs2 (::long) "(ucs2_t)"))
    (import jsre-double
 	   jsre-base-string)
    (use jsre-base-object
@@ -44,11 +43,6 @@
 	   (any->object any)
 	   (js-object any) ;; TODO we really need a better name...
 	   (safe-js-object::Js-Object any))) ;; TODO we really need a better name...
-
-(define (integer->ucs2-ur n)
-   (cond-expand
-      (bigloo-c (fast-integer->ucs2 n))
-      (else     (integer->ucs2 n))))
 
 ;; return #f if any is not a javascript object.
 ;; otherwise the Js-Object

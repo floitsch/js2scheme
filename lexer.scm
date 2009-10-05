@@ -119,8 +119,8 @@
 		 =>
 		 (lambda (u-part2)
 		    (let ((ucs2-buffer (make-ucs2-string 2))
-			  (u1 (unchecked-integer->ucs2 u-part))
-			  (u2 (unchecked-integer->ucs2 u-part2)))
+			  (u1 (integer->ucs2-ur u-part))
+			  (u2 (integer->ucs2-ur u-part2)))
 		       (ucs2-string-set! ucs2-buffer 0 u1)
 		       (ucs2-string-set! ucs2-buffer 1 u2)
 		       (unescape-unicode-escape-sequences

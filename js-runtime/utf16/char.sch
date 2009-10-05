@@ -24,7 +24,7 @@
 (define-inline (js-char->integer c)
    (ucs2->integer c))
 
-(define-inline (integer->js-char i) (integer->16bit-char i))
+(define-inline (integer->js-char i) (integer->ucs2-ur i))
 
 (define-inline (char->js-char c)
    (integer->js-char (char->integer c)))
