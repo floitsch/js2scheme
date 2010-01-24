@@ -1,6 +1,5 @@
 (module utf
    (include "utf-data.sch" "utf-category-data.sch")
-   (extern (macro unchecked-integer->ucs2::ucs2 (::long) "INT_TO_UCS2"))
    (export (inline utf8-char-length::long c::long)
 	   (utf8-uc-iterator str::bstring)
 	   (open-utf8-string-buffer size)
@@ -39,13 +38,7 @@
 	   (uc-whitespace?::bool c::long)
 	   (uc-lineterminator?::bool c::long)
 	   (uc-categories::vector)
-	   (uc-category-ranges::vector) ;; for each category a list of unique codepoints or ranges (from to) (inclusive)
-	   (inline integer->16bit-char i)))
-
-(define-inline (integer->16bit-char i)
-   (cond-expand
-      (bigloo-c (unchecked-integer->ucs2 i))
-      (else (integer->ucs2 i))))
+	   (uc-category-ranges::vector))) ;; for each category a list of unique codepoints or ranges (from to) (inclusive)
 
 (define-macro (+fx+ x . L)
    (if (null? L)
@@ -253,15 +246,15 @@
        ;; range #xD800-#xDBFF or #xDC00-#xDFFF as these are used
        ;; for utf16 surrogates. We do not check (on purpose) if
        ;; the incoming unicode character is valid.
-       (ucs2-string-set! str i (integer->16bit-char c))
+       (ucs2-string-set! str i (integer->ucs2-ur c))
        (+fx i 1))
       (else
        ;; surrogate
        (let* ((t (-fx c #x10000))
 	      (p1 (+fx #xD800 (bit-rsh (bit-and t #xFFC00) 10)))
 	      (p2 (+fx #xDC00 (bit-and t #x3FF))))
-	  (ucs2-string-set! str i (integer->16bit-char p1))
-	  (ucs2-string-set! str (+fx i 1) (integer->16bit-char p2))
+	  (ucs2-string-set! str i (integer->ucs2-ur p1))
+	  (ucs2-string-set! str (+fx i 1) (integer->ucs2-ur p2))
 	  (+fx i 2)))))
    
 (define (utf16-uc-iterator str::ucs2string)
