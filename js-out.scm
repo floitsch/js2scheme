@@ -374,18 +374,16 @@
 (define-pmethod (Try-stmt-out indent)
    (indent! indent)
    (display "try")
-   (let ((block? (block-body this.body indent #t #f)))
-      (if block?
+   (block-body (stmt->block this.body) indent #t #f)
+   (space-out)
+   (when this.catch
+      (catch-out this.catch indent))
+   (if this.finally
+       (begin
 	  (space-out)
-	  (indent! indent))
-      (when this.catch
-	 (catch-out this.catch indent))
-      (if this.finally
-	  (begin
-	     (space-out)
-	     (display "finally")
-	     (block-body (stmt->block this.finally) indent #t #t))
-	  (newline-out))))
+	  (display "finally")
+	  (block-body (stmt->block this.finally) indent #t #t))
+       (newline-out)))
 
 (define (catch-out this indent)
    (space-out)
@@ -750,7 +748,8 @@
 	       ((inherits-from? prop.name (node 'Number))
 		(display prop.name.val))
 	       ;; String
-	       ((id-chars? prop.name.val)
+	       ((and (id-chars? prop.name.val)
+		     (> (string-length prop.name.val) 2))
 		(let ((str prop.name.val))
 		   (display (substring str 1 (-fx (string-length str) 1)))))
 	       (else

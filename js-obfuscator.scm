@@ -19,7 +19,10 @@
 (define *in-file* #f)
 (define *out-file* #f)
 
-(define *importation* '())
+(define *js-globals* '(Math String Number Object RegExp Function Array Date
+		       Error Boolean))
+
+(define *pre-mapping* `(,*js-globals*))
 
 (define *obfuscation-mapping-file* #f)
 
@@ -45,10 +48,10 @@
       ((("-c" "--compress") (help "Compress output"))
        (config-set! 'compress? #t))
       ((("--html") (help "Include HTML global variables"))
-       (set! *importation* (cons *HTML-globals* *importation*))) ;; small hack.
+       (set! *pre-mapping* (cons *HTML-globals* *pre-mapping*))) ;; small hack.
       (("--imported" ?file
 	(help "file containing imported variables and their mapping"))
-       (set! *importation* (cons file *importation*)))
+       (set! *pre-mapping* (cons file *pre-mapping*)))
       (("--obfuscation-mapping"
 	?file
 	(help "output obfuscation mapping to file"))
@@ -76,9 +79,10 @@
 	      "missing output-file. Use --help to see usage."
 	      #f))
    (for-each (lambda (f)
-		(verbose "reading imported variables of file " f)
 		(let ((l (if (string? f)
-			     (with-input-from-file f read)
+			     (begin
+				(verbose "reading imported variables of file " f)
+				(with-input-from-file f read))
 			     f)))
 		   (set! imported-vars
 			 (append! (map (lambda (id/p)
@@ -94,9 +98,7 @@
 					       (list id/p id/p)))
 					l)
 				  *imported-global-mapping*))))
-	     *importation*)
-   (print imported-vars)
-   (print *imported-global-mapping*)
+	     *pre-mapping*)
    (let* ((in-p (if (string=? *in-file* "-")
 		    (current-input-port)
 		    (open-input-file *in-file*)))
@@ -116,7 +118,7 @@
 	     (set! *obfuscation-mapping-p*
 		   (open-output-file *obfuscation-mapping-file*)))
 	 (fun-bindings! ast)
-	 (symbol-resolution! ast imported-vars)
+	 (symbol-resolution! ast *imported-global-mapping*)
 	 (set! *integrate-Var-decl-lists* #f) ;; HACK.
 	 (simplify! ast)
 	 (obfuscate-ids! ast)

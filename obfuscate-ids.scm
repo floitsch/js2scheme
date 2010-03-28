@@ -51,6 +51,8 @@
       (cond
 	 ((eq? this.id 'this)
 	  (set! this.generated 'this))
+	 (this.arguments?
+	  (set! this.generated 'arguments))
 	 ((and this.global?
 	       (assq this.id *imported-global-mapping*))
 	  =>

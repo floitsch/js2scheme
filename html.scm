@@ -2,4 +2,10 @@
    (export *HTML-globals*))
 
 (define *HTML-globals* '(document
-			 window))
+			 window
+			 navigator
+			 screen
+			 HTMLElement
+			 ActiveXObject
+			 XMLHttpRequest
+			 event))
