@@ -1,5 +1,6 @@
 (module html
-   (export *HTML-globals*))
+   (export *HTML-globals*)
+   (export *HTML-properties*))
 
 (define *HTML-globals* '(document
 			 window
@@ -8,4 +9,8 @@
 			 HTMLElement
 			 ActiveXObject
 			 XMLHttpRequest
-			 event))
+			 event
+			 unescape
+			 setTimeout))
+
+(define *HTML-properties* '(innerHTML))

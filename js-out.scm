@@ -38,7 +38,8 @@
 
 (define (call-expr? n)
    (or (primary-expr? n)
-       (inherits-from-any-of? n 'Fun 'Named-fun 'Access 'New 'Call)))
+       (and (not (inherits-from? n (node 'Binary)))
+	    (inherits-from-any-of? n 'Fun 'Named-fun 'Access 'New 'Call))))
 
 ;; we merge NewExpressions, CallExpressions and MemberExpressions
 ;; we will (for now) never print 'new's without parenthesis.
@@ -215,7 +216,7 @@
    (indent! indent)
    (Var-decl-list-out this indent #f)
    (display ";")
-   (newline))
+   (newline-out))
 
 (define-pmethod (NOP-stmt-out indent)
    (indent! indent)

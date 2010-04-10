@@ -9,24 +9,38 @@
    (export (obfuscate-ids! tree::pobject)
 	   *obfuscate-globals*
 	   *obfuscation-mapping-p*
-	   *imported-global-mapping*))
+	   *imported-global-mapping*
+	   *obfuscated-properties*
+	   *non-obfuscated-properties*
+	   *property-mapping-p*
+	   *property-mapping*))
 
 (define *obfuscation-mapping-p* #f)
 
 (define *obfuscate-globals* #f)
 
-(define *global-mappings* '())
-(define *local-mappings* '())
+(define *global-mapping* '())
+(define *local-mapping* '())
 
 (define *imported-global-mapping* '())
 (define *used-ids* (make-hashtable))
+
+(define *property-mapping-p* #f)
+(define *obfuscated-properties* '())
+(define *non-obfuscated-properties* #t)
+(define *property-mapping* '())
+(define *used-property-ids* (make-hashtable))
 
 (define (obfuscate-ids! tree)
    (verbose "obfuscate-ids!")
    (for-each (lambda (p)
 		(hashtable-put! *used-ids* (cadr p) #t))
 	     *imported-global-mapping*)
+   (for-each (lambda (p)
+		(hashtable-put! *used-property-ids* (cadr p) #t))
+	     *property-mapping*)
    (overload traverse obf (Node
+			   Access
 			   Var-ref)
 	     (overload obf obf (Var
 				Runtime-var)
@@ -34,8 +48,12 @@
    (if *obfuscation-mapping-p*
        (with-output-to-port *obfuscation-mapping-p*
 	  (lambda ()
-	     (print *global-mappings*)
-	     (print *local-mappings*)))))
+	     (print *global-mapping*)
+	     (print *local-mapping*))))
+   (if *property-mapping-p*
+       (with-output-to-port *property-mapping-p*
+	  (lambda ()
+	     (write *property-mapping*)))))
 
 (define-pmethod (Node-obf)
    (this.traverse0))
@@ -45,6 +63,27 @@
       (tprint this.id)
       (tprint this.var.id))
    (this.var.obf))
+
+(define-pmethod (Access-obf)
+   (this.traverse0)
+   (when (inherits-from? this.field (node 'String))
+      (let* ((str this.field.val)
+	     (mapping (assoc str *property-mapping*)))
+	 (cond
+	    (mapping
+	     (let ((mapped-property (cadr mapping)))
+		(set! this.field.val mapped-property)))
+	    ((and (not (member str *obfuscated-properties*))
+		  (or (eq? *non-obfuscated-properties* #t)
+		      (member str *non-obfuscated-properties*)))
+	     'do-nothing)
+	    (else
+	     ;; need to obfuscate.
+	     (let ((replacement (generate-obfuscated-property)))
+		(set! this.field.val replacement)
+		(set! *property-mapping*
+		      (cons `(,str ,replacement)
+			    *property-mapping*))))))))
 
 (define-pmethod (Var-obf)
    (unless this.generated
@@ -63,22 +102,32 @@
 	       (not *obfuscate-globals*))
 	  (set! this.generated this.id))
 	 (else
-	  (set! this.generated (generate-obfuscated-id this.id))))
+	  (set! this.generated (generate-obfuscated-id))))
       (unless (eq? this.id 'this)
 	 (if this.global?
-	     (set! *global-mappings* (cons (list this.id this.generated)
-					   *global-mappings*))
-	     (set! *local-mappings* (cons (list this.id this.generated)
-					  *local-mappings*))))))
+	     (set! *global-mapping* (cons (list this.id this.generated)
+					  *global-mapping*))
+	     (set! *local-mapping* (cons (list this.id this.generated)
+					 *local-mapping*))))))
 
 (define-pmethod (Runtime-var-obf)
    (set! this.generated this.id))
 
 (define *counter* 0)
-(define (generate-obfuscated-id id)
+(define (generate-obfuscated-id)
    (set! *counter* (+ *counter* 1))
    (let ((generated (string->symbol
 		     (string-append "v" (number->string *counter*)))))
       (if (hashtable-get *used-ids* generated)
-	  (generate-obfuscated-id id)
+	  (generate-obfuscated-id)
+	  generated)))
+
+(define *property-counter* 0)
+(define (generate-obfuscated-property)
+   (set! *property-counter* (+ *property-counter* 1))
+   (let ((generated (string-append "\"p"
+				   (number->string *property-counter*)
+				   "\"")))
+      (if (hashtable-get *used-property-ids* generated)
+	  (generate-obfuscated-property)
 	  generated)))

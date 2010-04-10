@@ -27,46 +27,43 @@
    ;; integrate Begins,
    ;; remove NOPs.
    ;; and remove dead code after breaks, continues and returns.
-   (define (simplify-els! els)
+   (define (simplify-els els)
       (let loop ((els els)
-		 (new-head '()))
-	 (define (continue-loop rest can-els-be-head?)
-	    (if (and (null? new-head)
-		     can-els-be-head?)
-		(loop rest els) ;; els becomes new head
-		(loop rest new-head)))
+		 (rev-result '()))
 	 (if (null? els)
-	     new-head
-	     (let ((fst ((car els).traverse!))
+	     (reverse! rev-result)
+	     (let ((fst (car els))
 		   (rest (cdr els)))
 		(cond
 		   ((and (inherits-from? fst (node 'Begin))
 			 (or *integrate-Var-decl-lists*
 			     (not (inherits-from? fst (node 'Var-decl-list)))))
 		    ;; "integrate" nested Begin
-		    (let ((other-els fst.els))
-		       ;; other-els has at least 2 els. otherwise the Begin
-		       ;; would have been discarded
-		       (set-car! els (car other-els))
-		       (set-cdr! els (cdr other-els))
-		       (let ((lp (last-pair els)))
-			  ;; append rest to the inserted els of the nested begin.
-			  (set-cdr! lp rest)
-			  ;; "revisit" last element of nested begin, in case it
-			  ;; was a break/continue or return.
-			  (continue-loop lp #t))))
+		   (let liip ((nested-els fst.els)
+			      (rev-result rev-result))
+		      ;; nested-els has at least 2 els. Otherwise the Begin
+		      ;; would have been discarded.
+		      (if (null? (cdr nested-els))
+			  ;; Add the last element of the nested begin to the
+			  ;; 'els' (and not to the result). If it is a break or
+			  ;; return we treat it again, and can discard dead
+			  ;; code.
+			  (loop (cons (car nested-els) rest)
+				rev-result)
+			  (liip (cdr nested-els)
+				(cons (car nested-els) rev-result)))))
 		   ;; discard NOPs
 		   ((inherits-from? fst (node 'NOP))
-		    (loop rest new-head))
+		    (loop rest rev-result))
 		   ;; remove dead code
 		   ((or (inherits-from? fst (node 'Break))
 			(inherits-from? fst (node 'Continue))
 			(inherits-from? fst (node 'Return)))
-		    (continue-loop '() #t))
+		    (loop '() (cons fst rev-result)))
 		   (else
-		    (continue-loop rest #t)))))))
+		    (loop rest (cons fst rev-result))))))))
    (this.traverse0!)
-   (let ((els (simplify-els! this.els)))
+   (let ((els (simplify-els this.els)))
       (cond
 	 ((null? els)
 	  ;; probably happened, cause we removed a list of NOPs.
