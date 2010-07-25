@@ -40,11 +40,11 @@ INCLUDES	= nodes.sch protobject.sch
 
 AFILE		= bglafile
 
-all: $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) targets
+all: $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) targets runtime
 
 targets: $(TARGETNAMES) #j$(TARGETNAME)
 
-.PHONY: build-afile clean
+.PHONY: build-afile clean runtime js2scheme-runtime-heap
 
 .afile: $(SOURCES)
 	$(AFILE) -o $@ $(SOURCES)
@@ -64,7 +64,7 @@ $(JS2SCHEME_LIB_A): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
 $(JS2SCHEME_LIB_SO): $(JS2SCHEME_HEAP) $(JS2SCHEME_LIB_OBJECTS)
 	ld -G -o $@ $(JS2SCHEME_LIB_OBJECTS)
 
-js2scheme: $(JS2SCHEME_LIB_A) $(JS2SCHEME_OBJECTS)
+js2scheme: $(JS2SCHEME_LIB_A) $(JS2SCHEME_OBJECTS) runtime
 	$(BIGLOO) $(BGL_FLAGS) -o $@ $(JS2SCHEME_OBJECTS)
 
 o/symbol.o: js-runtime/runtime-variables.sch
@@ -75,6 +75,16 @@ o/.keep:
 
 o/%.o: %.scm $(INCLUDES) .afile o/.keep
 	$(BIGLOO) $(BGL_FLAGS) -c -o $@ $<
+
+# scm-out requires the runtime-heap.
+
+o/scm-out.o: js2scheme-runtime-heap
+
+js2scheme-runtime-heap:
+	$(MAKE) -C js-runtime js2scheme-runtime.heap
+
+runtime: $(JS2SCHEME_HEAP)
+	$(MAKE) -C js-runtime
 
 clean:
 	rm -f $(OBJECTS) $(TARGETNAMES) \
