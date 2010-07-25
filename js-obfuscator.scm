@@ -25,10 +25,10 @@
 (define *js-properties* '(apply))
 
 (define *pre-mapping* `(,*js-globals*))
-(define *pre-property-mapping* `(,*js-properties*))
 
 (define *obfuscation-mapping-file* #f)
-(define *property-mapping-file* #f)
+
+(define *exclude-html?* #f)
 
 (define *version* "20060606")
 (define (handle-args args)
@@ -48,66 +48,49 @@
       ((("-v" "--verbose") (help "Verbose output"))
        (config-set! 'verbose #t))
       (("--obfuscate-globals" (help "Obfuscate globals too"))
-       (set! *obfuscate-globals* #t))
+       (set! *obfuscate-globals?* #t))
       (("--obfuscate-properties" (help "Obfuscate properties too"))
-       (if (eq? *non-obfuscated-properties* #t)
-	   (set! *non-obfuscated-properties* '())))
+       (set! *obfuscate-properties?* #t))
       ((("-c" "--compress") (help "Compress output"))
        (config-set! 'compress? #t))
       ((("--html") (help "Include HTML global variables"))
-       (set! *pre-mapping* (cons *HTML-globals* *pre-mapping*)) ;; small hack.
-       (set! *pre-property-mapping*
-	     (cons *HTML-properties* *pre-property-mapping*)))
+       (set! *exclude-html?* #t))
       (("--imported" ?file
-	(help "file containing imported variables and their mapping"))
+	(help "file containing imported variables/properties and their mapping"))
        (set! *pre-mapping* (cons file *pre-mapping*)))
-      (("--imported-properties" ?file
-	(help "file containing properties and their mapping"))
-       (set! *pre-property-mapping* (cons file *pre-property-mapping*)))
       (("--obfuscation-mapping"
 	?file
 	(help "output obfuscation mapping to file"))
        (set! *obfuscation-mapping-file* file))
-      (("--property-mapping"
-	?file
-	(help "output property obfuscation mapping to file"))
-       (set! *property-mapping-file* file))
       (else
        (error "handle-args"
 	      "unknown argument: "
 	      else))))
 
-(define (any->property-mapping any)
+;; obfuscation is either a string, a symbol or a mapping.
+;; If it is a string/symbol, then it maps to itself.
+;; Properties must not have their surrounding quotes.
+(define (add-pre-obfuscation! obfuscation)
    (cond
-      ((symbol? any)
-       (any->property-mapping (symbol->string any)))
-      ((and (string? any)
-	    (not (or (char=? #\' (string-ref any 0))
-		     (char=? #\" (string-ref any 0)))))
-       (let ((str1 (string-append "\"" any "\""))
-	     (str2 (string-append "'" any "'")))
-	  (list `(,str1 ,str1)
-		`(,str2 ,str2))))
-      ((string? any)
-       (list `(,any ,any)))
-      ((pair? any)
-       (let ((from (car any))
-	     (to (cadr any)))
-	  (let ((to-with-quotes (if (or (char=? #\' (string-ref to 0))
-					(char=? #\" (string-ref to 0)))
-				    to
-				    (string-append "'" to "'"))))
-	     (if (not (or (char=? #\' (string-ref from 0))
-			  (char=? #\" (string-ref to 0))))
-		 (let ((str1 (string-append "\"" from "\""))
-		       (str2 (string-append "'" from "'")))
-		    (list `(,str1 ,to-with-quotes)
-			  `(,str2 ,to-with-quotes)))
-		 (list `(,from ,to-with-quotes))))))
+      ((symbol? obfuscation)
+       (let ((str (symbol->string obfuscation)))
+	  (add-obfuscation-mapping! str str)))
+      ((string? obfuscation)
+       (add-obfuscation-mapping! obfuscation obfuscation))
+      ((pair? obfuscation)
+       (let* ((from (car obfuscation))
+	      (to (cadr obfuscation))
+	      (from-str (if (symbol? from)
+			    (symbol->string from)
+			    from))
+	      (to-str (if (symbol? to)
+			  (symbol->string to)
+			  to)))
+	  (add-obfuscation-mapping! from to)))
       (else
        (error 'js-obfuscator
-	      "Couldn't parse property-mapping"
-	      any))))
+	      "Couldn't parse obfuscation-mapping"
+	      obfuscation))))
 
 (define (js-obfuscator args)
    (config-init!)
@@ -115,39 +98,30 @@
    (var-nodes-init!)
    
    (handle-args args)
-   (if (not *in-file*)
-       (begin
-	  (error "js-obfuscator"
-		 "missing input-file. Use --help to see usage."
-		 #f)))
-   (if (not *out-file*)
-       (error "js-obfuscator"
-	      "missing output-file. Use --help to see usage."
-	      #f))
+   (when (not *in-file*)
+      (error "js-obfuscator"
+	     "missing input-file. Use --help to see usage."
+	     #f))
+   (when (not *out-file*)
+      (error "js-obfuscator"
+	     "missing output-file. Use --help to see usage."
+	     #f))
+
+   (when *exclude-html?*
+      (set! *pre-mapping* (cons *HTML-globals* *pre-mapping*)) ;; small hack.
+      (when *obfuscate-properties?*
+	 (set! *pre-mapping* (cons *HTML-properties* *pre-mapping*))))
+
    (for-each (lambda (f)
 		(let ((l (if (string? f)
 			     (begin
-				(verbose "reading imported variables of file " f)
+				(verbose "reading imported variables/properties of file " f)
 				(with-input-from-file f read))
 			     f)))
-		   (set! *imported-global-mapping*
-			 (append! (map! (lambda (id/p)
-					   (if (pair? id/p)
-					       id/p
-					       (list id/p id/p)))
-					l)
-				  *imported-global-mapping*))))
+		   (for-each (lambda (obfuscation)
+				(add-pre-obfuscation! obfuscation))
+			     l)))
 	     *pre-mapping*)
-   (for-each (lambda (f)
-		(let ((l (if (string? f)
-			     (begin
-				(verbose "reading imported property-mappings of file " f)
-				(with-input-from-file f read))
-			     f)))
-		   (set! *property-mapping*
-			 (append! (apply append (map! any->property-mapping l))
-				  *property-mapping*))))
-	     *pre-property-mapping*)
    (let* ((in-p (if (string=? *in-file* "-")
 		    (current-input-port)
 		    (open-input-file *in-file*)))
@@ -166,11 +140,8 @@
 	 (when *obfuscation-mapping-file*
 	     (set! *obfuscation-mapping-p*
 		   (open-output-file *obfuscation-mapping-file*)))
-	 (when *property-mapping-file*
-	     (set! *property-mapping-p*
-		   (open-output-file *property-mapping-file*)))
 	 (fun-bindings! ast)
-	 (symbol-resolution! ast *imported-global-mapping*)
+	 (symbol-resolution! ast '()) ;*imported-global-mapping*)
 	 (set! *integrate-Var-decl-lists* #f) ;; HACK.
 	 (simplify! ast)
 	 (obfuscate-ids! ast)
@@ -179,8 +150,6 @@
 	 (js-out ast out-p)
 	 (when *obfuscation-mapping-file*
 	    (close-output-port *obfuscation-mapping-p*))
-	 (when *property-mapping-file*
-	    (close-output-port *property-mapping-p*))
 	 (when (not (string=? *in-file* "-"))
 	    (close-input-port in-p))
 	 (when (not (string=? *out-file* "-"))
