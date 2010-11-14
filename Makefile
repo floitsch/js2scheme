@@ -83,6 +83,9 @@ o/scm-out.o: js2scheme-runtime-heap
 js2scheme-runtime-heap:
 	$(MAKE) -C js-runtime js2scheme-runtime.heap
 
+js-runtime/runtime-variables.sch:
+	$(MAKE) -C js-runtime runtime-variables.sch
+
 runtime: $(JS2SCHEME_HEAP)
 	$(MAKE) -C js-runtime
 
