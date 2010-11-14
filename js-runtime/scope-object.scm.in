@@ -53,7 +53,7 @@
       (props (make-props-hashtable))
       (proto (js-null))))
 
-(define-method (js-class-name::js-string o::Js-Scope-Object)
+(define-method (js-class-name::@JS_STRING@ o::Js-Scope-Object)
    (utf8->js-string "scope-object should never be seen"))
 
 
@@ -68,17 +68,17 @@
 			(not (js-deleted? ref-val)))
 		     #t))))))
 (define-method (js-property-one-level-contains? o::Js-Scope-Object
-						prop::js-string)
+						prop::@JS_STRING@)
    (js-scope-property-one-level-contains? o prop))
 (define-method (js-property-is-enumerable? o::Js-Scope-Object
-					   prop::js-string)
+					   prop::@JS_STRING@)
    (if (js-scope-property-one-level-contains? o prop)
        (with-access::Js-Scope-Object o (props)
 	  (with-access::Property-entry (hashtable-get props prop) (attr)
 	     (with-access::Attributes attr (enumerable)
 		enumerable)))
        #f))
-(define-method (js-property-contains o::Js-Scope-Object prop::js-string)
+(define-method (js-property-contains o::Js-Scope-Object prop::@JS_STRING@)
    (define (call-proto)
       (with-access::Js-Scope-Object o (proto)
 	 (if (js-null? proto)
@@ -117,7 +117,7 @@
 				   val)))
 		       (p key tmp read-only deletable enumerable))))))))))
 	  
-(define-method (js-property-generic-set! o::Js-Scope-Object prop::js-string
+(define-method (js-property-generic-set! o::Js-Scope-Object prop::@JS_STRING@
 					 new-val attributes)
 ;   (print "setting " prop)
    (with-access::Js-Scope-Object o (props)
@@ -155,7 +155,7 @@
 	  (val new-val)
 	  (attr (or attributes (default-attributes)))))))
    
-(define-method (js-property-safe-delete! o::Js-Scope-Object prop::js-string)
+(define-method (js-property-safe-delete! o::Js-Scope-Object prop::@JS_STRING@)
    (define (proto-delete!)
       (with-access::Js-Scope-Object o (proto)
 	 (if (js-null? proto)

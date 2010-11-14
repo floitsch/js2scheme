@@ -21,7 +21,7 @@
    (export *jsg-String*
 	   *js-String-orig*::procedure
 	   (final-class NatO-String::Js-HT-Object
-	      (str::js-string read-only))
+	      (str::@JS_STRING@ read-only))
 	   (String-init)))
 
 ;; 15.5 String Objects
@@ -30,7 +30,7 @@
 (define *js-String-orig* (lambda () 'to-be-replaced))
 (define *js-String-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::js-string o::NatO-String)
+(define-method (js-class-name::@JS_STRING@ o::NatO-String)
    (STR "String")) ;; 15.5.2.1
 
 (define (String-init)
@@ -487,7 +487,7 @@
 		    (loop (cons m rev-ms) new-last-index))))))))
 
 (define $-v (char->integer #\$))
-(define (str-contains-$? str::js-string)
+(define (str-contains-$? str::@JS_STRING@)
    (let ((str-len (js-string-length str)))
       (let loop ((i 0))
 	 (cond

@@ -41,7 +41,7 @@
        (case-sensitive?::bool read-only))
 
     (final-class FSM-char::FSM-consuming
-       (c::js-char read-only)
+       (c::@JS_CHAR@ read-only)
        (case-sensitive?::bool read-only))
     (final-class FSM-everything::FSM-consuming) ;; everything matches.
     (final-class FSM-class::FSM-consuming

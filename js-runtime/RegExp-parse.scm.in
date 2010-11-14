@@ -3,7 +3,7 @@
    (use jsre-base-object
 	jsre-conversion)
 ;   (main my-main)
-   (export (js-regexp->scm-regexp pattern::js-string)))
+   (export (js-regexp->scm-regexp pattern::@JS_STRING@)))
 
 ;; Bigloo's regexp-parser does not feature multi-lines... so we can't reuse it.
 
@@ -39,12 +39,12 @@
 			(or (not c2) (char? c2)))]
    (and c1 c2 (js-char=char? c1 c2)))
 
-(define (cchar>=? c1::js-char c2::char)
+(define (cchar>=? c1::@JS_CHAR@ c2::char)
    (>= (js-char->integer c1) (char->integer c2)))
-(define (cchar<=? c1::js-char c2::char)
+(define (cchar<=? c1::@JS_CHAR@ c2::char)
    (>= (js-char->integer c1) (char->integer c2)))
 
-(define (cc-any-of? c::js-char chars::bstring)
+(define (cc-any-of? c::@JS_CHAR@ chars::bstring)
    (and (< (js-char->integer c) 256)
 	(string-index chars (js-char->char c))
 	#t))

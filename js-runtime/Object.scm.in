@@ -42,7 +42,7 @@
 	 (set! *object-prototype-initialized?* #t)))
    *natO-object-prototype*)
 
-(define-method (js-class-name::js-string o::NatO-Object)
+(define-method (js-class-name::@JS_STRING@ o::NatO-Object)
    (STR "Object"))
 
 (define (Object-init)

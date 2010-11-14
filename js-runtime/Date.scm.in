@@ -25,7 +25,7 @@
 (define *jsg-Date* #unspecified)
 (define *js-Date-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::js-string o::NatO-Date)
+(define-method (js-class-name::@JS_STRING@ o::NatO-Date)
    (STR "Date"))
 
 (define (Date-init)

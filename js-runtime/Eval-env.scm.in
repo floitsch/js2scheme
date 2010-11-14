@@ -17,12 +17,12 @@
    (export (class Js-Eval-env
 	      (objs::pair-nil read-only)
 	      (next-env read-only))
-	   (env-get env::Js-Eval-env id::js-string)
-	   (env-object env::Js-Eval-env id::js-string)
-	   (env-typeof-get env::Js-Eval-env id::js-string)
+	   (env-get env::Js-Eval-env id::@JS_STRING@)
+	   (env-object env::Js-Eval-env id::@JS_STRING@)
+	   (env-typeof-get env::Js-Eval-env id::@JS_STRING@)
 	   ;; returns the given new-val
-	   (env-set! env::Js-Eval-env id::js-string new-val)
-	   (env-delete! env::Js-Eval-env id::js-string)))
+	   (env-set! env::Js-Eval-env id::@JS_STRING@ new-val)
+	   (env-delete! env::Js-Eval-env id::@JS_STRING@)))
 
 (define (env-get env id)
    (with-access::Js-Eval-env env (objs next-env)

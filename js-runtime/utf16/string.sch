@@ -2,42 +2,41 @@
    (import jsre-conversion
 	   jsre-base-object)
    (export
-    (typedef ucs2string js-string)
     (macro ascii->js-string-literal)
-    (utf8->js-string-literal::js-string str::bstring #!optional (unescape? #f))
+    (utf8->js-string-literal::ucs2string str::bstring #!optional (unescape? #f))
     (inline js-string?::bool str)
-    (inline utf8->js-string::js-string utf8-str::bstring)
-    (inline js-string->utf8::bstring str::js-string)
-    (inline js-string=ascii?::bool js-str::js-string utf8-str::bstring)
-    (inline js-string-ref::js-char str::js-string i::long)
-    (inline js-string=?::bool str1::js-string str2::js-string)
-    (js-string-hash::long str::js-string)
-    (inline js-string-null?::bool str::js-string)
-    (inline js-string-length::long str::js-string)
-    (js-substring::js-string str::js-string
+    (inline utf8->js-string::ucs2string utf8-str::bstring)
+    (inline js-string->utf8::bstring str::ucs2string)
+    (inline js-string=ascii?::bool js-str::ucs2string utf8-str::bstring)
+    (inline js-string-ref::ucs2 str::ucs2string i::long)
+    (inline js-string=?::bool str1::ucs2string str2::ucs2string)
+    (js-string-hash::long str::ucs2string)
+    (inline js-string-null?::bool str::ucs2string)
+    (inline js-string-length::long str::ucs2string)
+    (js-substring::ucs2string str::ucs2string
 				  from::long to::long)
-    (js-string-append::js-string . Lstrs)
-    (inline js-string<?::bool str1::js-string str2::js-string)
-    (js-ascii-substring-at?::bool str1::bstring str::js-string
+    (js-string-append::ucs2string . Lstrs)
+    (inline js-string<?::bool str1::ucs2string str2::ucs2string)
+    (js-ascii-substring-at?::bool str1::bstring str::ucs2string
 	    pos::long)
-    (inline js-substring-at?::bool str1::js-string str::js-string
+    (inline js-substring-at?::bool str1::ucs2string str::ucs2string
 	    pos::long)
-    (js-string->real::double str::js-string)
-    (js-string->integer::long str::js-string #!optional (base #f))
-    (integer->js-string::js-string i::long)
-    (real->js-string::js-string d::double)
-    (llong->js-string::js-string i::llong #!optional (base #f))
-    (inline vector->js-string::js-string v::vector)
-    (inline js-char->js-string::js-string c::js-char)
-    (js-string-contains str1::js-string str2::js-string
+    (js-string->real::double str::ucs2string)
+    (js-string->integer::long str::ucs2string #!optional (base #f))
+    (integer->js-string::ucs2string i::long)
+    (real->js-string::ucs2string d::double)
+    (llong->js-string::ucs2string i::llong #!optional (base #f))
+    (inline vector->js-string::ucs2string v::vector)
+    (inline js-char->js-string::ucs2string c::ucs2)
+    (js-string-contains str1::ucs2string str2::ucs2string
 			#!optional (pos::long 0))
-    (js-string-compare3::long str1::js-string str2::js-string)
-    (inline js-string-downcase::js-string str::js-string)
-    (inline js-string-upcase::js-string str::js-string)
-    (js-string-uc-iterator str::js-string)
+    (js-string-compare3::long str1::ucs2string str2::ucs2string)
+    (inline js-string-downcase::ucs2string str::ucs2string)
+    (inline js-string-upcase::ucs2string str::ucs2string)
+    (js-string-uc-iterator str::ucs2string)
     (open-js-string-buffer size)
     (js-string-buffer-uc-push! buf c::long)
-    (js-string-buffer-verbatim-push! buf js-c::js-char)
+    (js-string-buffer-verbatim-push! buf js-c::ucs2)
     (close-js-string-buffer buf)
     (inline js-string-uc-char-size uc-c::long)
     ))
@@ -97,7 +96,7 @@
 	     (let ((d1 (hex-char->number (ucs2-string-ref str (+fx i 2))))
 		   (d2 (hex-char->number (ucs2-string-ref str (+fx i 3)))))
 		(loop (+fx i 4)
-		      (cons (integer->16bit-char (+fx (*fx 16 d1) d2)) rev-chars))))
+		      (cons (integer->ucs2-ur (+fx (*fx 16 d1) d2)) rev-chars))))
 	    ((u-escape? str i)
 	     (let* ((a (hex-char->number (ucs2-string-ref str (+fx i 2))))
 		    (b (hex-char->number (ucs2-string-ref str (+fx i 3))))
@@ -105,7 +104,7 @@
 		    (d (hex-char->number (ucs2-string-ref str (+fx i 5))))
 		    (n (+fx d (*fx 16 (+fx c (*fx 16 (+fx b (*fx 16 a))))))))
 		(loop (+fx i 6)
-		      (cons (integer->16bit-char n) rev-chars))))
+		      (cons (integer->ucs2-ur n) rev-chars))))
 	    (else (loop (+fx i 1) (cons (ucs2-string-ref str i) rev-chars))))))
    (let* ((utf16-str (utf8-string->utf16-string str))
 	  (needs-unescaping? (and unescape?
@@ -117,10 +116,10 @@
 (define-inline (js-string?::bool str)
    (ucs2-string? str))
 
-(define-inline (utf8->js-string::js-string utf8-str)
+(define-inline (utf8->js-string::ucs2string utf8-str)
    (utf8-string->utf16-string utf8-str))
 
-(define-inline (js-string->utf8 str::js-string)
+(define-inline (js-string->utf8 str::ucs2string)
    (utf16-string->utf8-string str))
 
 (define-inline (js-string=ascii? js-str ascii-str)
@@ -134,13 +133,13 @@
 	       #f)
 	      (else (loop (+fx i 1)))))))
 
-(define-inline (js-string-ref str::js-string i::long)
+(define-inline (js-string-ref str::ucs2string i::long)
    (ucs2-string-ref str i))
 
-(define-inline (js-string=? str1::js-string str2::js-string)
+(define-inline (js-string=? str1::ucs2string str2::ucs2string)
    (ucs2-string=? str1 str2))
 
-(define (js-string-hash::long str::js-string)
+(define (js-string-hash::long str::ucs2string)
    ;; TODO: replace with ucs2-string-hash once it exists.
    (let loop ((i 0)
 	      (res 0))
@@ -150,13 +149,13 @@
 		(+fx res (+fx (bit-lsh res 3)
 			      (ucs2->integer (ucs2-string-ref str i))))))))
 
-(define-inline (js-string-null?::bool str::js-string)
+(define-inline (js-string-null?::bool str::ucs2string)
    (zerofx? (ucs2-string-length str)))
 
-(define-inline (js-string-length::long str::js-string)
+(define-inline (js-string-length::long str::ucs2string)
    (ucs2-string-length str))
 
-(define (js-substring::js-string str::js-string
+(define (js-substring::ucs2string str::ucs2string
 				      from::long to::long)
    (let ((str-len (ucs2-string-length str))
 	 (len (-fx to from)))
@@ -169,13 +168,13 @@
       (let ((res-str (make-ucs2-string len)))
 	 (let loop ((i 0))
 	    (if (=fx i len)
-		(let ((tmp::js-string res-str)) tmp)
+		(let ((tmp::ucs2string res-str)) tmp)
 		(begin
 		   (ucs2-string-set! res-str i
 				     (ucs2-string-ref str (+fx from i)))
 		   (loop (+fx i 1))))))))
 
-(define (js-string-append::js-string . L)
+(define (js-string-append::ucs2string . L)
    (define (combined-length L)
       (let loop ((L L)
 		 (res 0))
@@ -196,15 +195,15 @@
       (let loop ((L L)
 		 (i 0))
 	 (if (null? L)
-	     (let ((tmp::js-string res)) tmp)
+	     (let ((tmp::ucs2string res)) tmp)
 	     (loop (cdr L)
 		   (blit! (car L) res i))))))
 
-(define-inline (js-string<?::bool str1::js-string str2::js-string)
+(define-inline (js-string<?::bool str1::ucs2string str2::ucs2string)
    (ucs2-string<? str1 str2))
 
 (define (js-ascii-substring-at?::bool str1::bstring
-				      str2::js-string
+				      str2::ucs2string
 				      pos::long)
    (let ((str-len1 (string-length str1))
 	 (str-len2 (ucs2-string-length str2)))
@@ -216,8 +215,8 @@
 			    (ucs2->integer (ucs2-string-ref str2 (+fx i pos))))
 		       (loop (+fx i 1))))))))
 
-(define-inline (js-substring-at?::bool str1::js-string
-				       substring::js-string
+(define-inline (js-substring-at?::bool str1::ucs2string
+				       substring::ucs2string
 				       pos::long)
    (let ((str-len1 (ucs2-string-length str1))
 	 (sub-len (ucs2-string-length substring)))
@@ -253,18 +252,18 @@
 
 ;; precondition: str must only contain valid real-chars.
 ;; in particular they must be ascii chars.
-(define (js-string->real::double str::js-string)
+(define (js-string->real::double str::ucs2string)
    (string->real (ascii-ucs2-str->bstring str)))
 
 ;; speed is not important. happens only during regexp-parse.
-(define (js-string->integer::long str::js-string
+(define (js-string->integer::long str::ucs2string
 				  #!optional (base #f))
    (let ((str (ascii-ucs2-str->bstring str)))
       (if base
 	  (string->integer str base)
 	  (string->integer str))))
 
-(define (integer->js-string::js-string i::long)
+(define (integer->js-string::ucs2string i::long)
    (case i
       ((0)  #u"0")  ((1)  #u"1")  ((2) #u"2") ((3) #u"3")
       ((4)  #u"4")  ((5)  #u"5")  ((6) #u"6") ((7) #u"7")
@@ -275,22 +274,22 @@
        (ascii-str->ucs2-str (integer->string i)))))
 
 ;; speed is not important. Only used in Error.
-(define (real->js-string::js-string d::double)
+(define (real->js-string::ucs2string d::double)
    (ascii-str->ucs2-str (real->string d)))
 
-(define (llong->js-string::js-string l::llong #!optional (base #f))
+(define (llong->js-string::ucs2string l::llong #!optional (base #f))
    (if base
        (ascii-str->ucs2-str (llong->string l base))
        (ascii-str->ucs2-str (llong->string l))))
 
 ;; 'inline', since it is used at only one place anyways and this way Bigloo can
 ;; type.
-(define-inline (vector->js-string::js-string v)
+(define-inline (vector->js-string::ucs2string v)
    (let* ((len (vector-length v))
 	  (str (make-ucs2-string len)))
       (let loop ((i 0))
 	 (if (>= i len)
-	     (let ((tmp::js-string str)) tmp)
+	     (let ((tmp::ucs2string str)) tmp)
 	     (let* ((cv (vector-ref v i)))
 		(ucs2-string-set! str i (any->uint16fx (vector-ref v i)))
 		(loop (+fx i 1)))))))
@@ -299,7 +298,7 @@
    (ucs2-string c))
 
 ;; for now stupid n^2 implementation.
-(define (js-string-contains str1::js-string str2::js-string
+(define (js-string-contains str1::ucs2string str2::ucs2string
 			    #!optional (pos::long 0))
    (let* ((str1-len (ucs2-string-length str1))
 	  (str2-len (ucs2-string-length str2))
@@ -321,7 +320,7 @@
 	    ((substring-at? i) i)
 	    (else (loop (+fx i 1)))))))
 
-(define (js-string-compare3 str1::js-string str2::js-string)
+(define (js-string-compare3 str1::ucs2string str2::ucs2string)
    (let ((str1-len (ucs2-string-length str1))
 	 (str2-len (ucs2-string-length str2)))
       (if (<fx str2-len str1-len)
@@ -341,16 +340,16 @@
 		 (loop (+fx i 1))))))))
 
 ;; downcase must work in unicode (if the implementation allows UC)
-(define-inline (js-string-downcase::js-string str::js-string)
+(define-inline (js-string-downcase::ucs2string str::ucs2string)
    (utf16-downcase str))
 
 ;; upcase must work in unicode (if the implementation allows UC)
-(define-inline (js-string-upcase::js-string str::js-string)
+(define-inline (js-string-upcase::ucs2string str::ucs2string)
    (utf16-upcase str))
 
 ;; raises an error if the string is not a correct Unicode string.
 ;; the iterator (a closure) must return integers or #f (eos).
-(define (js-string-uc-iterator str::js-string)
+(define (js-string-uc-iterator str::ucs2string)
    (utf16-uc-iterator str))
 
 (define (open-js-string-buffer size)
@@ -360,7 +359,7 @@
    (utf16-buffer-uc-push! buf c))
 
 ;; js-c must be a char that has been received by js-string-ref.
-(define (js-string-buffer-verbatim-push! buf js-c::js-char)
+(define (js-string-buffer-verbatim-push! buf js-c::ucs2)
    (utf16-buffer-verbatim-push! buf js-c))
 
 (define (close-js-string-buffer buf)

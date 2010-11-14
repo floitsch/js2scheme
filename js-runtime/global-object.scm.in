@@ -19,7 +19,7 @@
 	   *js-global-env*
 	   ;; reuse the Property-entry
  	   (wide-class Js-Global-Box::Property-entry
- 	      id::js-string)
+ 	      id::@JS_STRING@)
 	   (global-object-init)
  	   (macro create-declared-global)
  	   (macro create-implicit-global)
@@ -29,7 +29,7 @@
  	   (macro global-typeof-read)
  	   (macro global-set!)
 	   (macro global-declared?)
-	   (create-global::Js-Global-Box id::js-string
+	   (create-global::Js-Global-Box id::@JS_STRING@
 					 attributes declared? . Linit-val)))
 
 (define-macro (create-declared-global id . Linit-val)
@@ -150,7 +150,7 @@
 
 ;; ======= implementation of Js-Global.
 
-(define-method (js-class-name::js-string o::Js-Global)
+(define-method (js-class-name::@JS_STRING@ o::Js-Global)
    ;; not defined in ECMA.
    (STR "global"))
 

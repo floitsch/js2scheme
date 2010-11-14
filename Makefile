@@ -87,6 +87,7 @@ runtime: $(JS2SCHEME_HEAP)
 	$(MAKE) -C js-runtime
 
 clean:
+	$(MAKE) -C js-runtime clean
 	rm -f $(OBJECTS) $(TARGETNAMES) \
 	      $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) $(JS2SCHEME_HEAP) \
 	      $(BGL_CLASSES) j$(TARGETNAME) \

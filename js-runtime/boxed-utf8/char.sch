@@ -1,22 +1,21 @@
 (directives
    (export
-    (typedef char js-char)
     (inline js-char-max::long)
     (inline js-char?::bool c) ;; can't make difference between char and js-char
-    (inline js-char->integer::int c::js-char)
-    (inline integer->js-char::js-char i::int)
-    (inline char->js-char::js-char c::char) ;; identity
-    (inline js-char->char::char c::js-char) ;; identity
-    (inline js-char-upcase::js-char c::js-char)
-    (inline js-char-downcase::js-char c::js-char)
-    (inline js-char=?::bool c1::js-char c2::js-char)
-    (inline js-char>=?::bool c1::js-char c2::js-char)
-    (inline js-char<=?::bool c1::js-char c2::js-char)
-    (inline js-char=char?::bool c1::js-char c2::char)
-    (inline char=js-char?::bool c1::char c2::js-char)
-    (inline js-char>=char?::bool c1::js-char c2::char)
-    (inline js-char<=char?::bool c1::js-char c2::char)
-    (inline js-char-whitespace?::bool c::js-char)
+    (inline js-char->integer::int c::char)
+    (inline integer->js-char::char i::int)
+    (inline char->js-char::char c::char) ;; identity
+    (inline js-char->char::char c::char) ;; identity
+    (inline js-char-upcase::char c::char)
+    (inline js-char-downcase::char c::char)
+    (inline js-char=?::bool c1::char c2::char)
+    (inline js-char>=?::bool c1::char c2::char)
+    (inline js-char<=?::bool c1::char c2::char)
+    (inline js-char=char?::bool c1::char c2::char)
+    (inline char=js-char?::bool c1::char c2::char)
+    (inline js-char>=char?::bool c1::char c2::char)
+    (inline js-char<=char?::bool c1::char c2::char)
+    (inline js-char-whitespace?::bool c::char)
     ))
 
 (define-inline (js-char-max) 256)

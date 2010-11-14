@@ -1,0 +1,65 @@
+#!/bin/sh
+
+RUNTIME_DIR=js-runtime
+UTF_DIR=utf
+
+string_backend=utf8
+
+# Argument parsing
+while : ; do
+  case $1 in
+    "")
+      break
+      ;;
+
+    --string-backend=*)
+      string_backend="`echo $1 | sed 's/^[^=]*=//'`";
+      ;;
+
+    *)
+      if [ "$1 " != "--help " ]; then
+        echo "*** ERROR: Illegal option \"$1\""
+        echo ""
+        echo ""
+      fi
+      echo "Usage: configure [options]" >&2;
+      echo "  --string-backend=utf8|utf16|boxed-utf8" >&2;
+      exit 3;
+      ;;
+  esac
+  shift;
+done
+
+case $string_backend in
+  utf8)
+    string_class="bstring"
+    char_class="char"
+    ;;
+
+  utf16)
+    string_class="ucs2string"
+    char_class="ucs2"
+    ;;
+
+  boxed-utf8)
+    string_class="boxed-string"
+    char_class="char"
+    ;;
+
+  *)
+    echo "Bad string-backend: $string_backend" >&2
+    exit 1
+    ;;
+esac
+
+rm -f $RUNTIME_DIR/$UTF_DIR
+ln -s $string_backend $RUNTIME_DIR/$UTF_DIR
+
+for f in $RUNTIME_DIR/*.scm.in; do
+  sed -e "s|@JS_STRING@|$string_class|g" \
+      -e "s|@JS_CHAR@|$char_class|g" \
+      $f > `echo $f | sed 's/.in$//'`;
+done
+
+echo "** Configuration summary **"
+echo "   string backend: .......... $string_backend (string-type: $string_class, char-type: $char_class)"

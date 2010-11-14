@@ -10,10 +10,10 @@
     (inline js-null::Js-Object)
     (inline js-null? v)
 
-    (js-property-get o::Js-Object prop::js-string)
+    (js-property-get o::Js-Object prop::@JS_STRING@)
     ;; returns the given value
-    (js-property-set! o::Js-Object prop::js-string new-val)
-    (js-property-update! o::Js-Object prop::js-string new-val)
+    (js-property-set! o::Js-Object prop::@JS_STRING@ new-val)
+    (js-property-update! o::Js-Object prop::@JS_STRING@ new-val)
 
     (js-property-for-each o::Js-Object f::procedure)
 
@@ -24,12 +24,12 @@
     (abstract-class Js-Object
        (proto::Js-Object read-only)) ;; prototype
 
-    (generic js-property-one-level-contains?::bool o::Js-Object prop::js-string)
-    (generic js-property-is-enumerable?::bool o::Js-Object prop::js-string)
-    (generic js-property-contains o::Js-Object prop::js-string)
-    (generic js-property-generic-set! o::Js-Object prop::js-string new-val attributes)
-    (generic js-property-safe-delete!::bool o::Js-Object prop::js-string)
-    (generic js-class-name::js-string o::Js-Object)
+    (generic js-property-one-level-contains?::bool o::Js-Object prop::@JS_STRING@)
+    (generic js-property-is-enumerable?::bool o::Js-Object prop::@JS_STRING@)
+    (generic js-property-contains o::Js-Object prop::@JS_STRING@)
+    (generic js-property-generic-set! o::Js-Object prop::@JS_STRING@ new-val attributes)
+    (generic js-property-safe-delete!::bool o::Js-Object prop::@JS_STRING@)
+    (generic js-class-name::@JS_STRING@ o::Js-Object)
 
     (generic js-property-one-level-for-each o::Js-Object f::procedure)))
 
@@ -43,7 +43,7 @@
        #f
        val))
 
-(define (js-property-get o::Js-Object prop::js-string)
+(define (js-property-get o::Js-Object prop::@JS_STRING@)
    ;(write-circle o)(print)
    ;(write-circle prop)(print)
    (let ((res (js-property-contains o prop)))
@@ -52,7 +52,7 @@
 	  (unmangle-false res)
 	  (js-undefined))))
 
-(define (js-property-update! o::Js-Object prop::js-string new-value)
+(define (js-property-update! o::Js-Object prop::@JS_STRING@ new-value)
    (cond
       ((js-null? o) #f)
       ((js-property-one-level-contains? o prop)
@@ -63,7 +63,7 @@
 	  (js-property-update! proto prop new-value)))))
 
 ;; non-generic. but js-property-generic-set! is.
-(define (js-property-set! o::Js-Object prop::js-string new-value)
+(define (js-property-set! o::Js-Object prop::@JS_STRING@ new-value)
    (js-property-generic-set! o prop (mangle-false new-value) #f)
    new-value)
 
@@ -123,7 +123,7 @@
 	  "Internal Error: 'property-safe-delete!' got through"
 	  (class-name (object-class o))))
 
-(define-generic (js-class-name::js-string o::Js-Object)
+(define-generic (js-class-name::@JS_STRING@ o::Js-Object)
    (error 'base-object
 	  "Internal Error: 'class-name' got through"
 	  (class-name (object-class o))))

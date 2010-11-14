@@ -288,7 +288,7 @@
       (else (finite->integer t))))
 
 ;; RFC2822 string.
-(define (time->utc-js-string::js-string t::double)
+(define (time->utc-js-string::@JS_STRING@ t::double)
    (cond
       ((nanfl? t)
        (STR "Invalid Date"))
@@ -377,7 +377,7 @@
 	  (warning "2-digit with number > 99" i)
 	  (utf8->js-string (number->string i))))))
 
-(define (time->local-string::js-string t::double dst::double)
+(define (time->local-string::@JS_STRING@ t::double dst::double)
    (cond
       ((nanfl? t) (STR "Invalid Date"))
       (else
@@ -440,7 +440,7 @@
       (else
        (utf8->js-string (number->string y)))))
 
-(define (time->date-string::js-string t::double)
+(define (time->date-string::@JS_STRING@ t::double)
    (cond
       ((nanfl? t) (STR "Invalid Date"))
       (else
@@ -454,10 +454,10 @@
 			    (2-digit d)                    (STR " ")
 			    (year->js-string y))))))
 
-(define (time->utc-date-string::js-string t::double)
+(define (time->utc-date-string::@JS_STRING@ t::double)
    (time->date-string t))
 
-(define (time->time-string::js-string t::double)
+(define (time->time-string::@JS_STRING@ t::double)
    (cond
       ((nanfl? t) (STR "Invalid Date"))
       (else  ;; (format "~a:~a:~a" ...)
@@ -468,7 +468,7 @@
 (define-macro (the-digit i)
    `(-fx (byte->fixnum (the-byte-ref ,i)) (char->integer #\0)))
 
-(define (js-string->time::double s::js-string)
+(define (js-string->time::double s::@JS_STRING@)
    (define (offset-number->ms-offset::double n::double)
       (let* ((i (flonum->fixnum n))
 	     (h (/fx i 100))

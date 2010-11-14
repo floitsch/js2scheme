@@ -24,7 +24,7 @@
 (define *js-Bool-orig* (lambda () 'to-be-replaced))
 (define *js-Bool-prototype*::Js-Object (js-null))
 
-(define-method (js-class-name::js-string o::NatO-Bool)
+(define-method (js-class-name::@JS_STRING@ o::NatO-Bool)
    (STR "Boolean"))
 
 (define (Bool-init)

@@ -10,7 +10,7 @@
 	jsre-Error
 	jsre-conversion)
    (export (js-eval prog top-level-obj top-level-this next-env . Lenvs)
-	   (js-Function-eval src::js-string)))
+	   (js-Function-eval src::@JS_STRING@)))
 
 ;; TODO: currently we just include the macros. That's clearly not the best
 ;; solution. but at least it works, and is simple.

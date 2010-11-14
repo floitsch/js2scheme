@@ -23,7 +23,7 @@
 
 (define *jsg-Math* #unspecified)
 
-(define-method (js-class-name::js-string o::NatO-Math)
+(define-method (js-class-name::@JS_STRING@ o::NatO-Math)
    (STR "Math"))
 
 (define (Math-init)

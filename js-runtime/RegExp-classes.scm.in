@@ -10,15 +10,15 @@
    (export
     (RegExp-class-pattern?::bool pattern)
     (RegExp-class-create char/class case-sensitive?)
-    (RegExp-class-match re-class c::js-char)
+    (RegExp-class-match re-class c::@JS_CHAR@)
     (RegExp-class-subset?::bool re-class1 re-class2)
     (RegExp-class-overlap?::bool re-class1 re-class2)
-    (word-boundary str::js-string index::bint)
-    (js-char-terminator? c::js-char)
-    (canonicalize-char::js-char c::js-char ignore-case?::bool))
+    (word-boundary str::@JS_STRING@ index::bint)
+    (js-char-terminator? c::@JS_CHAR@)
+    (canonicalize-char::@JS_CHAR@ c::@JS_CHAR@ ignore-case?::bool))
    (include "RegExp-constant-classes.scm"))
 
-(define (canonicalize-char::js-char c::js-char ignore-case?::bool)
+(define (canonicalize-char::@JS_CHAR@ c::@JS_CHAR@ ignore-case?::bool)
    (if (not ignore-case?)
        c
        (let* ((ci (js-char->integer c))

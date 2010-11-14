@@ -67,7 +67,7 @@
    (lambda L (js-undefined))) ;; 15.3.4
 (define *js-Function-prototype-object*::Js-Object (js-null))
 
-(define-method (js-class-name::js-string o::NatO-Function)
+(define-method (js-class-name::@JS_STRING@ o::NatO-Function)
    (STR "Function"))
 
 (define *function-prototype-initialized?* #f)

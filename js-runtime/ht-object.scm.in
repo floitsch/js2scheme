@@ -6,7 +6,7 @@
    (export
     (abstract-class Js-HT-Object::Js-Object
        (props read-only)) ;; hashtable
-    (js-property-direct-delete!::bool o::Js-HT-Object prop::js-string)
+    (js-property-direct-delete!::bool o::Js-HT-Object prop::@JS_STRING@)
     (inline make-props-hashtable)))
 
 (define-inline (make-props-hashtable)
@@ -63,7 +63,7 @@
    (js-property-direct-delete! o prop))
 
 ;; is not generic. Basically introduced for Arguments-object.
-(define (js-property-direct-delete!::bool o::Js-HT-Object prop::js-string)
+(define (js-property-direct-delete!::bool o::Js-HT-Object prop::@JS_STRING@)
    (with-access::Js-HT-Object o (props proto)
       (let ((entry (hashtable-get props prop)))
 	 (cond

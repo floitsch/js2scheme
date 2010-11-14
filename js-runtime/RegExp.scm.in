@@ -24,22 +24,22 @@
     (final-class NatO-RegExp::Js-HT-Object
        re)
     (RegExp-init)
-    (RegExp-first-match-pos re::NatO-RegExp str::js-string)
+    (RegExp-first-match-pos re::NatO-RegExp str::@JS_STRING@)
 
-    (RegExp-test re::NatO-RegExp str::js-string start-pos::bint)
-    (RegExp-exec re::NatO-RegExp str::js-string start-pos::bint)
+    (RegExp-test re::NatO-RegExp str::@JS_STRING@ start-pos::bint)
+    (RegExp-exec re::NatO-RegExp str::@JS_STRING@ start-pos::bint)
     ;; maybe put the following into a RegExp-facade module?
-    (RegExp-res-matched::js-string re-res str::js-string)
+    (RegExp-res-matched::@JS_STRING@ re-res str::@JS_STRING@)
     (RegExp-res-start-pos::bint re-res)
     (RegExp-res-stop-pos::bint re-res)
     (RegExp-res-clusters re-res)
-    (RegExp-res-capture re-res i::bint str::js-string)
-    (RegExp-res-captures re-res str::js-string)
+    (RegExp-res-capture re-res i::bint str::@JS_STRING@)
+    (RegExp-res-captures re-res str::@JS_STRING@)
     (RegExp-cluster-length::bint re-cluster)
     (RegExp-cluster-start-pos re-cluster i::bint)
     (RegExp-cluster-stop-pos re-cluster i::bint)
-    (RegExp-cluster-capture re-cluster i::bint str::js-string)
-    (RegExp-cluster-captures re-cluster str::js-string)
+    (RegExp-cluster-capture re-cluster i::bint str::@JS_STRING@)
+    (RegExp-cluster-captures re-cluster str::@JS_STRING@)
     ))
 
 (define *jsg-RegExp* #unspecified)
@@ -50,7 +50,7 @@
 (define (regexp-literal pattern flags)
    (js-new *js-RegExp-orig* pattern flags))
 
-(define-method (js-class-name::js-string o::NatO-RegExp)
+(define-method (js-class-name::@JS_STRING@ o::NatO-RegExp)
    (STR "RegExp"))
 
 (define (RegExp-init)
@@ -300,25 +300,25 @@
 			 (if multiline? (STR "m") (STR ""))))))
 
 ;; basic test. either #t or #f
-(define (RegExp-test re::NatO-RegExp str::js-string start-pos::bint)
+(define (RegExp-test re::NatO-RegExp str::@JS_STRING@ start-pos::bint)
    (regexp-test (NatO-RegExp-re re) str start-pos))
 
-(define (RegExp-exec re::NatO-RegExp str::js-string start-pos::bint)
+(define (RegExp-exec re::NatO-RegExp str::@JS_STRING@ start-pos::bint)
    (regexp-match (NatO-RegExp-re re) str start-pos))
 
 (define (RegExp-res-start-pos::bint re-res)
    (car re-res))
 (define (RegExp-res-stop-pos::bint re-res)
    (cadr re-res))
-(define (RegExp-res-matched::js-string re-res str::js-string)
+(define (RegExp-res-matched::@JS_STRING@ re-res str::@JS_STRING@)
    (js-substring str
 		 (RegExp-res-start-pos re-res)
 		 (RegExp-res-stop-pos re-res)))
 (define (RegExp-res-clusters re-res)
    (caddr re-res))
-(define (RegExp-res-capture re-res i::bint str::js-string)
+(define (RegExp-res-capture re-res i::bint str::@JS_STRING@)
    (RegExp-cluster-capture (RegExp-res-clusters re-res) i str))
-(define (RegExp-res-captures re-res str::js-string)
+(define (RegExp-res-captures re-res str::@JS_STRING@)
    (RegExp-cluster-captures (RegExp-res-clusters re-res) str))
 (define (RegExp-cluster-length::bint re-cluster)
    (/fx (vector-length re-cluster) 2))
@@ -326,14 +326,14 @@
    (vector-ref re-cluster (*fx i 2)))
 (define (RegExp-cluster-stop-pos re-cluster i::bint)
    (vector-ref re-cluster (+fx (*fx i 2) 1)))
-(define (RegExp-cluster-capture re-cluster i::bint str::js-string)
+(define (RegExp-cluster-capture re-cluster i::bint str::@JS_STRING@)
    (let ((start-pos (RegExp-cluster-start-pos re-cluster i)))
       (if start-pos
 	  (js-substring str
 			start-pos
 			(RegExp-cluster-stop-pos re-cluster i))
 	  (js-undefined))))
-(define (RegExp-cluster-captures re-cluster str::js-string)
+(define (RegExp-cluster-captures re-cluster str::@JS_STRING@)
    (let ((nb-clusters (RegExp-cluster-length re-cluster)))
       (let loop ((i (-fx nb-clusters 1))
 		 (res '()))
