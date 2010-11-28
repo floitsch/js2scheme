@@ -135,8 +135,8 @@
 	  (blank_no_lt  (or (in #x9 #xB #xC #x20 #xA0) Zs))
 	  (lt           (in  #a013 #\Newline #x2028 #x2029))
 	  (not-lt       (out #a013 #\Newline #x2028 #x2029))
-	  (not-lt-no-single-quote (out #a013 #\Newline #x2028 #x2029 #\'))
-	  (not-lt-no-double-quote (out #a013 #\Newline #x2028 #x2029 #\"))
+	  (not-lt-no-single-quote-no-bs (out #a013 #\Newline #x2028 #x2029 #\' #\\))
+	  (not-lt-no-double-quote-no-bs (out #a013 #\Newline #x2028 #x2029 #\" #\\))
 	  (blank        (or blank_no_lt lt))
 	  (nonzero-digit   (in ("19")))
 	  (unicode-letter (or Lu Ll Lt Lm Lo Nl))
@@ -211,9 +211,9 @@
 	   "*=" "%=" "<<=" ">>=" ">>>=" "&=" "^=" "/=" #\/ #\?)
        (token (the-symbol) (the-string)))
 
-      ((: #\" (* (or not-lt-no-double-quote (: #\\ source-char))) #\")
+      ((: #\" (* (or not-lt-no-double-quote-no-bs (: #\\ source-char))) #\")
        (token 'STRING (the-string)))
-      ((: #\' (* (or not-lt-no-single-quote (: #\\ source-char))) #\')
+      ((: #\' (* (or not-lt-no-single-quote-no-bs (: #\\ source-char))) #\')
        (token 'STRING (the-string)))
 
       ;; Identifiers and Keywords
