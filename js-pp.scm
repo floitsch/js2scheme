@@ -1,12 +1,7 @@
 (module js-pp
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
    (import parser
 	   config
-	   protobject
 	   nodes
-	   var
 	   verbose
 	   js-out)
    (main js-pp))
@@ -40,8 +35,6 @@
 
 (define (js-pp args)
    (config-init!)
-   (nodes-init!)
-   (var-nodes-init!)
    (handle-args args)
    (if (not *in-file*)
        (begin

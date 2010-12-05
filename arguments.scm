@@ -1,31 +1,29 @@
 (module arguments
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
+   (import walk
 	   nodes
 	   verbose)
-   (export (arguments tree::pobject)))
+   (export (arguments tree::Program)))
 
 (define (arguments tree)
    (verbose "arguments")
-   (overload traverse arguments (Node
-				 Fun
-				 Var-ref)
-	     (tree.traverse)))
+   (args tree #f))
 
-(define-pmethod (Node-arguments)
-   (this.traverse0))
+(define-nmethod (Node.args)
+   (default-walk this))
 
-(define-pmethod (Fun-arguments)
-   (when (and this.eval?
-	      ;; don't add it, if the var is shadowed.
-	      (eq? (hashtable-get this.locals-table 'arguments)
-		   this.arguments-decl.var))
-      (set! this.arguments-decl.var.arguments-used? #t))
-   ;; don't go into arguments-decl (nor args)
-   (this.body.traverse))
+(define-nmethod (Fun.args)
+   (with-access::Fun this (eval? arguments-decl locals-table body)
+      (when (and eval?
+		 ;; don't add it, if the var is shadowed.
+		 (eq? (hashtable-get locals-table 'arguments)
+		      (Ref-var arguments-decl)))
+	 (with-access::Var (Ref-var arguments-decl) (arguments-used?)
+	    (set! arguments-used? #t)))
+      ;; don't go into arguments-decl (nor args)
+      (walk body)))
 
-(define-pmethod (Var-ref-arguments)
-   (when this.var.arguments?
-      (set! this.var.arguments-used? #t)))
+(define-nmethod (Ref.args)
+   (with-access::Ref this (var)
+      (with-access::Var var (arguments? arguments-used?)
+	 (when arguments?
+	    (set! arguments-used? #t)))))

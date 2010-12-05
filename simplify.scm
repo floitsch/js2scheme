@@ -1,11 +1,8 @@
 (module simplify
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
-	   nodes
-	   verbose)
-   (export (simplify! tree::pobject)
+   (import nodes
+	   verbose
+	   walk)
+   (export (simplify tree::Program)
 	   *integrate-Var-decl-lists*))
 
 (define *integrate-Var-decl-lists* #t)
@@ -13,17 +10,14 @@
 ;; - nested Begins are merged into one.
 ;; - Begins with only one element are discarded.
 ;; - NOPs within a Begin are discarded.
-(define (simplify! tree)
+(define (simplify tree)
    (verbose "simplify")
-   (overload traverse! simplify! (Node
-				  Begin
-				  Var-decl-list)
-	     (tree.traverse!)))
+   (simplify! tree #f))
 
-(define-pmethod (Node-simplify!)
-   (this.traverse0!))
+(define-nmethod (Node.simplify!)
+   (default-walk! this))
 
-(define-pmethod (Begin-simplify!)
+(define-nmethod (Begin.simplify!)
    ;; integrate Begins,
    ;; remove NOPs.
    ;; and remove dead code after breaks, continues and returns.
@@ -35,11 +29,11 @@
 	     (let ((fst (car els))
 		   (rest (cdr els)))
 		(cond
-		   ((and (inherits-from? fst (node 'Begin))
+		   ((and (Begin? fst)
 			 (or *integrate-Var-decl-lists*
-			     (not (inherits-from? fst (node 'Var-decl-list)))))
+			     (not (Var-Decl-List? fst))))
 		    ;; "integrate" nested Begin
-		   (let liip ((nested-els fst.els)
+		   (let liip ((nested-els (Begin-els fst))
 			      (rev-result rev-result))
 		      ;; nested-els has at least 2 els. Otherwise the Begin
 		      ;; would have been discarded.
@@ -53,26 +47,26 @@
 			  (liip (cdr nested-els)
 				(cons (car nested-els) rev-result)))))
 		   ;; discard NOPs
-		   ((inherits-from? fst (node 'NOP))
+		   ((NOP? fst)
 		    (loop rest rev-result))
 		   ;; remove dead code
-		   ((or (inherits-from? fst (node 'Break))
-			(inherits-from? fst (node 'Continue))
-			(inherits-from? fst (node 'Return)))
+		   ((or (Break? fst)
+			(Continue? fst)
+			(Return? fst))
 		    (loop '() (cons fst rev-result)))
 		   (else
 		    (loop rest (cons fst rev-result))))))))
-   (this.traverse0!)
-   (let ((els (simplify-els this.els)))
+   (default-walk! this)
+   (with-access::Begin this (els)
+      (set! els (simplify-els els))
       (cond
 	 ((null? els)
 	  ;; probably happened, cause we removed a list of NOPs.
-	  (new-node NOP))
+	  (instantiate::NOP))
 	 ((null? (cdr els)) ;; discard Begin
-	  ((car els).traverse!))
+	  (car els))
 	 (else
-	  (set! this.els els)
 	  this))))
 
-(define-pmethod (Var-decl-list-simplify!)
-   (this.traverse0!))
+(define-nmethod (Var-Decl-List.simplify!)
+   (default-walk! this))

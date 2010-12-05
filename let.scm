@@ -1,13 +1,8 @@
 (module let
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (include "tools.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
+   (import walk
 	   verbose
-	   nodes
-	   var)
-   (export (let-intro! tree::pobject)))
+	   nodes)
+   (export (let-intro! tree::Program)))
 
 ;; adds let*-nodes.
 
@@ -36,111 +31,110 @@
 ;; the surrounding begin).
 (define (reverse-liveness tree)
    (verbose " let-liveness")
-   (overload traverse rev-live (Node
-				Program
-				Fun
-				Decl
-				Param
-				This-decl
-				Arguments-decl)
-	     (tree.traverse #f)))
+   (rev-live tree #f #f))
 
 ;; 'surrounding-fun' is maybe not the correct name (as it could be the "Program too").
-(define-pmethod (Node-rev-live surrounding-fun)
-   (this.traverse1 surrounding-fun))
+(define-nmethod (Node.rev-live surrounding-fun)
+   (default-walk this surrounding-fun))
 
-(define-pmethod (Program-rev-live surrounding-fun)
-   (this.traverse1 this))
-(define-pmethod (Fun-rev-live surrounding-fun)
-   (this.traverse1 this))
+(define-nmethod (Program.rev-live surrounding-fun)
+   (default-walk this this))
+(define-nmethod (Fun.rev-live surrounding-fun)
+   (default-walk this this))
 
-(define-pmethod (Decl-rev-live surrounding-fun)
+(define-nmethod (Decl.rev-live surrounding-fun)
    (define (mark-live-begin node var)
-      (set! node.live-begins (cons var (or node.live-begins '()))))
+      (with-access::Node node (live-begins)
+	 (set! live-begins (cons var (or live-begins '())))))
    (define (mark-live-end node var)
-      (set! node.live-ends (cons var (or node.live-ends '()))))
+      (with-access::Node node (live-ends)
+	 (set! live-ends (cons var (or live-ends '())))))
 
    (define (transitive-with-var var)
-      (if (inherits-from? var (node 'Intercepted-var))
-	  (transitive-with-var var.intercepted)
+      (if (Intercepted-Var? var)
+	  (with-access::Intercepted-Var var (intercepted)
+	     (transitive-with-var intercepted))
 	  var))
-      
-   (let* ((var (transitive-with-var this.var))
-	  (begin-stack var.live-begin-stack)
-	  (end-stack var.live-end-stack))
-      (cond
-	 (var.global? ;; we are printing those directly in Program-out.
-	  'do-nothing)
-	 (var.no-let? ;; in particular Decl-Intercept variables.
-	  'do-nothing)
-	 ((not begin-stack) ;; imported, runtime or whatever...
-	  'do-nothing)
-	 (var.escapes?
-	  (mark-live-begin surrounding-fun.body var)
-	  (mark-live-end surrounding-fun.body var))
-	 ((inherits-from? (cadr begin-stack) (node 'Begin))
-	  (mark-live-begin (car begin-stack) var)
-	  (mark-live-end (car end-stack) var))
-	 (else
-	  (mark-live-begin (cadr begin-stack) var)
-	  (mark-live-end (cadr end-stack) var)
-	  [assert (begin-stack end-stack)
-		  (eq? (cadr begin-stack) (cadr end-stack))]
-	  ))
-      (delete! var.live-begin-stack)
-      (delete! var.live-end-stack)))
 
-(define-pmethod (Param-rev-live surrounding-fun)
+   (let ((var (transitive-with-var (Decl-var this))))
+      (with-access::Var var (live-begin-stack live-end-stack global?
+					      no-let? escapes?)
+	 (cond
+	    (global? ;; we are printing those directly in Program-out.
+	     'do-nothing)
+	    (no-let? ;; in particular Decl-Intercept variables.
+	     'do-nothing)
+	    ((not live-begin-stack) ;; imported, runtime or whatever...
+	     'do-nothing)
+	    (escapes?
+	     (mark-live-begin (Scope-body surrounding-fun) var)
+	     (mark-live-end (Scope-body surrounding-fun) var))
+	    ((Begin? (cadr live-begin-stack))
+	     (mark-live-begin (car live-begin-stack) var)
+	     (mark-live-end (car live-end-stack) var))
+	    (else
+	     (mark-live-begin (cadr live-begin-stack) var)
+	     (mark-live-end (cadr live-end-stack) var)
+	     (let ((begin-stack live-begin-stack)
+		   (end-stack live-end-stack))
+		[assert (begin-stack end-stack)
+			(eq? (cadr begin-stack) (cadr end-stack))])
+	     ))
+	 (set! live-begin-stack #f)
+	 (set! live-end-stack #f)
+	 ;(delete! var.live-begin-stack)
+	 ;(delete! var.live-end-stack)
+	 )))
+
+(define-nmethod (Param.rev-live surrounding-fun)
    'do-nothing)
-(define-pmethod (This-decl-rev-live surrounding-fun)
+(define-nmethod (This-Decl.rev-live surrounding-fun)
    'do-nothing)
-(define-pmethod (Arguments-decl-rev-live surrounding-fun)
+(define-nmethod (Arguments-Decl.rev-live surrounding-fun)
    'do-nothing)
 
 (define (add-nodes! tree)
    (verbose " add-let-nodes")
-   (overload traverse! intro! (Node
-			       Begin
-			       Let*)
-	     (tree.traverse!)))
+   (intro! tree #f))
 
-(define (make-let* assigs body)
-   (for-each (lambda (assig)
-		(set! assig.lhs.var.in-let? #t))
-	     assigs)
-   (new-node Let* assigs body))
-
-(define (intro! n)
-   (delete! n.live-ends)
-   (let ((lives n.live-begins))
-      (if lives
-	  (let ((v (car lives)))
-	     (if (null? (cdr lives))
-		 (delete! n.live-begins)
-		 (set! n.live-begins (cdr lives)))
-	     ((make-let* (list (v.assig (new-node Undefined))) n).traverse!))
-	  (n.traverse0!))))
+(define (do-intro! n walk! default-walk!)
+   ;(delete! n.live-ends)
+   (with-access::Node n (live-ends live-begins)
+      (set! live-ends #f)
+      (if live-begins
+	  (let ((v (car live-begins)))
+	     (if (null? (cdr live-begins))
+		 ;(delete! n.live-begins)
+		 (set! live-begins #f)
+		 (set! live-begins (cdr live-begins)))
+	     (walk! (instantiate::Let*
+		       (vassigs (list (var-assig v (new-undefined))))
+		       (body n))))
+	  (default-walk! n))))
    
-(define-pmethod (Node-intro!)
-   (intro! this))
+(define-nmethod (Node.intro!)
+   (do-intro! this walk! default-walk!))
 
-(define-pmethod (Let*-intro!)
-   (this.traverse0!)
-   (when (inherits-from? this.body (node 'Let*))
-      (set! this.assigs (append! this.vassigs this.body.vassigs))
-      (set! this.body this.body.body))
+(define-nmethod (Let*.intro!)
+   (default-walk! this)
+   (with-access::Let* this (vassigs body)
+      (when (Let*? body)
+	 (set! vassigs (append! vassigs (Let*-vassigs body)))
+	 (set! body (Let*-body body))))
    this)
        
-(define-pmethod (Begin-intro!)
-   (delete! this.live-ends)
-   (if this.live-begins
-       (intro! this)
-       (let loop ((els this.els))
+(define-nmethod (Begin.intro!)
+   ;(delete! this.live-ends)
+   (with-access::Begin this (live-begins live-ends els)
+      (set! live-ends #f)
+      (if live-begins
+       (do-intro! this walk! default-walk!)
+       (let loop ((els els))
 	  (if (null? els)
 	      this
 	      (let* ((el (car els))
-		     (live-begins (or el.live-begins '()))
-		     (live-ends (or el.live-ends '()))
+		     (live-begins (or (Node-live-begins el) '()))
+		     (live-ends (or (Node-live-ends el) '()))
 		     (long-v (any (lambda (v)
 				     (and (not (memq v live-ends))
 					  v))
@@ -150,23 +144,29 @@
 				     (not (eq? v long-v)))
 				  live-begins)))
 		 (if (null? filtered-l)
-		     (delete! el.live-begins)
-		     (set! el.live-begins filtered-l))
+		     ;(delete! el.live-begins)
+		     (Node-live-begins-set! el #f)
+		     (Node-live-begins-set! el filtered-l))
 		 (cond
 		    ((and long-v
-			  (inherits-from? el (node 'Vassig))
-			  (eq? el.lhs.var long-v))
-		     (let ((let-n (make-let* (list el)
-					     (new-node Sequence (cdr els)))))
-			(set-car! els (let-n.traverse!))
+			  (Vassig? el)
+			  (eq? (Ref-var (Vassig-lhs el)) long-v))
+		     (let ((let-n (instantiate::Let*
+				     (vassigs (list el))
+				     (body (instantiate::Sequence
+					      (els (cdr els)))))))
+			(set-car! els (walk! let-n))
 			(set-cdr! els '())))
 		    (long-v
-		     (let ((let-n (make-let*
-				   `(,(long-v.assig (new-node Undefined)))
-				   (new-node Sequence
-					     (cons (car els) (cdr els))))))
-			(set-car! els (let-n.traverse!))
+		     (let ((let-n (instantiate::Let*
+				     (vassigs `(,(var-assig long-v
+							    (new-undefined))))
+				     (body (instantiate::Sequence
+					      ;; we need to create a new list.
+					      (els (cons (car els)
+							 (cdr els))))))))
+			(set-car! els (walk! let-n))
 			(set-cdr! els '())))
 		    (else
-		     (set-car! els (el.traverse!))))
-		 (loop (cdr els)))))))
+		     (set-car! els (walk! el))))
+		 (loop (cdr els))))))))

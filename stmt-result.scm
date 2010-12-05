@@ -1,10 +1,6 @@
 (module stmt-result
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
+   (import walk
 	   verbose
-	   var
 	   config
 	   nodes)
    (export (stmt-result tree)))
@@ -32,150 +28,131 @@
 (define (stmt-result tree)
    (when (thread-parameter 'eval?)
       (verbose "stmt-result")
-      (overload traverse! stmt-res! (Node
-				   
-				   Program
-				   ;; statements:
-				   Block
-				   Init
-				   Decl ;; var-declaration
-				   Var-ref ;; some decls have been converted.
-				   NOP
-				   If
-				   Loop
-				   Continue
-				   Break
-				   Return
-				   With
-				   Switch
-				   Fall-through
-				   Switch-clause
-				   Labelled
-				   Throw
-				   Try
-				   Catch
-				   Fun-binding)
-		(tree.traverse! #f))))
+      (stmt-res! tree #f #f)))
 
-(define-pmethod (Node-stmt-res! return-var)
+(define-nmethod (Node.stmt-res! return-var)
    ;; we are not a statement. -> we have a return-value -> update var.
-   (return-var.assig this))
+   (var-assig return-var this))
 
-(define-pmethod (Program-stmt-res! ignored)
-   (let* ((return-decl (Decl-of-new-Var (gensym 'eval-return)))
-	  (return-var return-decl.var)
-	  (body this.body))
-      ;; body is a Block
-      (if (config 'strict-ecma)
-	  ;; according to ecma Section 14
-	  ;;      'SourceElements: SourceElements SourceElement'
-	  ;; one should always return the last result. (even if it's a NOP).
-	  ;; strict-ecma follows this rule.
-	  ;;
-	  ;; otherwise we consider the eval to be enclosed into a block (which is
-	  ;; what everybody else seems to do atm).
-	  (if (null? body.els)
-	      'do-nothing
-	      (let ((last-source-el-p (last-pair body.els)))
-		 (set-car! last-source-el-p
-			   ((car last-source-el-p).traverse! return-var))))
-	  (set! this.body (body.traverse! return-var)))
-      ;; now the body updates the variable, make sure it is initialized, and
-      ;; return it.
-      (set! this.body
-	    (new-node Block
-		      (list (new-node Vassig
-				      return-decl
-				      (new-node Undefined))
-			    this.body
-			    (return-var.reference))))
+(define-nmethod (Program.stmt-res! ignored)
+   (with-access::Program this (body)
+      (let* ((return-decl (Decl-of-new-Var (gensym 'eval-return)))
+	     (return-var (Decl-var return-decl)))
+	 ;; body is a Block
+	 (if (config 'strict-ecma)
+	     ;; according to ecma Section 14
+	     ;;      'SourceElements: SourceElements SourceElement'
+	     ;; one should always return the last result. (even if it's a NOP).
+	     ;; strict-ecma follows this rule.
+	     ;;
+	     ;; otherwise we consider the eval to be enclosed into a block (which is
+	     ;; what everybody else seems to do atm).
+	     (if (null? (Begin-els body))
+		 'do-nothing
+		 (let ((last-source-el-p (last-pair (Begin-els body))))
+		    (set-car! last-source-el-p
+			      (walk! (car last-source-el-p) return-var))))
+	     (set! body (walk! body return-var)))
+	 ;; now the body updates the variable, make sure it is initialized, and
+	 ;; return it.
+	 (set! body
+	       (instantiate::Block
+		  (els (list (instantiate::Vassig
+				(lhs return-decl)
+				(val (new-undefined)))
+			     body
+			     (var-reference return-var)))))
+	 this)))
+
+(define-nmethod (Block.stmt-res! return-var)
+   (with-access::Block this (els)
+      (set! els (map! (lambda (n)
+			 (walk! n return-var))
+		      els))
       this))
 
-(define-pmethod (Block-stmt-res! return-var)
-   (set! this.els (map! (lambda (n)
-			   (n.traverse! return-var))
-			this.els))
-   this)
-
-(define-pmethod (Init-stmt-res! return-var)
+(define-nmethod (Init.stmt-res! return-var)
    ;; var xxx = yyy
    ;; returns 'empty'
    this)
 
-(define-pmethod (Decl-stmt-res! return-var)
+(define-nmethod (Decl.stmt-res! return-var)
    ;; var xxx
    ;; returns 'empty'
    this)
 
-(define-pmethod (Var-ref-stmt-res! return-var)
-   (if this.was-decl?
-       ;; var xxx which has been transformed into xxx
-       this
-       (pcall this Node-stmt-res! return-var)))
+(define-nmethod (Demoted-Decl.stmt-res! return-var)
+   ;; var xxx which has been transformed into xxx
+   this)
 
-(define-pmethod (NOP-stmt-res! return-var)
+(define-nmethod (NOP.stmt-res! return-var)
    ;; NOP returns 'empty'
    this)
 
-(define-pmethod (If-stmt-res! return-var)
-   ;; If updates return-var only if both branches update.
-   (set! this.then (this.then.traverse! return-var))
-   (set! this.else (this.else.traverse! return-var))
-   this)
+(define-nmethod (If.stmt-res! return-var)
+   (with-access::If this (then else)
+      ;; If updates return-var only if both branches update.
+      (set! then (walk! then return-var))
+      (set! else (walk! else return-var))
+      this))
 
-(define-pmethod (Loop-stmt-res! return-var)
-   (set! this.body (this.body.traverse! return-var))
-   this)
+(define-nmethod (Loop.stmt-res! return-var)
+   (with-access::Loop this (body)
+      (set! body (walk! body return-var))
+      this))
 
-(define-pmethod (Do-stmt-res! return-var)
-   (set! this.body (this.body.traverse! return-var))
-   this)
-
-(define-pmethod (Continue-stmt-res! return-var)
+(define-nmethod (Continue.stmt-res! return-var)
    ;; Continue returns 'empty'
    this)
 
-(define-pmethod (Break-stmt-res! return-var)
+(define-nmethod (Break.stmt-res! return-var)
    ;; Break returns 'empty'
    this)
 
-(define-pmethod (Return-stmt-res! return-var)
+(define-nmethod (Return.stmt-res! return-var)
    (error "stmt-res"
 	  "'return' is not allowed at top-level"
 	  #f))
 
-(define-pmethod (With-stmt-res! return-var)
-   (set! this.body (this.body.traverse! return-var))
+(define-nmethod (With.stmt-res! return-var)
+   (with-access::With this (body)
+      (set! body (walk! body return-var))
+      this))
+
+(define-nmethod (Switch.stmt-res! return-var)
+   (with-access::Switch this (cases)
+      (set! cases (map! (lambda (n)
+			   (walk! n return-var))
+			cases))
+      this))
+
+(define-nmethod (Fall-Through.stmt-res! return-var)
    this)
 
-(define-pmethod (Switch-stmt-res! return-var)
-   (set! this.cases (map! (lambda (n)
-			     (n.traverse! return-var))
-			  this.cases))
+(define-nmethod (Switch-Clause.stmt-res! return-var)
+   (with-access::Switch-Clause this (body)
+      (set! body (walk! body return-var))
+      this))
+
+(define-nmethod (Labelled.stmt-res! return-var)
+   (with-access::Labelled this (body)
+      (set! body (walk! body return-var))
+      this))
+
+(define-nmethod (Throw.stmt-res! return-var)
    this)
 
-(define-pmethod (Fall-through-stmt-res! return-var)
-   this)
+(define-nmethod (Try.stmt-res! return-var)
+   (with-access::Try this (body catch finally)
+      (set! body (walk! body return-var))
+      (when catch (set! catch (walk! catch return-var)))
+      (when finally (set! finally (walk! finally return-var)))
+      this))
 
-(define-pmethod (Switch-clause-stmt-res! return-var)
-   (set! this.body (this.body.traverse! return-var))
-   this)
+(define-nmethod (Catch.stmt-res! return-var)
+   (with-access::Catch this (body)
+      (set! body (walk! body return-var))
+      this))
 
-(define-pmethod (Labelled-stmt-res! return-var)
-   (set! this.body (this.body.traverse! return-var))
-   this)
-
-(define-pmethod (Throw-stmt-res! return-var)
-   this)
-
-(define-pmethod (Try-stmt-res! return-var)
-   (set! this.body (this.body.traverse! return-var))
-   (when this.catch (set! this.catch (this.catch.traverse! return-var)))
-   this)
-
-(define-pmethod (Catch-stmt-res! return-var)
-   (set! this.body (this.body.traverse! return-var))
-   this)
-
-(define-pmethod (Fun-binding-stmt-res! return-var)
+(define-nmethod (Fun-Binding.stmt-res! return-var)
    this)

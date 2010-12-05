@@ -42,7 +42,7 @@
 		       (js-property-generic-set!
 			,arguments
 			(integer->js-string ,counter)
-			(instantiate::Ref
+			(instantiate::Js-Ref
 			   (getter (lambda ()
 				      (vector-ref ,par-vec
 						  (- ,counter

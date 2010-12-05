@@ -1,12 +1,11 @@
 (module lexer
-   (library utf)
    (export *JS-grammar*
 	   *care-future-reserved*
 	   *Reg-exp-grammar*
 	   (reserved-word?::bool symbol::symbol)
-	   (token-type token)
-	   (token-val token)
-	   (token-pos token)))
+	   (inline token-type token)
+	   (inline token-val token)
+	   (inline token-pos token)))
 
 (define (the-coord input-port)
    (list 'at (input-port-name input-port) (input-port-position input-port)))
@@ -84,73 +83,19 @@
 
 (define-macro (token type value)
    `(econs ,type ,value (the-coord input-port)))
-(define (token-type token) (car token))
-(define (token-val token) (cdr token))
-(define (token-pos token) (and (epair? token) (cer token)))
+(define-inline (token-type token) (car token))
+(define-inline (token-val token) (cdr token))
+(define-inline (token-pos token) (and (epair? token) (cer token)))
 
-(define (unescape-unicode-escape-sequences str)
-   (define (surrogate-1st? n) (=fx (bit-and n #xFC00) #xD800))
-   (define (surrogate-2nd? n) (=fx (bit-and n #xFC00) #xFC00))
-   (define (surrogate? n) (or (surrogate-1st? n) (surrogate-2nd? n)))
-
-   (let ((i (string-contains str "\\u")))
-      (if (not i)
-	  str
-	  (let ((first-part (substring str 0 i))
-		(u-part (string->integer (substring str (+fx i 2) (+fx i 6))
-					 16))
-		(last-part (substring str (+fx i 6) (string-length str))))
-	     (cond
-		((not (surrogate? u-part))
-		 (let* ((buffer (make-string 4))
-			(len (utf8-string-set! buffer 0 u-part)))
-		    (unescape-unicode-escape-sequences
-		     (string-append first-part
-				    (string-shrink! buffer len)
-				    last-part))))
-		((and (surrogate-1st? u-part)
-		      (>=fx (string-length str) (+fx i 12))
-		      (char=? #\\ (string-ref str (+fx i 6)))
-		      (char=? #\u (string-ref str (+fx i 7)))
-		      (let* ((sub-str (substring str (+fx i 8) (+fx i 12)))
-			     (u-part2 (string->integer sub-str 16)))
-			 (and (surrogate-2nd? u-part2)
-			      u-part2)))
-		 =>
-		 (lambda (u-part2)
-		    (let ((ucs2-buffer (make-ucs2-string 2))
-			  (u1 (integer->ucs2-ur u-part))
-			  (u2 (integer->ucs2-ur u-part2)))
-		       (ucs2-string-set! ucs2-buffer 0 u1)
-		       (ucs2-string-set! ucs2-buffer 1 u2)
-		       (unescape-unicode-escape-sequences
-			(string-append first-part
-				       (utf16-string->utf8-string ucs2-buffer)
-				       last-part)))))
-		(else #f))))))
-   
 (define *JS-grammar*
-   (utf8-regular-grammar
-	 ((source-char (out))
-	  (blank_no_lt  (or (in #x9 #xB #xC #x20 #xA0) Zs))
-	  (lt           (in  #a013 #\Newline #x2028 #x2029))
-	  (not-lt       (out #a013 #\Newline #x2028 #x2029))
-	  (not-lt-no-single-quote-no-bs (out #a013 #\Newline #x2028 #x2029 #\' #\\))
-	  (not-lt-no-double-quote-no-bs (out #a013 #\Newline #x2028 #x2029 #\" #\\))
-	  (blank        (or blank_no_lt lt))
+   (regular-grammar
+	 ;; TODO: are a010 and a013 really correct?
+	 ((blank        (in #\Space #\Tab #a010 #a012 #a013 #\Newline))
+	  (blank_no_lt  (in #\Space #\Tab #a012))
+	  (lt           (in #a013 #\Newline))
 	  (nonzero-digit   (in ("19")))
-	  (unicode-letter (or Lu Ll Lt Lm Lo Nl))
-	  (unicode-combining-mark (or Mn Mc))
-	  (unicode-digit Nd)
-	  (unicode-connector-punctuation Pc)
-	  (hex-digit (or (in ("09")) (in ("af")) (in ("AF"))))
-	  (unicode-escape-sequence (: #\u hex-digit hex-digit
-					  hex-digit hex-digit))
-	  (id_start (or unicode-letter #\$ #\_
-			(: #\\ unicode-escape-sequence)))
-	  (id_part (or id_start unicode-combining-mark unicode-digit
-		       unicode-connector-punctuation
-		       (: #\\ unicode-escape-sequence))))
+	  (id_start     (or alpha #\$ #\_))
+	  (id_part      (or alnum #\$ #\_))) ;; TODO: not spec-conform!
 
 
       ((+ blank_no_lt)
@@ -160,7 +105,7 @@
        (token 'NEW_LINE #\newline))
       
       ;; LineComment
-      ((:"//" (* not-lt))
+      ((:"//" (* all))
        (ignore))
 
       ;; multi-line comment on one line
@@ -175,18 +120,12 @@
 	  (+ #\*) "/")
        (token 'NEW_LINE #\newline))
 
-      ;; unfinished multi-line comment (added for repl)
-      ((eof (: "/*"
-	       (* (or lt
-		      (out #\*)
-		      (: (+ #\*) (out #\/ #\*))))))
-       (token 'ERROR 'eof))
-
+      ;; TODO: verify if this is really the correct syntax
       ((or
 	;; integer constant
 	#\0
 	(: nonzero-digit (* digit))
-	(: #\0 (in #\x #\X) (+ xdigit))
+	(: (uncase "0x") (+ xdigit))
 	;; floating-point constant
 	(: (+ digit)
 	   (: (in #\e #\E) (? (in #\- #\+)) (+ digit)))
@@ -211,9 +150,10 @@
 	   "*=" "%=" "<<=" ">>=" ">>>=" "&=" "^=" "/=" #\/ #\?)
        (token (the-symbol) (the-string)))
 
-      ((: #\" (* (or not-lt-no-double-quote-no-bs (: #\\ source-char))) #\")
+      ;; TODO: probably not spec-conform
+      ((: #\" (* (or (out #\" #\\ #\Newline) (: #\\ all))) #\")
        (token 'STRING (the-string)))
-      ((: #\' (* (or not-lt-no-single-quote-no-bs (: #\\ source-char))) #\')
+      ((: #\' (* (or (out #\' #\\ #\Newline) (: #\\ all))) #\')
        (token 'STRING (the-string)))
 
       ;; Identifiers and Keywords
@@ -226,26 +166,10 @@
 		   (getprop symbol 'future-reserved))
 	      (token symbol symbol))
 	     (else
-	      (let* ((str (the-string))
-		     (unescaped-str (unescape-unicode-escape-sequences str)))
-		 (cond
-		    ((not unescaped-str)
-		     (token 'ERROR #f))
-		    ((string=? str unescaped-str)
-		     (token 'ID symbol))
-		    (else
-		     ;; try to read it again.
-		     (let ((tkn (read/rp *JS-grammar*
-					 (open-input-string unescaped-str)))
-			   (unescaped-sym (string->symbol unescaped-str)))
-			(cond
-			   ((and (eq? 'ID (car tkn))
-				 (eq? unescaped-sym (cdr tkn)))
-			    (token 'ID unescaped-sym))
-			   ((eq? 'ERROR (car tkn))
-			    (token 'ERROR (cdr tkn)))
-			   (else
-			    (token 'ERROR #f)))))))))))
+	      (token 'ID symbol)))))
+      
+      ;; TODO: add regular expressions
+
       ;; error
       (else
        (let ((c (the-failure)))
@@ -254,42 +178,14 @@
 	      (token 'ERROR c))))))
 
 (define *Reg-exp-grammar*
-   (utf8-regular-grammar
-	 ((lt           (in #a013 #\Newline #x2028 #x2029))
-	  (not-lt (out #a013 #\Newline #x2028 #x2029))
-	  (not-/-bs-lt (out #a013 #\Newline #x2028 #x2029 #\/ #\\))
-	  (unicode-letter (or Lu Ll Lt Lm Lo Nl))
-	  (unicode-combining-mark (or Mn Mc))
-	  (unicode-digit Nd)
-	  (unicode-connector-punctuation Pc)
-	  (hex-digit (or (in ("09")) (in ("af")) (in ("AF"))))
-	  (unicode-escape-sequence (: #\u hex-digit hex-digit
-					  hex-digit hex-digit))
-	  (id_start (or unicode-letter #\$ #\_
-			(: #\\ unicode-escape-sequence)))
-	  (id_part (or id_start unicode-combining-mark unicode-digit
-		       unicode-connector-punctuation
-		       (: #\\ unicode-escape-sequence))))
-      ((: (* (or not-/-bs-lt (: #\\ not-lt))) #\/ (* id_part))
-       (let ((str (the-string)))
-	  (let loop ((i 0))
-	     (cond
-		((char=? #\\ (string-ref str i)) (loop (+fx i 2)))
-		((not (char=? #\/ (string-ref str i))) (loop (+fx i 1)))
-		((not (string-contains str "\\u" i))
-		 (token 'REG-EXP str))
-		(else
-		 (let* ((reg-part (substring str 0 (+fx i 1)))
-			(flags-part (substring str (+fx i 1)
-					       (string-length str)))
-			(unescaped (unescape-unicode-escape-sequences
-				    flags-part)))
-		    (if (not unescaped)
-			(token 'ERROR 'unicode-error)
-			(token 'REG-EXP
-			       (string-append reg-part unescaped)))))))))
+   (regular-grammar
+	 ;; TODO: see TODOs for JS-grammar
+	 ((lt           (in #a013 #\Newline))
+	  (id_part      (or alnum #\$ #\_)))
+      ((: (* (or (out #\/ #\\ lt) (: #\\ (out lt)))) #\/ (* id_part))
+       (token 'REG-EXP (the-string)))
       (else
        (let ((c (the-failure)))
 	  (if (eof-object? c)
-	      (token 'EOF c)
-	      (token 'ERROR c))))))
+	      (cons 'EOF c)
+	      (cons 'ERROR c))))))

@@ -15,7 +15,7 @@
 	jsre-conversion)
    (export (class Js-Scope-Object::Js-HT-Object)
 	   (class Js-Activation-Object::Js-Scope-Object)
-	   (class Ref
+	   (class Js-Ref
 	      (getter::procedure read-only)
 	      (setter::procedure read-only))
 	   (js-create-scope-object::Js-Scope-Object . Lproto)
@@ -23,14 +23,14 @@
 	   *js-deleted-token*
 	   (inline js-deleted?::bool v))
    (export (macro scope-var-add))
-   (eval (class Ref)))
+   (eval (class Js-Ref)))
 
 ;; id (the variable) must be of type js-string
 (define-macro (scope-var-add scope-object
 			     id v attributes)
    (let ((ref (gensym 'ref))
 	 (new-val (gensym 'new-val)))
-      `(let ((,ref (instantiate::Ref
+      `(let ((,ref (instantiate::Js-Ref
 		      (getter (lambda () ,v))
 		      (setter (lambda (,new-val) (set! ,v ,new-val))))))
 	  (js-property-generic-set! ,scope-object
@@ -62,9 +62,9 @@
       (let ((ht-entry (hashtable-get props id)))
 	 (and ht-entry
 	      (let ((val (Property-entry-val ht-entry)))
-		 (if (Ref? val)
+		 (if (Js-Ref? val)
 		     ;; dereference
-		     (let ((ref-val ((Ref-getter val))))
+		     (let ((ref-val ((Js-Ref-getter val))))
 			(not (js-deleted? ref-val)))
 		     #t))))))
 (define-method (js-property-one-level-contains? o::Js-Scope-Object
@@ -89,9 +89,9 @@
       (let ((ht-entry (hashtable-get props prop)))
 	 (if ht-entry
 	     (let ((val (Property-entry-val ht-entry)))
-		(if (Ref? val)
+		(if (Js-Ref? val)
 		    ;; dereference
-		    (let ((ref-val ((Ref-getter val))))
+		    (let ((ref-val ((Js-Ref-getter val))))
 		       (if (js-deleted? ref-val)
 			   ;; as if the ht-entry didn't exist.
 			   (call-proto)
@@ -108,12 +108,12 @@
 	     (with-access::Attributes attr (read-only deletable enumerable)
 		(cond
 		   ((Deleted-Property? obj) 'do-nothing)
-		   ((and (Ref? val) ;;ignore entries that are deleted
-			 (js-deleted? ((Ref-getter val))))
+		   ((and (Js-Ref? val) ;;ignore entries that are deleted
+			 (js-deleted? ((Js-Ref-getter val))))
 		    'do-nothing)
 		   (else
-		    (let ((tmp (if (Ref? val)
-				   ((Ref-getter val))
+		    (let ((tmp (if (Js-Ref? val)
+				   ((Js-Ref-getter val))
 				   val)))
 		       (p key tmp read-only deletable enumerable))))))))))
 	  
@@ -128,25 +128,25 @@
 	  (with-access::Property-entry entry (val attr)
 	     (with-access::Attributes attr (read-only)
 		(cond
-		   ((and (Ref? val)
-			 (js-deleted? ((Ref-getter val))))
+		   ((and (Js-Ref? val)
+			 (js-deleted? ((Js-Ref-getter val))))
 		    ;; does not exist yet, or has been deleted.
 		    ;; we reuse the ref. (was probably an implicit
 		    ;; global, or a runtime-var)
-		    ((Ref-setter val) new-val)
+		    ((Js-Ref-setter val) new-val)
 		    (set! attr (or attributes (default-attributes)))
 		    entry)
-		   ((and (Ref? val)
+		   ((and (Js-Ref? val)
 			 attributes)
 		    ;; attributes are given -> replace.
-		    ((Ref-setter val) new-val)
+		    ((Js-Ref-setter val) new-val)
 		    (set! attr attributes)
 		    entry)
 		   (read-only
 		    ;; do nothing
 		    entry)
-		   ((Ref? val)
-		    ((Ref-setter val) new-val)
+		   ((Js-Ref? val)
+		    ((Js-Ref-setter val) new-val)
 		    entry)
 		   (else ;; simple entry
 		    (set! val new-val)
@@ -168,14 +168,14 @@
 	     (with-access::Property-entry ht-entry (val attr)
 		(with-access::Attributes attr (deletable)
 		   (cond
-		      ((and (Ref? val)
-			    (js-deleted? ((Ref-getter val))))
+		      ((and (Js-Ref? val)
+			    (js-deleted? ((Js-Ref-getter val))))
 		       ;; as if we weren't here.
 		       (proto-delete!))
 		      ((not deletable)
 		       #f)
-		      ((Ref? val)
-		       ((Ref-setter val) *js-deleted-token*)
+		      ((Js-Ref? val)
+		       ((Js-Ref-setter val) *js-deleted-token*)
 		       #t)
 		      (else
 		       (widen!::Deleted-Property ht-entry)

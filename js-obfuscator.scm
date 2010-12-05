@@ -1,13 +1,8 @@
 (module js-obfuscator
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
    (import parser
 	   config
 	   html
-	   protobject
 	   nodes
-	   var
 	   obfuscate-ids
 	   fun-bindings
 	   symbol
@@ -30,7 +25,7 @@
 
 (define *exclude-html?* #f)
 
-(define *version* "20060606")
+(define *version* "20101128")
 (define (handle-args args)
    (args-parse (cdr args)
       (section "Help")
@@ -94,8 +89,6 @@
 
 (define (js-obfuscator args)
    (config-init!)
-   (nodes-init!)
-   (var-nodes-init!)
    
    (handle-args args)
    (when (not *in-file*)
@@ -143,10 +136,8 @@
 	 (fun-bindings! ast)
 	 (symbol-resolution! ast '()) ;*imported-global-mapping*)
 	 (set! *integrate-Var-decl-lists* #f) ;; HACK.
-	 (simplify! ast)
+	 (simplify ast)
 	 (obfuscate-ids! ast)
-	 ;      (with-output-to-port out-p
-	 ;	 (lambda () (pobject-dot-out ast)))
 	 (js-out ast out-p)
 	 (when *obfuscation-mapping-file*
 	    (close-output-port *obfuscation-mapping-p*))

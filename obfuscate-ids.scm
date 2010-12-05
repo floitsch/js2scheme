@@ -1,12 +1,8 @@
 (module obfuscate-ids
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
+   (import nodes
 	   verbose
-	   nodes
-	   var)
-   (export (obfuscate-ids! tree::pobject)
+	   walk)
+   (export (obfuscate-ids! tree::Program)
 	   (add-obfuscation-mapping! js-id::bstring obfuscation-id::bstring)
 	   *obfuscate-globals?*
 	   *obfuscate-properties?*
@@ -28,52 +24,49 @@
 
 (define (obfuscate-ids! tree)
    (verbose "obfuscate-ids!")
-   (overload traverse obf (Node
-			   Access
-			   Property-init
-			   Var-ref)
-	     (overload obf obf (Var
-				Runtime-var)
-		       (tree.traverse)))
+   (obfuscate tree #f)
    (when *obfuscation-mapping-p*
       (with-output-to-port *obfuscation-mapping-p*
 	 (lambda () (write (hashtable->alist *obfuscation-mapping*))))))
 
-(define-pmethod (Node-obf)
-   (this.traverse0))
+(define-nmethod (Node.obfuscate)
+   (default-walk this))
 
-(define-pmethod (Var-ref-obf)
-   (when (not this.var.obf)
-      (tprint this.id)
-      (tprint this.var.id))
-   (this.var.obf))
+(define-nmethod (Ref.obfuscate)
+   (obfuscate-var (Ref-var this)))
 
-(define-pmethod (Access-obf)
-   (this.traverse0)
-   (when (inherits-from? this.field (node 'String))
-      (set! this.field.val (obfuscate-property this.field.val))))
+(define-nmethod (Access.obfuscate)
+   (default-walk this)
+   (with-access::Access this (field)
+      (when (String? field)
+	 (with-access::String field (val)
+	    (set! val (obfuscate-property val))))))
 
-(define-pmethod (Property-init-obf)
-   (this.traverse0)
-   (when (inherits-from? this.name (node 'String))
-      (set! this.name.val (obfuscate-property this.name.val))))
+(define-nmethod (Property-Init.obfuscate)
+   (default-walk this)
+   (with-access::Property-Init this (name)
+      (when (String? name)
+	 (with-access::String name (val)
+	    (set! val (obfuscate-property val))))))
 
-(define-pmethod (Var-obf)
-   (unless this.generated
-      (cond
-	 ((eq? this.id 'this)
-	  (set! this.generated 'this))
-	 (this.arguments?
-	  (set! this.generated 'arguments))
-	 ((and this.global?
-	       (not *obfuscate-globals?*))
-	  ;; do not obfuscate
-	  (set! this.generated this.id))
-	 (else
-	  (set! this.generated (obfuscate-id this.id))))))
+(define-generic (obfuscate-var this::Var)
+   (with-access::Var this (generated id global? arguments?)
+      (unless generated
+	 (cond
+	    ((eq? id 'this)
+	     (set! generated 'this))
+	    (arguments?
+	     (set! generated 'arguments))
+	    ((and global?
+		  (not *obfuscate-globals?*))
+	     ;; do not obfuscate
+	     (set! generated id))
+	    (else
+	     (set! generated (obfuscate-id id)))))))
 
-(define-pmethod (Runtime-var-obf)
-   (set! this.generated this.id))
+(define-method (obfuscate-var this::Runtime-Var)
+   (with-access::Runtime-Var this (generated id)
+      (set! generated id)))
 
 (define *counter* 0)
 (define (generate-obfuscated-id)

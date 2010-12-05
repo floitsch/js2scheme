@@ -4,14 +4,13 @@ BIGLOO = bigloo -cc $(CC)
 BGL_FLAGS = -copt -fpic -mkaddlib -L js-runtime -L . -L unicode -g
 TARGETNAMES	= js-obfuscator js-pp js2scheme
 
-OBFUSCATOR_BGL_MODULES	= config fun-bindings nodes protobject var js-obfuscator js-out \
-		 verbose lexer parser symbol with ewal obfuscate-ids simplify \
+OBFUSCATOR_BGL_MODULES	= config nodes walk fun-bindings js-obfuscator js-out \
+		 verbose lexer parser symbol obfuscate-ids simplify \
 		 html symbol-table
 
-PP_BGL_MODULES	= config nodes protobject js-pp js-out var \
-		 verbose lexer parser
+PP_BGL_MODULES	= config nodes js-pp js-out verbose lexer parser
 
-JS2SCHEME_LIB_MODULES = config fun-bindings nodes protobject var \
+JS2SCHEME_LIB_MODULES = config nodes walk fun-bindings \
 		 verbose lexer parser symbol with ewal simplify \
                  expand1 label label-resolution simplify-labels bind-exit \
 		 escape liveness let scm-out js2scheme-comp \
@@ -36,7 +35,7 @@ OBJECTS		= $(OBFUSCATOR_OBJECTS) $(PP_OBJECTS) $(JS2SCHEME_OBJECTS) $(JS2SCHEME_
 
 SOURCES		= $(OBJECTS:o/%.o=%.scm)
 
-INCLUDES	= nodes.sch protobject.sch
+INCLUDES	=
 
 AFILE		= bglafile
 

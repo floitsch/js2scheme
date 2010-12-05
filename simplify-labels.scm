@@ -1,30 +1,25 @@
 (module simplify-labels
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
+   (import walk
 	   nodes
 	   label
 	   verbose)
-   (export (simplify-labels! tree::pobject)))
+   (export (simplify-labels! tree::Program)))
 
 ;; combine nested labelled-statements.
 ;; they should (in theory) share the same label.
 (define (simplify-labels! tree)
    (verbose " simplify labels")
-   (overload traverse simplify (Node
-				Labelled)
-	     (tree.traverse))
-   tree)
+   (simplify tree #f))
 
-(define-pmethod (Node-simplify)
-   (this.traverse0))
+(define-nmethod (Node.simplify)
+   (default-walk this))
 
-(define-pmethod (Labelled-simplify)
-   (if (inherits-from? this.body (node 'Labelled))
-       (let ((this-label this.label)
-	     (body-label this.body.label))
-	  [assert (this-label body-label) (eq? this-label body-label)]
-	  (set! this.body this.body.body)
-	  (this.traverse))
-       (this.traverse0)))
+(define-nmethod (Labelled.simplify)
+   (with-access::Labelled this (body label)
+      (if (Labelled? body)
+	  (let ((this-label label)
+		(body-label (Labelled-label body)))
+	     [assert (this-label body-label) (eq? this-label body-label)]
+	     (set! body (Labelled-body body))
+	     (walk this))
+	  (default-walk this))))

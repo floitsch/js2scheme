@@ -1,14 +1,10 @@
 (module expand1
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
-	   verbose
+   (import verbose
 	   symbol
 	   nodes
-	   label
-	   var)
-   (export (expand1! tree::pobject)))
+	   walk
+	   label)
+   (export (expand1! tree::Program)))
 
 ;; - add implicit "Labelled"-nodes for Loops, Funs and Case
 ;; - replace For with While
@@ -26,284 +22,318 @@
 ;; - replace x++ with x = x+1;  (same for --) 11.3.1, 11.3.2
 (define (expand1! tree)
    (verbose " expand")
-   (overload traverse! expand! (Node
-				For
-				While
-				(Do While-expand!) ; same as for While
-				For-in
-				Switch-clause
-				Fun
-				Call
-				Vassig-op
-				Accsig-op
-				Unary
-				Postfix)
-	     (tree.traverse!)))
+   (expand! tree #f))
 
-(define-pmethod (Node-expand!)
-   (this.traverse0!))
+(define-nmethod (Node.expand!)
+   (default-walk! this))
 
-(define-pmethod (For-expand!)
-   (let* ((continue-labelled (new-node Labelled
-				       *default-continue-label-id*
-				       (this.body.traverse!)))
-	  (while-body (if this.incr
-			  (new-node Block (list continue-labelled
-						(this.incr.traverse!)))
-			  continue-labelled))
-	  (while (new-node While (if this.test
-				     (this.test.traverse!)
-				     (new-node Bool #t))
-		      while-body))
-	  (block (if this.init
-		     (new-node Block (list (this.init.traverse!) while))
-		     while))
-	  (break-labelled (new-node Labelled *default-break-label-id* block))
-	  (new-this break-labelled))
-      (set! continue-labelled.label this.continue-label)
-      (set! break-labelled.label this.break-label)
-      (if this.need-result? (set! while.need-result? #t))
-      (delete! this.continue-label)
-      (delete! this.break-label)
-      new-this))
+(define-nmethod (For.expand!)
+   (with-access::For this (body incr test init continue-label break-label)
+      (let* ((continue-labelled (instantiate::Labelled
+				   (id *default-continue-label-id*)
+				   (body (walk! body))))
+	     (while-body (if incr
+			     (instantiate::Block
+				(els (list continue-labelled
+					   (walk! incr))))
+			     continue-labelled))
+	     (while (instantiate::While
+		       (test (if test
+				 (walk! test)
+				 (instantiate::Bool
+				    (val #t))))
+		       (body while-body)))
+	     (block (if init
+			(instantiate::Block
+			   (els (list (walk! init) while)))
+			while))
+	     (break-labelled (instantiate::Labelled
+				(id *default-break-label-id*)
+				(body block)))
+	     (new-this break-labelled))
+	 (with-access::Labelled continue-labelled (label)
+	    (set! label continue-label))
+	 (with-access::Labelled break-labelled (label)
+	    (set! label break-label))
+	 ;; TODO(flo): shrink this.
+	 new-this)))
 
-(define-pmethod (While-expand!)
-   (let ((continue-labelled (new-node Labelled
-				      *default-continue-label-id*
-				      this.body)))
-      (set! continue-labelled.label this.continue-label)
-      (delete! this.continue-label)
-      (set! this.body continue-labelled)
-      (let* ((old-this (this.traverse0!))
-	     (break-labelled (new-node Labelled
-				       *default-break-label-id*
-				       old-this)))
-	 (set! break-labelled.label this.break-label)
-	 (delete! this.break-label)
-	 break-labelled)))
+(define (Loop-expand! this::Loop default-walk!::procedure)
+   (with-access::Loop this (body continue-label break-label)
+      (let ((continue-labelled (instantiate::Labelled
+				  (id *default-continue-label-id*)
+				  (body body))))
+	 (with-access::Labelled continue-labelled (label)
+	    (set! label continue-label))
+	 (set! body continue-labelled)
+	 (let* ((old-this (default-walk! this))
+		(break-labelled (instantiate::Labelled
+				   (id *default-break-label-id*)
+				   (body old-this))))
+	    (with-access::Labelled break-labelled (label)
+	       (set! label break-label))
+	    ;; TODO(flo): shrink this.
+	    break-labelled))))
+   
+(define-nmethod (While.expand!)
+   (Loop-expand! this default-walk!))
 
-(define-pmethod (For-in-expand!)
-   (let ((lhs this.lhs))
+(define-nmethod (For-In.expand!)
+   (with-access::For-In this (lhs obj body)
       (cond
-	 ((inherits-from? lhs (node 'Var-ref))
-	  (pcall this While-expand!))
-	 ((inherits-from? lhs (node 'Access))
+	 ((Ref? lhs)
+	  (Loop-expand! this default-walk!))
+	 ((Access? lhs)
 	  (let* ((tmp (Decl-of-new-Var (gensym 'tmp)))
-		 (tmp-var tmp.var)
-		 (old-lhs this.lhs))
-	     (set! this.lhs tmp)
-	     (set! this.body (new-node Block
-				       (list (new-node Accsig
-						       old-lhs
-						       (tmp-var.reference))
-					     this.body))))
-	  (pcall this While-expand!))
-	 ((and (inherits-from? lhs (node 'Var-decl-list))
-	       (inherits-from? (car lhs.els) (node 'Vassig)))
+		 (tmp-var (Decl-var tmp))
+		 (old-lhs lhs))
+	     (set! lhs tmp)
+	     (set! body (instantiate::Block
+			   (els (list (instantiate::Accsig
+					 (lhs old-lhs)
+					 (val (var-reference tmp-var)))
+				      body))))
+	     (Loop-expand! this default-walk!)))
+	 ((and (Var-Decl-List? lhs)
+	       (Vassig? (car (Var-Decl-List-els lhs))))
 	  ;; put the assignment outside the For-in (it must be evaluated only
 	  ;; once).
 	  ;; we are dropping the var-decl-list in the process
-	  (let* ((assig (car lhs.els))
-		 (var assig.lhs.var))
-	     (set! this.lhs (var.reference))
-	     ((new-node Block
-			(list assig
-			      this)).traverse!)))
-	 ((inherits-from? lhs (node 'Var-decl-list))
+	  (let* ((assig (car (Var-Decl-List-els lhs)))
+		 (var (Ref-var (Vassig-lhs assig))))
+	     (set! lhs (var-reference var))
+	     (walk! (instantiate::Block
+		       (els (list assig
+				  this))))))
+	 ((Var-Decl-List? lhs)
 	  ;; just drop the Var-decl-list
-	  (set! this.lhs (car lhs.els))
-	  (pcall this While-expand!))
+	  (set! lhs (car (Var-Decl-List-els lhs)))
+	  (Loop-expand! this default-walk!))
 	 (else (error "expand1"
 		      "forgot something in For-in"
 		      #f)))))
 
-(define-pmethod (Switch-clause-expand!)
-   (this.traverse0!)
-   (let ((new-body (new-node Labelled #f
-			     (new-node Block (list this.body
-						   (new-node Fall-through))))))
-      (set! new-body.label this.break-label)
-      (set! this.body new-body)
-      (delete! this.break-label)
-      this))
-
-(define-pmethod (Fun-expand!)
-   (this.traverse0!)
-   (let ((return (new-node Return (new-node Undefined))))
-      (set! return.label this.return-label)
-      (let ((new-body (new-node Labelled
-				#f
-				(new-node Block (list this.body return)))))
-	 (set! new-body.label this.return-label)
-	 (set! this.body new-body)
-	 (delete! this.return-label)
+(define-nmethod (Switch-Clause.expand!)
+   (with-access::Switch-Clause this (break-label body)
+      (default-walk! this)
+      (let ((new-body (instantiate::Labelled
+			 (id #f)
+			 (label break-label)
+			 (body (instantiate::Block
+				  (els (list body
+					     (instantiate::Fall-Through))))))))
+	 (set! body new-body)
 	 this)))
 
-(define-pmethod (Call-expand!)
-   (this.traverse0!)
-   (if (inherits-from? this.op (node 'Access))
-       (new-node Method-call
-	    this.op
-	    this.args)
-       this))
+(define-nmethod (Fun.expand!)
+   (with-access::Fun this (return-label body)
+      (default-walk! this)
+      (let* ((return (instantiate::Return
+			(expr (new-undefined))
+			(label return-label)))
+	     (new-body (instantiate::Labelled
+			  (id #f)
+			  (label return-label)
+			  (body (instantiate::Block
+				   (els (list body return)))))))
+	 (set! body new-body)
+	 this)))
 
-(define-pmethod (Vassig-op-expand!)
-   (this.traverse0!)
-   (let ((new-rhs (new-node Binary
-		       (this.lhs.var.reference)
-		       this.op
-		       this.val)))
-      (this.lhs.var.assig new-rhs)))
+(define-nmethod (Call.expand!)
+   (with-access::Call this (op args)
+      (default-walk! this)
+      (if (Access? op)
+	  (instantiate::Method-Call
+	     (op op)
+	     (args args))
+	  this)))
 
-(define-pmethod (Accsig-op-expand!)
-   (this.traverse0!)
-   (let* ((o this.lhs.obj)
-	  (field this.lhs.field)
-	  (tmp-o-id (gensym 'tmp-o))
-	  (tmp-field-id (gensym 'tmp-field))
-	  (tmp-o-decl (Decl-of-new-Var tmp-o-id))
-	  (tmp-field-decl (Decl-of-new-Var tmp-field-id))
-	  (init-o (new-node Init tmp-o-decl o))
-	  (tmp-o-var tmp-o-decl.var)
-	  (init-field (new-node Init tmp-field-decl field))
-	  (tmp-field-var tmp-field-decl.var)
+(define-nmethod (Vassig-Op.expand!)
+   (with-access::Vassig-Op this (lhs op val)
+      (default-walk! this)
+      (let ((new-rhs (instantiate::Binary
+			(op op)
+			(args (list (var-reference (Ref-var lhs)) val)))))
+	 (instantiate::Vassig
+	    (lhs lhs)
+	    (val new-rhs)))))
 
-	  (access-lhs (new-node Access
-			   (tmp-o-var.reference)
-			   (tmp-field-var.reference)))
-	  (access-rhs (new-node Access
-			   (tmp-o-var.reference)
-			   (tmp-field-var.reference)))
-	  (rhs-binary (new-node Binary
-			   access-rhs
-			   this.op
-			   this.val))
-	  (accsig (new-node Accsig access-lhs rhs-binary))
-	  (sequence (new-node Sequence (list init-o
-					init-field
-					accsig))))
-      (set! tmp-o-var.internal? #t)
-      (set! tmp-field-var.internal? #t)
-      sequence))
+(define-nmethod (Accsig-Op.expand!)
+   (with-access::Accsig-Op this (lhs op val)
+      (default-walk! this)
+      (let* ((o (Access-obj lhs))
+	     (field (Access-field lhs))
+	     (tmp-o-id (gensym 'tmp-o))
+	     (tmp-field-id (gensym 'tmp-field))
+	     (tmp-o-decl (Decl-of-new-Var tmp-o-id))
+	     (tmp-field-decl (Decl-of-new-Var tmp-field-id))
+	     (init-o (instantiate::Init
+			(lhs tmp-o-decl)
+			(val o)))
+	     (tmp-o-var (Decl-var tmp-o-decl))
+	     (init-field (instantiate::Init
+			    (lhs tmp-field-decl)
+			    (val field)))
+	     (tmp-field-var (Decl-var tmp-field-decl))
 
-(define-pmethod (Unary-expand!)
-   (this.traverse0!)
-   (let ((op this.op.id)
-	 (expr (car this.args)))
+	     (access-lhs (instantiate::Access
+			    (obj (var-reference tmp-o-var))
+			    (field (var-reference tmp-field-var))))
+	     (access-rhs (instantiate::Access
+			    (obj (var-reference tmp-o-var))
+			    (field (var-reference tmp-field-var))))
+	     (rhs-binary (instantiate::Binary
+			    (op op)
+			    (args (list access-rhs val))))
+	     (accsig (instantiate::Accsig
+			(lhs access-lhs)
+			(val rhs-binary)))
+	     (sequence (instantiate::Sequence
+			  (els (list init-o
+				     init-field
+				     accsig)))))
+      (Var-internal?-set! tmp-o-var #t)
+      (Var-internal?-set! tmp-field-var #t)
+      sequence)))
+
+(define-nmethod (Unary.expand!)
+   (default-walk! this)
+   (let* ((op (Unary-op this))
+	  (args (Unary-args this))
+	  (op-id (Ref-id op))
+	  (expr (car args)))
       (cond
-	 ((eq? op 'void)
-	  (new-node Sequence
-	       `(,expr ,(new-node Undefined))))
-	 ((eq? op 'delete)
+	 ((eq? op-id 'void)
+	  (instantiate::Sequence
+	     (els `(,expr ,(new-undefined)))))
+	 ((eq? op-id 'delete)
 	  (cond
-	     ((inherits-from? expr (node 'Access))
-	      (new-node Delete-property-call
-			this.op
-			expr.obj
-			expr.field))
+	     ((Access? expr)
+	      (with-access::Access expr (obj field)
+		 (instantiate::Delete-Property-Call
+		    (op op)
+		    (args (list obj field)))))
 	     (else
-	      (new-node Delete-call
-			this.op
-			expr))))
-	 ((and (or (eq? op '++)
-		   (eq? op '--))
-	       (inherits-from? expr (node 'Access)))
+	      (instantiate::Delete-Call
+		 (op op)
+		 (args (list expr))))))
+	 ((and (or (eq? op-id '++)
+		   (eq? op-id '--))
+	       (Access? expr))
 	  ;; 11.4.4, 11.4.5
-	  (let* ((obj expr.obj)
-		 (field expr.field)
+	  (let* ((obj (Access-obj expr))
+		 (field (Access-field expr))
 		 (tmp-obj-id (gensym 'o))
 		 (tmp-obj-decl (Decl-of-new-Var tmp-obj-id))
-		 (tmp-obj-var tmp-obj-decl.var)
+		 (tmp-obj-var (Decl-var tmp-obj-decl))
 		 (tmp-prop-id (gensym 'prop))
 		 (tmp-prop-decl (Decl-of-new-Var tmp-prop-id))
-		 (tmp-prop-var tmp-prop-decl.var)
+		 (tmp-prop-var (Decl-var tmp-prop-decl))
 		 (any->number-var (id->runtime-var 'any->number))
-		 (op-var (id->runtime-var (if (eq? op '++) '+ '-))))
-	     (new-node
-	      Sequence
-	      `(,(new-node Vassig tmp-obj-decl obj)
-		,(new-node Vassig tmp-prop-decl field)
-		,(new-node Accsig
-			   (new-node Access
-				     (tmp-obj-var.reference)
-				     (tmp-prop-var.reference))
-			   (new-node
-			    Binary
-			    (new-node Unary
-				      (any->number-var.reference)
-				      (new-node Access
-						(tmp-obj-var.reference)
-						(tmp-prop-var.reference)))
-			    (op-var.reference)
-			    (new-node Number "1")))))))
-	 ((or (eq? op '++)
-	      (eq? op '--))
+		 (op-var (id->runtime-var (if (eq? op-id '++) '+ '-)))
+		 (tmp-obj-ref (var-reference tmp-obj-var))
+		 (tmp-prop-ref (var-reference tmp-prop-var))
+		 (as-number (instantiate::Unary
+			       (op (var-reference any->number-var))
+			       (args (list (instantiate::Access
+					      (obj tmp-obj-ref)
+					      (field tmp-prop-ref)))))))
+	     (instantiate::Sequence
+		(els `(,(instantiate::Vassig
+			   (lhs tmp-obj-decl)
+			   (val obj))
+		       ,(instantiate::Vassig
+			   (lhs tmp-prop-decl)
+			   (val field))
+		       ,(instantiate::Accsig
+			   (lhs (instantiate::Access
+				   (obj (var-reference tmp-obj-var))
+				   (field (var-reference tmp-prop-var))))
+			   (val (instantiate::Binary
+				   (op (var-reference op-var))
+				   (args (list as-number
+					       (instantiate::Number
+						  (val "1"))))))))))))
+	 ((or (eq? op-id '++)
+	      (eq? op-id '--))
 	  ;; 11.4.4, 11.4.5
-	  (new-node
-	   Vassig
-	   expr ;; a variable (either Var-ref or Decl)
-	   (new-node Binary
-		     (new-node Unary
-			       ((id->runtime-var 'any->number).reference)
-			       (expr.var.reference))
-		     ((id->runtime-var (if (eq? op '++) '+ '-)).reference)
-		     (new-node Number "1"))))
+	  (instantiate::Vassig
+	     (lhs expr) ;; a variable (either Var-ref or Decl)
+	     (val (instantiate::Binary
+		     (op (var-reference (id->runtime-var
+					 (if (eq? op-id '++) '+ '-))))
+		     (args `(,(instantiate::Unary
+				 (op (var-reference
+				      (id->runtime-var 'any->number)))
+				 (args `(,(var-reference (Ref-var expr)))))
+			     ,(instantiate::Number
+				 (val "1"))))))))
 	 (else
 	  this))))
 
-(define-pmethod (Postfix-expand!)
+(define-nmethod (Postfix.expand!)
    ;;11.3.1, 11.3.2
-   (this.traverse0!)
-   (let ((op this.op.id)
-	 (expr (car this.args)))
-      (if (inherits-from? expr (node 'Access))
-	  (let* ((obj expr.obj)
-		 (field expr.field)
+   (default-walk! this)
+   (let* ((op (Postfix-op this))
+	  (args (Postfix-args this))
+	  (op-id (Ref-id op))
+	  (expr (car args)))
+      (if (Access? expr)
+	  (let* ((obj (Access-obj expr))
+		 (field (Access-field expr))
 		 (tmp-return-id (gensym 'tmp))
 		 (tmp-return-decl (Decl-of-new-Var tmp-return-id))
-		 (tmp-return-var tmp-return-decl.var)
+		 (tmp-return-var (Decl-var tmp-return-decl))
 		 (tmp-obj-id (gensym 'o))
 		 (tmp-obj-decl (Decl-of-new-Var tmp-obj-id))
-		 (tmp-obj-var tmp-obj-decl.var)
+		 (tmp-obj-var (Decl-var tmp-obj-decl))
 		 (tmp-prop-id (gensym 'prop))
 		 (tmp-prop-decl (Decl-of-new-Var tmp-prop-id))
-		 (tmp-prop-var tmp-prop-decl.var)
+		 (tmp-prop-var (Decl-var tmp-prop-decl))
 		 (any->number-var (id->runtime-var 'any->number))
-		 (op-var (id->runtime-var (if (eq? op '++) '+ '-))))
-	     (new-node
-	      Sequence
-	      `(,(new-node Vassig tmp-obj-decl obj)
-		,(new-node Vassig tmp-prop-decl field)
-		,(new-node Vassig
-			   tmp-return-decl
-			   (new-node Unary
-				     (any->number-var.reference)
-				     (new-node Access
-					       (tmp-obj-var.reference)
-					       (tmp-prop-var.reference))))
-		,(new-node Accsig
-			   (new-node Access
-				     (tmp-obj-var.reference)
-				     (tmp-prop-var.reference))
-			   (new-node Binary
-				     (tmp-return-var.reference)
-				     (op-var.reference)
-				     (new-node Number "1")))
-		,(tmp-return-var.reference))))
+		 (op-var (id->runtime-var (if (eq? op-id '++) '+ '-))))
+	     (instantiate::Sequence
+		(els `(,(instantiate::Vassig
+			   (lhs tmp-obj-decl)
+			   (val obj))
+		       ,(instantiate::Vassig
+			   (lhs tmp-prop-decl)
+			   (val field))
+		       ,(instantiate::Vassig
+			   (lhs tmp-return-decl)
+			   (val
+			    (instantiate::Unary
+			       (op (var-reference any->number-var))
+			       (args `(,(instantiate::Access
+					   (obj (var-reference tmp-obj-var))
+					   (field (var-reference
+						   tmp-prop-var))))))))
+		       ,(instantiate::Accsig
+			   (lhs (instantiate::Access
+				   (obj (var-reference tmp-obj-var))
+				   (field (var-reference tmp-prop-var))))
+			   (val (instantiate::Binary
+				   (op (var-reference op-var))
+				   (args `(,(var-reference tmp-return-var)
+					   ,(instantiate::Number
+					       (val "1")))))))
+		       ,(var-reference tmp-return-var)))))
 	  (let* ((tmp-return-id (gensym 'tmp))
 		 (tmp-return-decl (Decl-of-new-Var tmp-return-id))
-		 (tmp-return-var tmp-return-decl.var)
+		 (tmp-return-var (Decl-var tmp-return-decl))
 		 (any->number-var (id->runtime-var 'any->number))
-		 (op-var (id->runtime-var (if (eq? op '++) '+ '-))))
-	     (new-node
-	      Sequence
-	      `(,(new-node Vassig
-			   tmp-return-decl
-			   (new-node Unary
-				     (any->number-var.reference)
-				     expr))
-		,(expr.var.assig (new-node Binary
-					   (tmp-return-var.reference)
-					   (op-var.reference)
-					   (new-node Number "1")))
-		,(tmp-return-var.reference)))))))
+		 (op-var (id->runtime-var (if (eq? op-id '++) '+ '-)))
+		 (expr-var (Ref-var expr)))
+	     (instantiate::Sequence
+		(els `(,(instantiate::Vassig
+			   (lhs tmp-return-decl)
+			   (val (instantiate::Unary
+				   (op (var-reference any->number-var))
+				   (args (list expr)))))
+		       ,(var-assig expr-var
+				   (instantiate::Binary
+				      (op (var-reference op-var))
+				      (args `(,(var-reference tmp-return-var)
+					      ,(instantiate::Number
+						  (val "1"))))))
+		       ,(var-reference tmp-return-var))))))))

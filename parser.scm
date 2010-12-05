@@ -1,13 +1,9 @@
 (module parser
-   (include "protobject.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
    (import lexer
-	   protobject
 	   nodes
 	   verbose
 	   config)
-   (export (parse::pobject port)))
+   (export (parse::Node port)))
 
 (define (my-error msg obj token)
    (cond
@@ -106,12 +102,14 @@
       (eq? (peek-token-type) 'EOF))
    
    (define (program)
-      (new-node Program (source-elements)))
+      (instantiate::Program
+	 (body (source-elements))))
    
    (define (source-elements)
       (let loop ((rev-ses '()))
 	 (if (eof?)
-	     (new-node Block (reverse! rev-ses))
+	     (instantiate::Block
+		(els (reverse! rev-ses)))
 	     (loop (cons (source-element) rev-ses)))))
    
    (define (source-element)
@@ -148,7 +146,8 @@
 	 (case (peek-token-type)
 	    ((RBRACE)
 	     (consume-any!)
-	     (new-node Block (reverse! rev-stats)))
+	     (instantiate::Block
+		(els (reverse! rev-stats))))
 	    ;; errors will be handled in the statemente-clause
 	    (else (loop (cons (statement) rev-stats))))))
    
@@ -158,7 +157,8 @@
 	 (case (peek-token-type)
 	    ((SEMICOLON) (if (not in-for-init?)
 			     (consume-any!))
-			 (new-node Var-decl-list (reverse! rev-vars)))
+			 (instantiate::Var-Decl-List
+			    (els (reverse! rev-vars))))
 	    ((COMMA) (consume-any!)
 		     (loop (cons (var in-for-init?) rev-vars)))
 	    ((in) (cond
@@ -167,11 +167,13 @@
 				"in"
 				(peek-token)))
 		     (else
-		      (new-node Var-decl-list rev-vars))))
+		      (instantiate::Var-Decl-List
+			 (els (reverse! rev-vars))))))
 	    (else (if (and (not in-for-init?)
 			   (or (at-new-line-token?)
 			       (eq? (peek-token-type) 'EOF)))
-		      (new-node Var-decl-list (reverse! rev-vars))
+		      (instantiate::Var-Decl-List
+			 (els (reverse! rev-vars)))
 		      (unexpected-token-error (consume-any!)))))))
    
    (define (var in-for-init?)
@@ -179,12 +181,15 @@
 	 (case (peek-token-type)
 	    ((=) (consume-any!)
 		 (let ((expr (assig-expr in-for-init?)))
-		    (new-node Init (new-node Decl id) expr)))
-	    (else (new-node Decl id)))))
+		    (instantiate::Init
+		       (lhs (instantiate::Decl
+			       (id id)))
+		       (val expr))))
+	    (else (instantiate::Decl (id id))))))
    
    (define (empty-statement)
       (consume! 'SEMICOLON)
-      (new-node NOP))
+      (instantiate::NOP))
    
    (define (iff)
       (consume-any!) ;; the 'if'
@@ -195,8 +200,14 @@
 	    (case (peek-token-type)
 	       ((else) (consume-any!)
 		       (let ((else (statement)))
-			  (new-node If test then else)))
-	       (else (new-node If test then (new-node NOP)))))))
+			  (instantiate::If
+			     (test test)
+			     (then then)
+			     (else else))))
+	       (else (instantiate::If
+			(test test)
+			(then then)
+			(else (instantiate::NOP))))))))
    
    (define (iteration)
       (case (peek-token-type)
@@ -230,7 +241,11 @@
 			(else (expression #f)))))
 	    (consume! 'RPAREN)
 	    (let* ((body (statement)))
-	       (new-node For init test incr body)))))
+	       (instantiate::For
+		  (init init)
+		  (test test)
+		  (incr incr)
+		  (body body))))))
    
    ;; for (lhs/var x in obj)
    (define (for-in lhs)
@@ -241,19 +256,26 @@
 	     (ignore-RPAREN (consume! 'RPAREN))
 	     (body (statement)))
 	 (cond
-	    ((inherits-from? lhs (node 'Var-decl-list))
-	     (let ((lhs-vars lhs.els))
-		(unless (null? (cdr lhs-vars))
+	    ((Var-Decl-List? lhs)
+	     (with-access::Var-Decl-List lhs (els)
+		(unless (null? (cdr els))
 		   (my-error "Only one variable allowed in 'for-in' loop"
-			     (cadr lhs-vars).id
+			     (Ref-id (cadr els))
 			     error-token))
-		(new-node For-in lhs obj body)))
-	    ((or (inherits-from? lhs (node 'Var-ref))
-		 (inherits-from? lhs (node 'Access)))
-	     (new-node For-in lhs obj body))
+		(instantiate::For-In
+		   (lhs lhs)
+		   (obj obj)
+		   (body body))))
+	    ((or (Ref? lhs)
+		 (Access? lhs))
+	     (instantiate::For-In
+		(lhs lhs)
+		(obj obj)
+		(body body)))
 	    (else
 	     (my-error "Bad left-hand side in 'for-in' loop construct"
-		       (pobject-name lhs) error-token)))))
+		       (class-name (object-class lhs))
+		       error-token)))))
 
    (define (while)
       (consume! 'while)
@@ -261,7 +283,9 @@
       (let ((test (expression #f)))
 	 (consume! 'RPAREN)
 	 (let ((body (statement)))
-	    (new-node While test body))))
+	    (instantiate::While
+	       (test test)
+	       (body body)))))
    
    (define (do-while)
       (consume! 'do)
@@ -271,7 +295,9 @@
 	 (let ((test (expression #f)))
 	    (consume! 'RPAREN)
 	    (consume-statement-semicolon!)
-	    (new-node Do body test))))
+	    (instantiate::Do
+	       (body body)
+	       (test test)))))
    
    (define (continue)
       (consume! 'continue)
@@ -279,10 +305,10 @@
 	       (not (at-new-line-token?)))
 	  (let ((id (consume! 'ID)))
 	     (consume-statement-semicolon!)
-	     (new-node Continue id))
+	     (instantiate::Continue (id id)))
 	  (begin
 	     (consume-statement-semicolon!)
-	     (new-node Continue #f))))
+	     (instantiate::Continue (id #f)))))
    
    (define (break)
       (consume! 'break)
@@ -290,10 +316,10 @@
 	       (not (at-new-line-token?)))
 	  (let ((id (consume! 'ID)))
 	     (consume-statement-semicolon!)
-	     (new-node Break id))
+	     (instantiate::Break (id id)))
 	  (begin
 	     (consume-statement-semicolon!)
-	     (new-node Break #f))))
+	     (instantiate::Break (id #f)))))
    
    (define (return)
       (consume! 'return)
@@ -301,10 +327,12 @@
 	      (at-new-line-token?))
 	  (begin
 	     (consume-statement-semicolon!)
-	     (new-node Return (new-node Undefined)))
+	     (instantiate::Return
+		(expr (new-undefined))))
 	  (let ((expr (expression #f)))
 	     (consume-statement-semicolon!)
-	     (new-node Return expr))))
+	     (instantiate::Return
+		(expr expr)))))
    
    (define (with)
       (consume! 'with)
@@ -312,7 +340,10 @@
       (let ((expr (expression #f)))
 	 (consume! 'RPAREN)
 	 (let ((body (statement)))
-	    (new-node With expr body))))
+	    (instantiate::With
+	       (obj-id (gensym 'with))
+	       (obj expr)
+	       (body body)))))
    
    (define (switch)
       (consume! 'switch)
@@ -320,7 +351,9 @@
       (let ((key (expression #f)))
 	 (consume! 'RPAREN)
 	 (let ((cases (case-block)))
-	    (new-node Switch key cases))))
+	    (instantiate::Switch
+	       (key key)
+	       (cases cases)))))
    
    (define (case-block)
       (consume! 'LBRACE)
@@ -343,18 +376,22 @@
       (let ((expr (expression #f)))
 	 (consume! ':)
 	 (let ((body (switch-clause-statements)))
-	    (new-node Case expr body))))
+	    (instantiate::Case
+	       (expr expr)
+	       (body body)))))
    
    (define (default-clause)
       (consume! 'default)
       (consume! ':)
-      (new-node Default (switch-clause-statements)))
+      (instantiate::Default
+	 (body (switch-clause-statements))))
    
    (define (switch-clause-statements)
       (let loop ((rev-stats '()))
 	 (case (peek-token-type)
 	    ((RBRACE EOF ERROR default case)
-	     (new-node Block (reverse! rev-stats)))
+	     (instantiate::Block
+		(els (reverse! rev-stats))))
 	    (else (loop (cons (statement) rev-stats))))))
    
    (define (throw)
@@ -363,7 +400,8 @@
 	  (my-error "throw must have a value" #f (peek-token)))
       (let ((expr (expression #f)))
 	 (consume-statement-semicolon!)
-	 (new-node Throw expr)))
+	 (instantiate::Throw
+	    (expr expr))))
    
    (define (trie)
       (consume! 'try)
@@ -374,7 +412,10 @@
 		(set! catch-part (catch)))
 	    (if (eq? (peek-token-type) 'finally)
 		(set! finally-part (finally)))
-	    (new-node Try body catch-part finally-part))))
+	    (instantiate::Try
+	       (body body)
+	       (catch catch-part)
+	       (finally finally-part)))))
    
    (define (catch)
       (consume! 'catch)
@@ -384,7 +425,11 @@
 	 (let ((body (block)))
 	    ;; not sure, if 'Param' is a really good choice.
 	    ;; we'll see...
-	    (new-node Catch (new-node Param id) body))))
+	    (instantiate::Catch
+	       (obj-id (gensym 'catch))
+	       (decl (instantiate::Param
+			(id id)))
+	       (body body)))))
    
    (define (finally)
       (consume! 'finally)
@@ -407,7 +452,9 @@
    (define (labelled)
       (let ((id (consume! 'ID)))
 	 (consume! ':)
-	 (new-node Labelled id (statement))))
+	 (instantiate::Labelled
+	    (id id)
+	    (body (statement)))))
    
    (define (function-declaration)
       (function #t))
@@ -424,11 +471,21 @@
 	     (params (params))
 	     (body (fun-body)))
 	 (if declaration?
-	     (new-node Fun-binding (new-node Decl id) (new-node Fun params body))
+	     (instantiate::Fun-Binding
+		(lhs (instantiate::Decl (id id)))
+		(val (instantiate::Fun
+			(params params)
+			(body body))))
 	     (if id
-		 (new-node Named-fun
-			   (new-node Decl id) (new-node Fun params body))
-		 (new-node Fun params body)))))
+		 (instantiate::Named-Fun
+		    (obj-id (gensym 'named-fun))
+		    (decl (instantiate::Decl (id id)))
+		    (body (instantiate::Fun
+			     (params params)
+			     (body body))))
+		 (instantiate::Fun
+		    (params params)
+		    (body body))))))
    
    (define (params)
       (consume! 'LPAREN)
@@ -436,11 +493,11 @@
 	  (begin
 	     (consume-any!)
 	     '())
-	  (let loop ((rev-params (list (new-node Param (consume! 'ID)))))
+	  (let loop ((rev-params (list (instantiate::Param (id (consume! 'ID))))))
 	     (if (eq? (peek-token-type) 'COMMA)
 		 (begin
 		    (consume-any!)
-		    (loop (cons (new-node Param (consume! 'ID))
+		    (loop (cons (instantiate::Param (id (consume! 'ID)))
 				rev-params)))
 		 (begin
 		    (consume! 'RPAREN)
@@ -452,7 +509,8 @@
 	 (if (eq? (peek-token-type) 'RBRACE)
 	     (begin
 		(consume-any!)
-		(new-node Block (reverse! rev-ses)))
+		(instantiate::Block
+		   (els (reverse! rev-ses))))
 	     (loop (cons (source-element) rev-ses)))))
    
    (define (expression in-for-init?)
@@ -464,7 +522,8 @@
 		   (loop (cons (assig-expr in-for-init?) rev-exprs)))
 		(if (null? (cdr rev-exprs))
 		    (car rev-exprs)
-		    (new-node Sequence (reverse! rev-exprs)))))))
+		    (instantiate::Sequence
+		       (els (reverse! rev-exprs))))))))
    
    (define (assig-operator? x)
       (case x
@@ -486,17 +545,26 @@
 	     (let* ((op (token-type (consume-any!)))      ;; ops are in type-field
 		    (rhs (assig-expr in-for-init?)))
 		(cond
-		   ((and (eq? op '=) (inherits-from? expr (node 'Access)))
-		    (new-node Accsig expr rhs))
-		   ((and (eq? op '=) (inherits-from? expr (node 'Var-ref)))
-		    (new-node Vassig expr rhs))
+		   ((and (eq? op '=) (Access? expr))
+		    (instantiate::Accsig
+		       (lhs expr)
+		       (val rhs)))
+		   ((and (eq? op '=) (Ref? expr))
+		    (instantiate::Vassig
+		       (lhs expr)
+		       (val rhs)))
 		   ((eq? op '=)
 		    (my-error "bad assignment" #f error-token))
-		   ((inherits-from? expr (node 'Access))
-		    (new-node Accsig-op expr
-			      (new-node Var-ref (with-out-= op)) rhs))
-		   ((inherits-from? expr (node 'Var-ref))
-		    (new-node Vassig-op expr (new-node Var-ref (with-out-= op)) rhs))
+		   ((Access? expr)
+		    (instantiate::Accsig-Op
+		       (lhs expr)
+		       (op (instantiate::Ref (id (with-out-= op))))
+		       (val rhs)))
+		   ((Ref? expr)
+		    (instantiate::Vassig-Op
+		       (lhs expr)
+		       (op (instantiate::Ref (id (with-out-= op))))
+		       (val rhs)))
 		   (else
 		    (my-error "bad assignment" #f error-token))))
 	     expr)))
@@ -508,7 +576,10 @@
 		    (then (assig-expr #f))
 		    (ignore-colon (consume! ':))
 		    (else (assig-expr in-for-init?)))
-		(new-node Cond expr then else))
+		(instantiate::Cond
+		   (test expr)
+		   (then then)
+		   (else else)))
 	     expr)))
    
    (define (op-level op)
@@ -541,10 +612,9 @@
 		      ((=fx new-level level)
 		       ;; ops are in token-type field
 		       (let ((token-op (token-type (consume-any!))))
-			  (loop (new-node Binary
-					  expr
-					  (new-node Var-ref token-op)
-					  (binary-aux (+fx level 1))))))
+			  (loop (instantiate::Binary
+				   (op (instantiate::Ref (id token-op)))
+				   (args (list expr (binary-aux (+fx level 1))))))))
 		      (else
 		       expr))))))
       (binary-aux 1))
@@ -552,13 +622,14 @@
    (define (unary)
       (case (peek-token-type)
 	 ((delete void typeof ~ ! ++ --)
-	  (new-node Unary (new-node Var-ref (token-type (consume-any!))) (unary)))
+	  (instantiate::Unary
+	     (op (instantiate::Ref (id (token-type (consume-any!)))))
+	     (args (list (unary)))))
 	 ((+ -)
-	  (new-node Unary
-		    (new-node Var-ref
-			      (symbol-append 'unary-
-					     (token-type (consume-any!))))
-		    (unary)))
+	  (instantiate::Unary
+	     (op (instantiate::Ref
+		    (id (symbol-append 'unary- (token-type (consume-any!))))))
+	     (args (list (unary)))))
 	 (else
 	  (postfix))))
    
@@ -568,7 +639,9 @@
 	     (case (peek-token-type)
 		((++ --)
 		 (let ((op (token-type (consume-any!))))
-		    (new-node Postfix expr (new-node Var-ref op))))
+		    (instantiate::Postfix
+		       (op (instantiate::Ref (id op)))
+		       (args (list expr)))))
 		(else
 		 expr))
 	     expr)))
@@ -589,7 +662,9 @@
 		 (args (if (eq? (peek-token-type) 'LPAREN)
 			   (arguments)
 			   '())))
-	     (new-node New class args))
+	     (instantiate::New
+		(class class)
+		(args args)))
 	  (access-or-call (primary) #f)))
    
    (define (access-or-call expr call-allowed?)
@@ -606,15 +681,21 @@
 	    ((LBRACKET) (let* ((ignore (consume-any!))
 			       (field (expression #f))
 			       (ignore-too (consume! 'RBRACKET)))
-			   (loop (new-node Access expr field))))
+			   (loop (instantiate::Access
+				    (obj expr)
+				    (field field)))))
 	    ((DOT) (let* ((ignore (consume-any!))
 			  (field (parse-field-name))
 			  (str-field (string-append "'"
 						    (symbol->string field)
 						    "'")))
-		      (loop (new-node Access expr (new-node String str-field)))))
+		      (loop (instantiate::Access
+			       (obj expr)
+			       (field (instantiate::String (val str-field)))))))
 	    ((LPAREN) (if call-allowed?
-			  (loop (new-node Call expr (arguments)))
+			  (loop (instantiate::Call
+				   (op expr)
+				   (args (arguments))))
 			  expr))
 	    (else expr))))
    
@@ -637,8 +718,8 @@
       (case (peek-token-type)
 	 ((function) (function-expression))
 	 ((this) (consume-any!)
-		 (new-node This))
-	 ((ID) (new-node Var-ref (consume! 'ID)))
+		 (instantiate::This (id 'this)))
+	 ((ID) (instantiate::Ref (id (consume! 'ID))))
 	 ((LPAREN) (let* ((ignore (consume-any!))
 			  (expr (expression #f))
 			  (ignore-too (consume! 'RPAREN)))
@@ -646,16 +727,20 @@
 	 ((LBRACKET) (array-literal))
 	 ((LBRACE) (object-literal))
 	 ((null) (consume-any!)
-		 (new-node Null))
-	 ((true false) (new-node Bool (eq? (token-type (consume-any!)) 'true)))
-	 ((NUMBER) (new-node Number (consume! 'NUMBER))) ;; still as string!
-	 ((STRING) (new-node String (consume! 'STRING)))
+		 (new-null))
+	 ((true false) (instantiate::Bool
+			  (val (eq? (token-type (consume-any!)) 'true))))
+	 ((NUMBER) (instantiate::Number
+		      (val (consume! 'NUMBER)))) ;; still as string!
+	 ((STRING) (instantiate::String
+		      (val (consume! 'STRING))))
 	 ((/ /=) (let ((reg-exp (read-regexp (peek-token-type))))
 		    ;; consume-any *must* be after having read the reg-exp,
 		    ;; so that the read-regexp works. Only then can we remove
 		    ;; the peeked token.
 		    (consume-any!) ;; the / or /=
-		    (new-node Reg-exp reg-exp)))
+		    (instantiate::Reg-Exp
+		       (pattern reg-exp))))
 	 (else
 	  (unexpected-token-error (peek-token)))))
    
@@ -671,12 +756,14 @@
 		 (length 0))
 	 (case (peek-token-type)
 	    ((RBRACKET) (consume-any!)
-			(new-node Array (reverse! rev-els) length))
+			(instantiate::Array
+			   (els (reverse! rev-els))
+			   (length length)))
 	    ((COMMA) (consume-any!)
 		     (loop rev-els (+fx length 1)))
-	    (else (let ((array-el (new-node Array-element
-					    length
-					    (assig-expr #f))))
+	    (else (let ((array-el (instantiate::Array-Element
+				     (index length)
+				     (expr (assig-expr #f)))))
 		     (unless (eq? (peek-token-type) 'RBRACKET)
 			(consume! 'COMMA))
 		     (loop (cons array-el rev-els)
@@ -691,31 +778,35 @@
 			   "\""))
 	    
 	 (case (peek-token-type)
-	    ((ID) (new-node String (symbol->lexer-string (consume! #t))))
-	    ((STRING) (new-node String (consume! #t)))
-	    ((NUMBER) (new-node Number (consume! #t)))
+	    ((ID) (instantiate::String (val (symbol->lexer-string (consume! #t)))))
+	    ((STRING) (instantiate::String (val (consume! #t))))
+	    ((NUMBER) (instantiate::Number (val (consume! #t))))
 	    (else
 	     (if (and (config 'liberal-object-literal-name)
 		      (reserved-word? (peek-token-type)))
-		 (new-node String (symbol->lexer-string (consume! #t)))
+		 (instantiate::String (val (symbol->lexer-string (consume! #t))))
 		 (unexpected-token-error (peek-token))))))
       
       (define (property-init)
 	 (let* ((name (property-name))
 		(ignore (consume! ':))
 		(val (assig-expr #f)))
-	    (new-node Property-init name val)))
+	    (instantiate::Property-Init
+	       (name name)
+	       (val val))))
       
       (consume! 'LBRACE)
       (if (eq? (peek-token-type) 'RBRACE)
 	  (begin
 	     (consume-any!)
-	     (new-node Obj-init '()))
+	     (instantiate::Obj-Init
+		(props '())))
 	  (let loop ((rev-props (list (property-init))))
 	     (if (eq? (peek-token-type) 'RBRACE)
 		 (begin
 		    (consume-any!)
-		    (new-node Obj-init (reverse! rev-props)))
+		    (instantiate::Obj-Init
+		       (props (reverse! rev-props))))
 		 (begin
 		    (consume! 'COMMA)
 		    (loop (cons (property-init) rev-props)))))))

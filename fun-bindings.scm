@@ -1,41 +1,31 @@
 (module fun-bindings
-   (include "protobject.sch")
-   (include "tools.sch")
-   (include "nodes.sch")
-   (option (loadq "protobject-eval.sch"))
-   (import protobject
-	   nodes
+   (import nodes
+	   walk
 	   verbose)
-   (export (fun-bindings! tree::pobject)))
+   (export (fun-bindings! tree::Program)))
 
 ;; move fun-bindings (declarations) to beginning of functions.
 ;; order matters. (do not inverse declarations)
 
-(define (fun-bindings! tree::pobject)
+(define (fun-bindings! tree)
    (verbose "fun-bindings")
-   (overload traverse! fb! (Node
-			    Scope
-			    Named-fun
-			    Fun-binding)
-	     (tree.traverse! #f)))
+   (fb! tree #f #f))
 
-(define-pmethod (Node-fb! scope)
-   (this.traverse1! scope))
+(define-nmethod (Node.fb! rev-fun-container)
+   (default-walk! this rev-fun-container))
 
-(define-pmethod (Scope-fb! scope)
-   (set! this.rev-fun-bindings '())
-   (let* ((new-body (this.body.traverse! this))
-	  (bindings (reverse! this.rev-fun-bindings)))
-      (delete! this.rev-fun-bindings)
-      (if (null? bindings)
-	  (set! this.body new-body)
-	  (set! this.body (new-node Block (append! bindings (list new-body)))))
-      this))
+(define-nmethod (Scope.fb! rev-fun-container)
+   (with-access::Scope this (body)
+      (let* ((container (list '*rev-fun-container*))
+	     (new-body (walk! body container))
+	     (bindings (reverse! (cdr container))))
+	 (if (null? bindings)
+	     (set! body new-body)
+	     (set! body (instantiate::Block
+			   (els (append! bindings (list new-body))))))
+	 this)))
 
-(define-pmethod (Named-fun-fb! scope)
-   (this.traverse1! scope))
-
-(define-pmethod (Fun-binding-fb! scope)
-   (this.traverse1! scope)
-   (set! scope.rev-fun-bindings (cons this scope.rev-fun-bindings))
-   (new-node NOP))
+(define-nmethod (Fun-Binding.fb! rev-fun-container)
+   (default-walk! this rev-fun-container)
+   (set-cdr! rev-fun-container (cons this (cdr rev-fun-container)))
+   (instantiate::NOP))
