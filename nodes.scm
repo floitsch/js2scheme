@@ -236,7 +236,7 @@
        index::int
        expr::Node)
     (final-class Property-Init::Node
-       name::String
+       name::Literal  ;; either Number or String.
        val::Node)
     (final-class Reg-Exp::Node
        pattern)
