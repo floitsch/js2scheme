@@ -1,4 +1,4 @@
-(directives
+(module jsre-base-char
    (export
     (inline js-char-max::long)
     (inline js-char?::bool c) ;; can't make difference between char and js-char

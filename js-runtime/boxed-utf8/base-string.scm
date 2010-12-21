@@ -1,10 +1,12 @@
-(directives
+(module jsre-base-string
+   (from jsre-base-char)
    (import jsre-conversion
 	   jsre-base-object)
    (export
     (final-class boxed-string
        (str::bstring read-only)
        (hash::long read-only))
+    (macro STR)
     (macro ascii->js-string-literal)
     (inline js-string?::bool str)
     (inline utf8->js-string-literal::boxed-string utf8-str::bstring
@@ -45,6 +47,9 @@
     (close-js-string-buffer buf)
     (inline js-string-uc-char-size uc-c::long)
     ))
+
+(define-macro (STR str)
+   `(ascii->js-string-literal ,str))
 
 (define-macro (ascii->js-string-literal str) `(utf8->js-string ,str))
 

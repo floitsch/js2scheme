@@ -1,7 +1,9 @@
-(directives
+(module jsre-base-string
+   (from jsre-base-char)
    (import jsre-conversion
 	   jsre-base-object)
    (export
+    (macro STR)
     (macro ascii->js-string-literal)
     (utf8->js-string-literal::ucs2string str::bstring #!optional (unescape? #f))
     (inline js-string?::bool str)
@@ -41,6 +43,8 @@
     (inline js-string-uc-char-size uc-c::long)
     ))
 
+(define-macro (STR str)
+   `(ascii->js-string-literal ,str))
 (define-macro (ascii->js-string-literal str) (utf8-string->ucs2-string str))
 
 (define (utf8->js-string-literal str #!optional (unescape? #f))

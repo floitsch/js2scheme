@@ -52,8 +52,8 @@ case $string_backend in
     ;;
 esac
 
-rm -f $RUNTIME_DIR/$UTF_DIR
-ln -s $string_backend $RUNTIME_DIR/$UTF_DIR
+cp $RUNTIME_DIR/$string_backend/base-string.scm $RUNTIME_DIR/
+cp $RUNTIME_DIR/$string_backend/base-char.scm $RUNTIME_DIR/
 
 for f in $RUNTIME_DIR/*.scm.in; do
   sed -e "s|@JS_STRING@|$string_class|g" \

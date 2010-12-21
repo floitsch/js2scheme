@@ -14,7 +14,7 @@ BGL_FLAGS = $(BGL_COMMON_FLAGS) -g $(BGL_UNSAFE)
 # from the library.
 RUNTIME_BGL_MODULES = Array Bool Date Function Math Number Object String \
 			conversion Error Eval-env eval Arguments \
-			undefined base-object base-string \
+			undefined base-object base-string base-char \
 			global-object globals \
 			bitset interval-avl-tree \
 			ht-object property-entry operators scope-object \
@@ -27,8 +27,6 @@ ALL_RUNTIME_BGL_MODULES = $(RUNTIME_BGL_MODULES) \
 
 RUNTIME_OBJECTS = $(ALL_RUNTIME_BGL_MODULES:%=o/%.o)
 RUNTIME_SOURCES = $(RUNTIME_BGL_MODULES:%=%.scm)
-
-STRING_SOURCES = utf/string.sch utf/char.sch
 
 OBJECTS	= $(RUNTIME_OBJECTS)
 SOURCES	= $(OBJECTS:o/%.o=%.scm)
@@ -71,13 +69,13 @@ runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
 	    ./extract-globals -o $@ $(RUNTIME_SOURCES) 2> /dev/null; \
 	  fi
 
-macros.sch: extract-macros $(RUNTIME_SOURCES) $(STRING_SOURCES)
+macros.sch: extract-macros $(RUNTIME_SOURCES)
 	@ echo "[$(PREFIX)$@]"
 	@ if [ $(VERBOSE) ]; then \
-	    echo ./extract-macros -o $@ $(RUNTIME_SOURCES) $(STRING_SOURCES); \
-	    ./extract-macros -o $@ $(RUNTIME_SOURCES) $(STRING_SOURCES); \
+	    echo ./extract-macros -o $@ $(RUNTIME_SOURCES); \
+	    ./extract-macros -o $@ $(RUNTIME_SOURCES); \
 	  else \
-	    ./extract-macros -o $@ $(RUNTIME_SOURCES) $(STRING_SOURCES) 2> /dev/null; \
+	    ./extract-macros -o $@ $(RUNTIME_SOURCES) 2> /dev/null; \
 	  fi
 
 $(JS2SCHEME_RT_LIB).init: $(JS2SCHEME_RT_LIB).init.in macros.sch
@@ -184,7 +182,6 @@ o/RegExp-classes.o: RegExp-KMP.scm RegExp-constant-classes.scm
 o/RegExp-dot.o: RegExp-KMP.scm RegExp-constant-classes.scm
 o/Date.o: date-impl.scm
 o/eval.o: macros.sch
-o/base-string.o: utf/string.sch utf/char.sch
 
 #*---------------------------------------------------------------------*/
 #*    Implicit Rules                                                   */
