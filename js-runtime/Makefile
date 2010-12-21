@@ -1,6 +1,10 @@
 CC = /usr/local/bin/gcc
 BIGLOO = bigloo -cc $(CC)
+LD = ld
+MCO = bglmco
 AFILE = bglafile
+DEPEND = bgldepend
+CLASS_DIR = "."
 
 BGL_COMMON_FLAGS = -L .. -I utf -L ../unicode -copt -fpic -mkaddlib -library utf
 BGL_UNSAFE =
@@ -41,41 +45,76 @@ all: runtime-variables.sch $(JS2SCHEME_RT_LIB).init $(JS2SCHEME_RT_LIB_A) $(JS2S
 .PHONY: build-afile clean all
 
 .afile: $(SOURCES)
-	$(AFILE) -o $@ $(SOURCES)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then echo $(AFILE) -o $@ $(SOURCES); fi
+	@ $(AFILE) -o $@ $(SOURCES)
 
 extract-globals: extract-globals.scm
-	$(BIGLOO) -g -o $@ $^
+	@ echo "[$(PREFIX)$@]";
+	@ if [ $(VERBOSE) ]; then echo $(BIGLOO) -g -o $@ $^; fi
+	@ $(BIGLOO) -g -o $@ $^
 extract-macros: extract-macros.scm
-	$(BIGLOO) -g -o $@ $^
+	@ echo "[$(PREFIX)$@]";
+	@ if [ $(VERBOSE) ]; then echo $(BIGLOO) -g -o $@ $^; fi
+	@ $(BIGLOO) -g -o $@ $^
 string-cache: str-cache.scm
-	$(BIGLOO) -g -o $@ $^
+	@ echo "[$(PREFIX)$@]";
+	@ if [ $(VERBOSE) ]; then echo $(BIGLOO) -g -o $@ $^; fi
+	@ $(BIGLOO) -g -o $@ $^
 
 runtime-variables.sch: extract-globals $(RUNTIME_SOURCES)
-	./extract-globals -o $@ $(RUNTIME_SOURCES)
+	@ echo "[$(PREFIX)$@]";
+	@ if [ $(VERBOSE) ]; then \
+	    echo ./extract-globals -o $@ $(RUNTIME_SOURCES); \
+	    ./extract-globals -o $@ $(RUNTIME_SOURCES); \
+	  else \
+	    ./extract-globals -o $@ $(RUNTIME_SOURCES) 2> /dev/null; \
+	  fi
 
 macros.sch: extract-macros $(RUNTIME_SOURCES) $(STRING_SOURCES)
-	./extract-macros -o $@ $(RUNTIME_SOURCES) $(STRING_SOURCES)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo ./extract-macros -o $@ $(RUNTIME_SOURCES) $(STRING_SOURCES); \
+	    ./extract-macros -o $@ $(RUNTIME_SOURCES) $(STRING_SOURCES); \
+	  else \
+	    ./extract-macros -o $@ $(RUNTIME_SOURCES) $(STRING_SOURCES) 2> /dev/null; \
+	  fi
 
 $(JS2SCHEME_RT_LIB).init: $(JS2SCHEME_RT_LIB).init.in macros.sch
-	sed 's/JS2SCHEME_RT_VERSION/$(JS2SCHEME_RT_VERSION)/' $@.in > $@
-	cat macros.sch >> $@
+	@ echo "[$@]";
+	@ if [ $(VERBOSE) ]; then \
+	    echo sed 's/JS2SCHEME_RT_VERSION/$(JS2SCHEME_RT_VERSION)/' $@.in ">" $@; \
+	    echo cat macros.sch ">>" $@; \
+	  fi
+	@ sed 's/JS2SCHEME_RT_VERSION/$(JS2SCHEME_RT_VERSION)/' $@.in > $@
+	@ cat macros.sch >> $@
 
 o/runtime.o: $(RUNTIME_SOURCES)
 
 o/.keep:
-	mkdir -p o/unicode;
-	touch $@;
+	@ if [ $(VERBOSE) ]; then \
+	    echo mkdir -p o/unicode; \
+	    echo touch $@; \
+	  fi
+	@ mkdir -p o/unicode;
+	@ touch $@;
 
 o/%.o: %.scm .afile o/.keep
-	$(BIGLOO) $(BGL_FLAGS) -c -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then echo $(BIGLOO) $(BGL_FLAGS) -c -o $@ $<; fi
+	@ $(BIGLOO) $(BGL_FLAGS) -c -o $@ $<
 
 # must not use -g for match...
 #o/RegExp-match.o: RegExp-match.scm
 #	$(BIGLOO) -c -O3 -o $@ $<
 o/RegExp-match.o: RegExp-match.scm
-	$(BIGLOO) $(BGL_COMMON_FLAGS) -c -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo $(BIGLOO) $(BGL_COMMON_FLAGS) -c -o $@ $<; \
+	  fi
+	@ $(BIGLOO) $(BGL_COMMON_FLAGS) -c -o $@ $<
 
-clean:
+clean: mco-clean
 	rm -f $(OBJECTS) $(REGEXP_OBJECTS) \
               extract-globals extract-globals.o \
 	      extract-macros  extract-macros.o \
@@ -93,22 +132,48 @@ REGEXP_MODULES =  RegExp-main RegExp-parse RegExp-fsm RegExp-classes RegExp-dot 
 REGEXP_OBJECTS = $(REGEXP_MODULES:%=o/%.o)
 
 regexp: .afile $(REGEXP_OBJECTS) RegExp-KMP.scm RegExp-constant-classes.scm
-	$(BIGLOO) -o $@ $(REGEXP_OBJECTS)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then echo $(BIGLOO) -o $@ $(REGEXP_OBJECTS); fi
+	@ $(BIGLOO) -o $@ $(REGEXP_OBJECTS)
 
 REGEXP_JVM_OBJECTS = $(REGEXP_MODULES:%=%.class)
 %.class: %.scm
-	$(BIGLOO) $(BGL_FLAGS) -jvm -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then echo $(BIGLOO) $(BGL_FLAGS) -jvm -o $@ $<; fi
+	@ $(BIGLOO) $(BGL_FLAGS) -jvm -o $@ $<
 regexp.jvm: .afile $(REGEXP_JVM_OBJECTS) RegExp-KMP.scm RegExp-constant-classes.scm
-	$(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo $(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS); \
+	  fi
+	@ $(BIGLOO) -jvm -o $@ $(REGEXP_JVM_OBJECTS)
 
 $(JS2SCHEME_RT_HEAP): make-lib.scm runtime.scm .afile
-	bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_RT_LIB) $< -addheap $@
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_RT_LIB) $< -addheap $@; \
+	  fi
+	@ bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(JS2SCHEME_RT_LIB) $< -addheap $@
 $(JS2SCHEME_RT_LIB_A): $(JS2SCHEME_RT_HEAP) $(JS2SCHEME_RT_LIB_OBJECTS)
-	rm -f $@ && \
-	ar qcv $@ $(JS2SCHEME_RT_LIB_OBJECTS) && \
-	ranlib $@
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo rm -f $@ "&&" \
+	         ar qcv $@ $(JS2SCHEME_RT_LIB_OBJECTS) "&&" \
+		 ranlib $@; \
+	    rm -f $@ && \
+	    ar qcv $@ $(JS2SCHEME_RT_LIB_OBJECTS) && \
+	    ranlib $@; \
+	  else \
+	    rm -f $@ && \
+	    ar qcv $@ $(JS2SCHEME_RT_LIB_OBJECTS) > /dev/null && \
+	    ranlib $@ > /dev/null; \
+	  fi
 $(JS2SCHEME_RT_LIB_SO): $(JS2SCHEME_RT_HEAP) $(JS2SCHEME_RT_LIB_OBJECTS)
-	ld -G -o $@ $(JS2SCHEME_RT_LIB_OBJECTS)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo $(LD) -G -o $@ $(JS2SCHEME_RT_LIB_OBJECTS); \
+	  fi
+	@ $(LD) -G -o $@ $(JS2SCHEME_RT_LIB_OBJECTS)
 
 #-- explicit deps
 o/RegExp-match.o: RegExp-KMP.scm RegExp-constant-classes.scm
@@ -120,3 +185,34 @@ o/RegExp-dot.o: RegExp-KMP.scm RegExp-constant-classes.scm
 o/Date.o: date-impl.scm
 o/eval.o: macros.sch
 o/base-string.o: utf/string.sch utf/char.sch
+
+#*---------------------------------------------------------------------*/
+#*    Implicit Rules                                                   */
+#*---------------------------------------------------------------------*/
+MCOS = $(OBJECTS:%=mco/%.mco)
+MCOS2 = $(OBJECTS:%=mco/%.mco2)
+
+.PRECIOUS: $(MCOS)
+
+mco/%.mco: %.scm
+	@mkdir -p mco;
+	@if [ ! "$@"2 -nt "$^" ]; then \
+	  if [ $(VERBOSE) ]; then \
+	    echo $(MCO) -s -I . -o $@ $<; \
+	  fi; \
+	  $(MCO) -s -I . -o $@ $<; \
+	fi;
+	@touch "$@"2;
+
+mco-clean:
+	rm -rf mco
+
+Makefile.deps: $(RUNTIME_SOURCES)
+	@ echo "Rebuilding $@ file.";
+	@ $(DEPEND) -search-path . \
+		    -strict-class-dir $(CLASS_DIR) \
+		    -strict-mco-dir mco \
+                    -strict-obj-dir o \
+                    $(RUNTIME_SOURCES) > Makefile.deps
+
+-include Makefile.deps
