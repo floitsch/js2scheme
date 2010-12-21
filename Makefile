@@ -46,7 +46,7 @@ all: $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) targets runtime
 
 targets: $(TARGETNAMES)
 
-.PHONY: build-afile clean runtime js2scheme-runtime-heap mco-clean dep
+.PHONY: build-afile clean runtime js2scheme-runtime-heap mco-clean dep test
 
 .afile: $(SOURCES)
 	@ echo "[$(PREFIX)$@]"
@@ -165,3 +165,14 @@ clean: mco-clean
 	      *.class .afile;
 
 -include Makefile.deps
+
+#*---------------------------------------------------------------------*/
+#*    Test                                                             */
+#*---------------------------------------------------------------------*/
+test:
+	cd rhino-tests && \
+	   ./jsDriver.pl -e js2scheme -t -l \
+	         ecma/Boolean ecma/ExecutionContexts ecma/Array ecma/Date \
+	         ecma/Expressions ecma/FunctionObjects ecma/GlobalObject \
+	         ecma/Math ecma/LexicalConventions ecma/Number ecma/String \
+	         ecma/Statements ecma/TypeConversion
