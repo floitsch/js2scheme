@@ -38,15 +38,20 @@ OBJECTS = $(OBFUSCATOR_OBJECTS) $(PP_OBJECTS) $(JS2SCHEME_OBJECTS) $(JS2SCHEME_L
 
 SOURCES = $(OBJECTS:o/%.o=%.scm)
 
+UTF_LIB = utf
+UTF_DIR = unicode
+UTF_HEAP = $(UTF_DIR)/$(UTF_LIB).heap
+
 INCLUDES =
 
 AFILE = bglafile
 
-all: $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) targets runtime
+all: $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) targets runtime unicode
 
 targets: $(TARGETNAMES)
 
-.PHONY: build-afile clean runtime js2scheme-runtime-heap mco-clean dep test
+.PHONY: build-afile clean runtime unicode js2scheme-runtime-heap mco-clean dep \
+        test
 
 .afile: $(SOURCES)
 	@ echo "[$(PREFIX)$@]"
@@ -117,16 +122,23 @@ o/%.o: %.scm $(INCLUDES) .afile o/.keep
 # scm-out requires the runtime-heap.
 o/scm-out.o: js2scheme-runtime-heap
 
-o/js2scheme.o: $(JS2SCHEME_HEAP)
+o/js2scheme.o: $(JS2SCHEME_HEAP) js2scheme-runtime-heap
 
-js2scheme-runtime-heap:
+o/lexer.o: $(UTF_HEAP)
+
+js2scheme-runtime-heap: $(UTF_HEAP)
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime js2scheme-runtime.heap
 
-js-runtime/runtime-variables.sch:
+js-runtime/runtime-variables.sch: $(UTF_HEAP)
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime runtime-variables.sch
 
-runtime: $(JS2SCHEME_HEAP)
+runtime: $(JS2SCHEME_HEAP) $(UTF_HEAP)
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime
+
+$(UTF_HEAP): unicode
+
+unicode:
+	@$(MAKE) -C $(UTF_DIR)
 
 #*---------------------------------------------------------------------*/
 #*    Implicit Rules                                                   */
@@ -159,6 +171,7 @@ Makefile.deps: $(SOURCES)
 
 clean: mco-clean
 	$(MAKE) -C js-runtime clean
+	$(MAKE) -C $(UTF_DIR) clean
 	rm -f $(OBJECTS) $(TARGETNAMES) \
 	      $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) $(JS2SCHEME_HEAP) \
 	      $(BGL_CLASSES) j$(TARGETNAME) \
