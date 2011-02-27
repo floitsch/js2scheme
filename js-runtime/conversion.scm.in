@@ -56,8 +56,9 @@
        #f)))
 
 (define (js-object? any)
-   (or (Js-Object? any)
-       (procedure? any)))
+   (and (or (Js-Object? any)
+	    (procedure? any))
+	(not (js-null? any))))
 
 (define (safe-js-object any)
    (if (Js-Object? any)
