@@ -541,7 +541,7 @@
 			 rev-result))))))
    
    (with-access::Switch this (key cases)
-      (let* ((key (gensym 'key))
+      (let* ((key-sym (gensym 'key))
 	     (compiled-key (out key))
 	     (compiled-clauses (map out cases))
 	     (default-body-id (let loop ((clauses compiled-clauses))
@@ -552,13 +552,13 @@
 				    (else
 				     (loop (cdr clauses))))))
 	     (rev-clauses-bindings (rev-bind-clauses compiled-clauses)))
-	 `(let* (,@(cons (list key compiled-key)
+	 `(let* (,@(cons (list key-sym compiled-key)
 			 rev-clauses-bindings))
 	     (cond
 		,@(map (lambda (clause)
 			  (if (clause-default-clause? clause)
 			      `(#f 'default-clause-was-here)
-			      `((jsop-=== ,(clause-expr clause) ,key)
+			      `((jsop-=== ,(clause-expr clause) ,key-sym)
 				(,(clause-body-id clause)))))
 		       compiled-clauses)
 		,@(if default-body-id
@@ -824,7 +824,8 @@
 
 (define-method (out this::Delete-Call)
    (with-access::Delete-Call this (args)
-      (delete-out (car args))))
+      (with-access::Ref (car args) (var)
+	 (delete-out var))))
 
 (define-method (out this::Delete-Property-Call)
    (with-access::Delete-Property-Call this (args)

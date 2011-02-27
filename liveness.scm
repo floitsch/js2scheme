@@ -279,6 +279,9 @@
 				(apply intersection (map cdr case-read/writes)))))
 	 (cons new-reads new-writes))))
 
+(define-nmethod (Fall-Through.live nesting)
+   '(() . ()))
+
 (define-nmethod (Case.live nesting)
    (with-access::Case this (expr body)
       (let ((new-nesting (cons this nesting)))
@@ -383,3 +386,17 @@
 (define-nmethod (Literal.live nesting)
    '(() . ()))
 
+(define-nmethod (Array.live nesting)
+   (with-access::Array this (els)
+      (sequential-live (map (lambda (n) (walk n nesting)) els))))
+
+(define-nmethod (Array-Element.live nesting)
+   (with-access::Array-Element this (expr)
+      (walk expr nesting)))
+
+(define-nmethod (Property-Init.live nesting)
+   (with-access::Property-Init this (val)
+      (walk val nesting)))
+
+(define-nmethod (Reg-Exp.live nesting)
+   '(() . ()))

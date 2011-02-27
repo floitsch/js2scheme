@@ -82,9 +82,14 @@
 ;; A Do-loop always executes its body, but we don't care for this case.
 (define-nmethod (Loop.hoist sequence) (default-walk this #f) #f)
 (define-nmethod (Decl-Intercept.hoist sequence) (default-walk this #f) #f)
+(define-nmethod (Obj-Init.hoist sequence) (default-walk this #f) #f)
+(define-nmethod (Fall-Through.hoist sequence) (default-walk this #f) #f)
+(define-nmethod (Switch.hoist sequence) (default-walk this #f) #f)
+(define-nmethod (Switch-Clause.hoist sequence) (default-walk this #f) #f)
 ;; Labelled just have been removed.
 (define-nmethod (Assig.hoist sequence) (default-walk this #f) #f)
 (define-nmethod (Call.hoist sequence)  (default-walk this #f) #f)
+(define-nmethod (New.hoist sequence) (default-walk this #f) #f)
 (define-nmethod (Access.hoist sequence) (default-walk this #f) #f)
 (define-nmethod (Literal.hoist sequence) (default-walk this #f) #f)
 (define-nmethod (Array.hoist sequence) (default-walk this #f) #f)

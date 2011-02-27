@@ -68,7 +68,7 @@
 		     (intercepted-ht (make-hashtable))
 		     (obj-id obj-id)
 		     (symbol-table symbol-table))
-		  (surrounding-interceptors)))))
+		  surrounding-interceptors))))
 
 ;; nearly the same as before. but this time we add the symbol-table.
 (define-nmethod (Decl-Intercept.with-interception symbol-table
