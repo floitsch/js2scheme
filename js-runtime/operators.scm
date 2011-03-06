@@ -183,16 +183,23 @@
 ;(define-inline (jsop-<< v1 v2)
 (define (jsop-<< v1 v2)
    ;; 11.7.1
-   ;; TODO: we need a 32bit datatype! '<<'
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (any->uint32 v2))
 	  (by (bit-and #x1F (flonum->fixnum n2))))
-      (elong->flonum (bit-lshelong n1 by))))
+      (if (=elong (maxvalelong) #ex7FFFFFFF)
+	  ;; elong is 32 bits long.
+	  (elong->flonum (bit-lshelong n1 by))
+	  ;; do sign extension by hand.
+	  (let* ((shifted (bit-lshelong n1 by))
+		 (sign-bit (bit-andelong shifted #ex80000000))
+		 (high-bits (*elong sign-bit (negelong #e1)))
+		 (shifted32 (bit-andelong shifted #exFFFFFFFF))
+		 (combined (bit-orelong shifted32 high-bits)))
+	  (elong->flonum combined)))))
 
 ;(define-inline (jsop->> v1 v2)
 (define (jsop->> v1 v2)
    ;; 11.7.2
-   ;; TODO: we need a 32bit datatype! '>>'
    (let* ((n1 (flonum->elong (any->int32 v1)))
 	  (n2 (any->uint32 v2))
 	  (by (bit-and #x1F (flonum->fixnum n2))))
@@ -203,15 +210,14 @@
    ;; 11.7.3
    ;; TODO: we need a 32bit datatype! '>>>'
    (let* ((v1_32 (any->uint32 v1))
-	  (n1 (flonum->elong v1_32))
+	  (n1 (flonum->llong v1_32))
 	  (n2 (any->uint32 v2))
 	  (by (bit-and #x1F (flonum->fixnum n2))))
       (if (zero? by)
 	  v1_32
-	  (let* ((tmp (bit-rshelong n1 1))
-		 ;; clear bit31 (in case nb was negative)
-		 (tmp2 (bit-andelong tmp #ex7FFFFFFF)))
-	     (elong->flonum (bit-rshelong tmp2 (-fx by 1)))))))
+	  (let* ((tmp (bit-rshllong n1 by))
+		 (tmp2 (bit-andllong tmp #lxFFFFFFFF)))
+	     (llong->flonum tmp2)))))
 
 (define (abstract-rel v1 v2 when-NaN)
    ;; 11.8.5

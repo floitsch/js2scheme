@@ -228,14 +228,24 @@
 
 (define-method (js-property-one-level-for-each o::Js-Global p)
    (with-access::Js-Global o (props)
-      (hashtable-for-each
-       props
-       (lambda (key obj)
-	  (cond
-	     ((Deleted-Property? obj) 'do-nothing)
-	     (else
-	      (with-access::Property-entry obj (attr val)
-		 (when val
-		    (with-access::Attributes attr
-			  (read-only deletable enumerable)
-		       (p key val read-only deletable enumerable))))))))))
+      ;; We can't use hashtable-for-each.
+      ;; If during the for-in loop implicitely declared variables become
+      ;; "alive" (or dead) they will be visited (or not).
+      (let ((els '()))
+	 (hashtable-for-each
+	  props
+	  (lambda (key obj)
+	     (cond
+		((Deleted-Property? obj) 'do-nothing)
+		(else
+		 (with-access::Property-entry obj (attr val)
+		    (when val
+		       (set! els (cons (cons key obj) els))))))))
+	 (for-each (lambda (stored)
+		      (let ((key (car stored))
+			    (obj (cdr stored)))
+			 (with-access::Property-entry obj (attr val)
+			    (with-access::Attributes attr
+				  (read-only deletable enumerable)
+			       (p key val read-only deletable enumerable)))))
+		   els))))

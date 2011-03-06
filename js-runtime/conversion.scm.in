@@ -27,6 +27,7 @@
    (export (js-boolify::bool any)
 	   (any->bool::bool any)
 	   (js-string->number::double str::@JS_STRING@)
+	   (hex-js-string->number::double str::@JS_STRING@)
 	   (any->number any)
 	   (any->primitive any hint)
 	   (finite->integer::double n::double)
@@ -79,46 +80,73 @@
 (define (any->bool::bool any)
    (js-boolify any))
 
+;; must not contain whitespaces or signs.
+(define (hex-js-string->number str)
+   (let ((str-len (js-string-length str))
+	 (val0 (char->integer #\0))
+	 (val9 (char->integer #\9))
+	 (vala (char->integer #\a))
+	 (valf (char->integer #\f))
+	 (valA (char->integer #\A))
+	 (valF (char->integer #\F)))
+      
+      (define (all-zero? pos)
+	 (or (>= pos str-len)
+	     (and (char=js-char? #\0 (js-string-ref str pos))
+		  (all-zero? (+fx pos 1)))))
+      
+      (let loop ((i 2) ;; skip the "0x"
+		 (acc #l0))
+	 ;; llong has at least 64 bits.
+	 ;; a double has 53 significand bits. (we don't have denormals
+	 ;; here).
+	 ;; Read in at most 60 bits (15 hex-chars).
+	 ;; If there are still digits left, represent them in the last bit
+	 ;; (if necessary).
+	 (cond
+	    ((>= i str-len)
+	     (tprint "shorter " acc)
+	     (llong->flonum acc))
+	    ((>= i 17) ;; 0x + 15 chars.
+	     (tprint "acc: " acc)
+	     (let* ((shortened (if (and (zerollong? (bit-andllong #l1 acc))
+					(not (all-zero? 17)))
+				   (+llong acc 1)
+				   acc))
+		    (d (llong->flonum shortened)))
+		(tprint "shortened: " shortened)
+		;; now "shift" the double by the discarded digits.
+		;; TODO: don't just shift 4 bits at a time.
+		(let liip ((discarded-digits (-fx str-len 17))
+			   (res d))
+		   (if (zerofx? discarded-digits)
+		       res
+		       (liip (-fx discarded-digits 1)
+			     (*fl res 16.0))))))
+	    (else
+	     (let* ((c (js-string-ref str i))
+		    (v (js-char->integer c)))
+		(cond
+		   ((and (>=fx v val0) (<=fx v val9))
+		    (loop (+fx i 1)
+			  (+llong (*llong acc 16)
+				  (fixnum->llong (-fx v val0)))))
+		   ((and (>=fx v vala) (<=fx v valf))
+		    (loop (+fx i 1)
+			  (+llong (*llong acc 16)
+				  (fixnum->llong (+fx 10 (-fx v vala))))))
+		   ((and (>=fx v valA) (<=fx v valF))
+		    (loop (+fx i 1)
+			  (+llong (*llong acc 16)
+				  (fixnum->llong (+fx 10 (-fx v valA))))))
+		   (else
+		    (error 'conversion
+			   "hex-js-string->number received non-hex string"
+			   str)))))))))
+
 (define (js-string->number str)
    (define whitespace? js-char-whitespace?)
 
-   ;; TODO: in C-mode we could theoretically use 'string->real' if the
-   ;; base-string has a fitting representation.
-   ;; TODO hex-string->real could be much faster.
-   ;;      In theory we should just take the 53 first bits, and adjust
-   ;;      the exponent accordingly.
-   (define (hex-string->real str)
-      (let ((str-len (js-string-length str))
-	    (val0 (char->integer #\0))
-	    (val9 (char->integer #\9))
-	    (vala (char->integer #\a))
-	    (valf (char->integer #\f))
-	    (valA (char->integer #\A))
-	    (valF (char->integer #\F)))
-	 (let loop ((i 2) ;; skip the "0x"
-		    (res 0.0))
-	    (if (>= i str-len)
-		res
-		(let* ((c (js-string-ref str i))
-		       (v (js-char->integer c)))
-		   (cond
-		      ((and (>=fx v val0) (<=fx v val9))
-		       (loop (+fx i 1)
-			     (+fl (*fl res 16.0)
-				  (fixnum->flonum (-fx v val0)))))
-		      ((and (>=fx v vala) (<=fx v valf))
-		       (loop (+fx i 1)
-			     (+fl (*fl res 16.0)
-				  (fixnum->flonum (+fx 10 (-fx v vala))))))
-		      ((and (>=fx v valA) (<=fx v valF))
-		       (loop (+fx i 1)
-			     (+fl (*fl res 16.0)
-				  (fixnum->flonum (+fx 10 (-fx v valA))))))
-		      (else
-		       (error 'conversion
-			      "hex-string->real received non-hex string"
-			      str))))))))
-   
    ;; remove whitespaces
    (define (strip str)
       (let ((str-len (js-string-length str)))
@@ -223,7 +251,7 @@
 	 ((js-string=ascii? stripped "-Infinity") -inf.0)
 	 ((js-string=ascii? stripped "Infinity") +inf.0)
 	 ((valid-hex-string? stripped)
-	  (hex-string->real stripped))
+	  (hex-js-string->number stripped))
 	 (else
 	  +nan.0))))
 

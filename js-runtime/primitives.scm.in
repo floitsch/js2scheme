@@ -60,5 +60,5 @@
 
 (define (js-for-in o::Js-Object f::procedure)
    (js-property-for-each o
-			 (lambda (prop val read-only? enumerable? enumerable?)
+			 (lambda (prop val read-only? deletable? enumerable?)
 			    (when enumerable? (f prop)))))

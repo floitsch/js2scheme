@@ -1,4 +1,5 @@
 (module scm-out
+   ;; import runtime for string operations and number conversion.
    (library js2scheme-runtime)
    (library utf)
    (import parser
@@ -943,9 +944,7 @@
 	     (hex? (or (string-prefix? "0x" str)
 		       (string-prefix? "0X" str)))
 	     (nb (if hex?
-		     (bignum->flonum
-		      (string->bignum
-		       (substring str 2 (string-length str)) 16))
+		     (hex-js-string->number (utf8->js-string str))
 		     (string->real str))))
 	 (cond
 	    ((flonum? nb)

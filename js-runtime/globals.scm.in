@@ -111,52 +111,66 @@
 	 (finitefl? n)))
 
    (define (parseInt string radix)  ;; 15.1.2.2
-      (define (white-space? c) (js-char-whitespace? c))
+      (define (whitespace? c) (js-char-whitespace? c))
 
-      (define (parseIntR s i R::bint sign::bint)
-	 (let ((str-len (js-string-length s)))
-	    (let loop ((i i)
-		       (res 0)
-		       (found-char #f))
-	       (if (>= i str-len)
-		   (if found-char
-		       (* 1.0 (* res sign)) ;; (* 1.0) -> flonum
-		       +nan.0)
-		   (let* ((c (js-string-ref s i))
-			  (ci (js-char->integer (js-string-ref s i)))
-			  (cv (cond
-				 ((and (js-char>=char? c #\0)
-				       (js-char<=char? c #\9))
-				  (-fx ci (char->integer #\0)))
-				 ((and (js-char>=char? c #\a)
-				       (js-char<=char? c #\z))
-				  (+fx 10 (-fx ci (char->integer #\a))))
-				 ((and (js-char>=char? c #\A)
-				       (js-char<=char? c #\Z))
-				  (+fx 10 (-fx ci (char->integer #\A))))
-				 (else
-				  99)))) ;; some big value
-		      (cond
-			 ((<fx cv R)
-			  (loop (+ i 1)
-				(+ (* R res) cv)
-				#t))
-			 ((and (not found-char)
-			       (white-space? c))
-			  (loop (+ i 1)
-				res
-				found-char))
-			 (else ;; loop with i == str-len. -> finishes
-			  (loop str-len
-				res
-				found-char))))))))
+      (define (parseIntR s start R::bint sign::bint)
+	 ;; if no valid char has been found just return +nan.0
+	 (define (substring->int s start end found-char)
+	    (cond
+	       ((not found-char)
+		+nan.0)
+	       ((and (= R 10) (= start 0) (= end (js-string-length s)))
+		(* sign (string->real (js-string->utf8 s))))
+	       ((= R 10)
+		(* sign (string->real
+			 (js-string->utf8 (js-substring s start end)))))
+	       (else
+		(let ((big (string->bignum
+			    (js-string->utf8 (js-substring s start end))
+			    R)))
+		   ;; we can't use bignum->flonum, as the function
+		   ;; doesn't round.
+		   (* sign (string->real (bignum->string big)))))))
+
+	 (define str-len (js-string-length s))
+	 (let loop ((start start)
+		    (i start)
+		    (found-char #f))
+	    (if (>= i str-len)
+		(substring->int s start i found-char)
+		(let* ((c (js-string-ref s i))
+		       (ci (js-char->integer (js-string-ref s i)))
+		       (cv (cond
+			      ((and (js-char>=char? c #\0)
+				    (js-char<=char? c #\9))
+			       (-fx ci (char->integer #\0)))
+			      ((and (js-char>=char? c #\a)
+				    (js-char<=char? c #\z))
+			       (+fx 10 (-fx ci (char->integer #\a))))
+			      ((and (js-char>=char? c #\A)
+				    (js-char<=char? c #\Z))
+			       (+fx 10 (-fx ci (char->integer #\A))))
+			      (else
+			       99)))) ;; some big value
+		   (cond
+		      ((<fx cv R)
+		       (loop start
+			     (+ i 1)
+			     #t))
+		      ((and (not found-char)
+			    (whitespace? c))
+		       (loop (+ start 1)
+			     (+ i 1)
+			     found-char))
+		      (else ;; loop with i == str-len. -> finishes
+		       (substring->int s start i found-char)))))))
       
       (define (first-non-white s)
 	 (let ((len (js-string-length s)))
 	    (let loop ((i 0))
 	       (cond
 		  ((>=fx i len) i)
-		  ((js-char-whitespace? (js-string-ref s i))
+		  ((whitespace? (js-string-ref s i))
 		   (loop (+fx i 1)))
 		  (else i)))))
 
