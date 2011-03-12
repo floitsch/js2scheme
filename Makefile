@@ -132,13 +132,14 @@ js2scheme-runtime-heap: $(UTF_HEAP)
 js-runtime/runtime-variables.sch: $(UTF_HEAP)
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime runtime-variables.sch
 
-runtime: $(JS2SCHEME_HEAP) $(UTF_HEAP)
+runtime: $(JS2SCHEME_HEAP) $(UTF_HEAP) \
+         js2scheme-runtime-heap js-runtime/runtime-variables.sch
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime
 
 $(UTF_HEAP): unicode
 
 unicode:
-	@$(MAKE) -C $(UTF_DIR)
+	@$(MAKE) PREFIX="$(PREFIX)$(UTF_DIR)/" -C $(UTF_DIR)
 
 #*---------------------------------------------------------------------*/
 #*    Implicit Rules                                                   */

@@ -36,7 +36,11 @@ all: $(UTF_INIT) \
 .PHONY: build-afile clean all
 
 .afile: $(SOURCES)
-	$(AFILE) -o $@ $(SOURCES)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo $(AFILE) -o $@ $(SOURCES); \
+	fi;
+	@ $(AFILE) -o $@ $(SOURCES)
 
 o/runtime.o: $(RUNTIME_SOURCES)
 
@@ -45,15 +49,27 @@ o/unicode/.keep:
 	touch $@;
 
 %.o: %.scm .afile
-	$(BIGLOO) $(BGL_FLAGS) -c -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo $(BIGLOO) $(BGL_FLAGS) -c -o $@ $<; \
+	fi;
+	@ $(BIGLOO) $(BGL_FLAGS) -c -o $@ $<
 
 os/%.o: %.scm .afile
 	@ mkdir -p os
-	$(BIGLOO) $(BSAFE_FLAGS) $(BGL_FLAGS) -c -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo $(BIGLOO) $(BSAFE_FLAGS) $(BGL_FLAGS) -c -o $@ $<; \
+	fi;
+	@ $(BIGLOO) $(BSAFE_FLAGS) $(BGL_FLAGS) -c -o $@ $<
 
 ou/%.o: %.scm .afile
 	@ mkdir -p ou
-	$(BIGLOO) $(BUNSAFE_FLAGS) $(BGL_FLAGS) -c -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo $(BIGLOO) $(BUNSAFE_FLAGS) $(BGL_FLAGS) -c -o $@ $<; \
+	fi;
+	@ $(BIGLOO) $(BUNSAFE_FLAGS) $(BGL_FLAGS) -c -o $@ $<
 
 clean:
 	rm -f $(OBJECTS_S) \
@@ -71,24 +87,64 @@ clean:
 	      .afile;
 
 $(UTF_INIT): utf.init.in utf-init-gen
-	./utf-init-gen -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo ./utf-init-gen -o $@ $<; \
+	fi;
+	@ ./utf-init-gen -o $@ $<
 
 $(UTF_HEAP): make-lib.scm utf.scm .afile utf-data.sch
-	bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(UTF_LIB) $< -addheap $@
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(UTF_LIB) $< -addheap $@; \
+	fi;
+	@ bigloo $(BGL_FLAGS) -mkaddheap -mkaddlib -heap-library $(UTF_LIB) $< -addheap $@
 $(UTF_LIB_A_S): $(UTF_HEAP) $(UTF_LIB_OBJECTS_S)
-	rm -f $@ && \
-	ar qcv $@ $(UTF_LIB_OBJECTS_S) && \
-	ranlib $@
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo rm -f $@ "&&" \
+	         ar qcv $@ $(UTF_LIB_OBJECTS_S) "&&" \
+	         ranlib $@; \
+	    rm -f $@ && \
+	    ar qcv $@ $(UTF_LIB_OBJECTS_S) && \
+	    ranlib $@; \
+	  else \
+	    rm -f $@ && \
+	    ar qcv $@ $(UTF_LIB_OBJECTS_S) > /dev/null && \
+	    ranlib $@ > /dev/null; \
+	  fi
 $(UTF_LIB_SO_S): $(UTF_HEAP) $(UTF_LIB_OBJECTS_S)
-	ld -G -o $@ $(UTF_LIB_OBJECTS_S)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	   echo $(LD) -G -o $@ $(UTF_LIB_OBJECTS_S); \
+	  fi
+	@ ld -G -o $@ $(UTF_LIB_OBJECTS_S)
 $(UTF_LIB_A_U): $(UTF_HEAP) $(UTF_LIB_OBJECTS_U)
-	rm -f $@ && \
-	ar qcv $@ $(UTF_LIB_OBJECTS_U) && \
-	ranlib $@
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	    echo rm -f $@ "&&" \
+	         ar qcv $@ $(UTF_LIB_OBJECTS_U) "&&" \
+	         ranlib $@; \
+	    rm -f $@ && \
+	    ar qcv $@ $(UTF_LIB_OBJECTS_U) && \
+	    ranlib $@; \
+	  else \
+	    rm -f $@ && \
+	    ar qcv $@ $(UTF_LIB_OBJECTS_U) > /dev/null && \
+	    ranlib $@ > /dev/null; \
+	  fi
 $(UTF_LIB_SO_U): $(UTF_HEAP) $(UTF_LIB_OBJECTS_U)
-	ld -G -o $@ $(UTF_LIB_OBJECTS_U)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	   echo $(LD) -G -o $@ $(UTF_LIB_OBJECTS_U); \
+	  fi;
+	@ ld -G -o $@ $(UTF_LIB_OBJECTS_U)
 $(UTF_LIB_SO_E): $(UTF_HEAP) $(UTF_LIB_OBJECTS_E) $(UTF_LIB_SO_S)
-	ld -G -o $@ $(UTF_LIB_OBJECTS_E) -L. -l$(UTF_LIB)_s-$(UTF_VERSION)
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo ld -G -o $@ $(UTF_LIB_OBJECTS_E) -L. -l$(UTF_LIB)_s-$(UTF_VERSION); \
+	  fi;
+	@ ld -G -o $@ $(UTF_LIB_OBJECTS_E) -L. -l$(UTF_LIB)_s-$(UTF_VERSION)
 
 # explicit deps
 os/utf.o: utf-data.sch utf-category-data.sch
@@ -97,12 +153,28 @@ ou/utf.o: utf-data.sch utf-category-data.sch
 make-lib.o: utf-data.sch
 
 utf-data.sch: unicode-reader
-	./unicode-reader > $@
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo ./unicode-reader > $@; \
+	fi;
+	@ ./unicode-reader > $@
 utf-category-data.sch: unicode-reader
-	./unicode-reader --categories > $@
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo ./unicode-reader --categories > $@; \
+	fi;
+	@ ./unicode-reader --categories > $@
 
 unicode-reader: unicode-reader.scm
-	bigloo -Wall -g -o $@ $^
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo $(BIGLOO) -Wall -g -o $@ $^; \
+	fi;
+	@ $(BIGLOO) -Wall -g -o $@ $^
 
 utf-init-gen: utf-init-gen.scm utf-category-data.sch
-	bigloo -Wall -g -o $@ $<
+	@ echo "[$(PREFIX)$@]"
+	@ if [ $(VERBOSE) ]; then \
+	  echo $(BIGLOO) -Wall -g -o $@ $<; \
+	fi;
+	@ $(BIGLOO) -Wall -g -o $@ $<
