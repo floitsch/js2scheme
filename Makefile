@@ -38,6 +38,8 @@ OBJECTS = $(OBFUSCATOR_OBJECTS) $(PP_OBJECTS) $(JS2SCHEME_OBJECTS) $(JS2SCHEME_L
 
 SOURCES = $(OBJECTS:o/%.o=%.scm)
 
+RUNTIME_VARIABLES = js-runtime/runtime-variables.sch
+
 UTF_LIB = utf
 UTF_DIR = unicode
 UTF_HEAP = $(UTF_DIR)/$(UTF_LIB).heap
@@ -106,7 +108,8 @@ js2scheme: $(JS2SCHEME_LIB_A) $(JS2SCHEME_OBJECTS) runtime
 	  fi;
 	@ $(BIGLOO) $(BGL_FLAGS) -o $@ $(JS2SCHEME_OBJECTS)
 
-o/symbol.o: js-runtime/runtime-variables.sch
+o/symbol.o: $(RUNTIME_VARIABLES)
+mco/symbol.mco: $(RUNTIME_VARIABLES)
 
 o/.keep:
 	mkdir -p o;
@@ -129,11 +132,11 @@ o/lexer.o: $(UTF_HEAP)
 js2scheme-runtime-heap: $(UTF_HEAP)
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime js2scheme-runtime.heap
 
-js-runtime/runtime-variables.sch: $(UTF_HEAP)
+$(RUNTIME_VARIABLES): $(UTF_HEAP)
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime runtime-variables.sch
 
 runtime: $(JS2SCHEME_HEAP) $(UTF_HEAP) \
-         js2scheme-runtime-heap js-runtime/runtime-variables.sch
+         js2scheme-runtime-heap $(RUNTIME_VARIABLES)
 	@ $(MAKE) PREFIX="$(PREFIX)js-runtime/" -C js-runtime
 
 $(UTF_HEAP): unicode
