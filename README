@@ -1,0 +1,16 @@
+As usual:
+ ./configure
+ make
+
+Js2Scheme does not have any install-target (although it should be very easy
+to add it).
+
+The easiest way to compile programs is to use the js2scm-comp script. It
+uses some targets in the Makefile to simplify the compilation.
+
+You can also look at the repl-directory for a small example.
+
+Note: js2scheme is quite complete, but far from perfect.
+The biggest problem is that the generated files are huge. I haven't spent much
+time on improving the situation, so maybe a solution is straight-forward.
+ 
