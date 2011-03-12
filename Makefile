@@ -51,7 +51,7 @@ all: $(JS2SCHEME_LIB_A) $(JS2SCHEME_LIB_SO) targets runtime unicode
 targets: $(TARGETNAMES)
 
 .PHONY: build-afile clean runtime unicode js2scheme-runtime-heap mco-clean dep \
-        test
+        test fetch-tests
 
 .afile: $(SOURCES)
 	@ echo "[$(PREFIX)$@]"
@@ -182,8 +182,13 @@ clean: mco-clean
 #*---------------------------------------------------------------------*/
 #*    Test                                                             */
 #*---------------------------------------------------------------------*/
+fetch-tests:
+	cd rhino-tests; \
+	cvs -d :pserver:anonymous@cvs-mirror.mozilla.org:/cvsroot co -D "Sat Mar 12 14:19:13 CET 2011" mozilla/js/tests; \
+	patch -p0 < jsDriver.patch
+
 test:
-	cd rhino-tests && \
+	cd rhino-tests/mozilla/js/tests && \
 	   ./jsDriver.pl -e js2scheme -t -l \
 	         ecma/Boolean ecma/ExecutionContexts ecma/Array ecma/Date \
 	         ecma/Expressions ecma/FunctionObjects ecma/GlobalObject \

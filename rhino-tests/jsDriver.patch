@@ -1,0 +1,30 @@
+--- mozilla/js/tests/jsDriver.pl.orig	2011-03-12 14:15:38.517463694 +0100
++++ mozilla/js/tests/jsDriver.pl	2011-03-12 14:15:44.254052886 +0100
+@@ -171,7 +171,7 @@
+     if ($opt_enable_narcissus == 1) {
+         $command .= " -e 'evaluate(\"load(\\\"$file\\\")\")'"
+     } else {
+-        $command .= " -f $file";
++        $command .= " $file";
+     }
+ }
+ 
+@@ -676,7 +676,7 @@
+        "(-e|--engine) <type> ...  Specify the type of engine(s) to test.\n" .
+        "                          <type> is one or more of\n" .
+        "                          (smopt|smdebug|lcopt|lcdebug|xpcshell|" .
+-       "rhino|rhinoi|rhinoms|rhinomsi|rhino9|rhinoms9).\n" .
++       "rhino|rhinoi|rhinoms|rhinomsi|rhino9|rhinoms9|js2scheme).\n" .
+        "(-f|--file) <file>        Redirect output to file named <file>.\n" .
+        "                          (default is " .
+        "results-<engine-type>-<date-stamp>.html)\n" .
+@@ -746,6 +746,9 @@
+         $opt_rhino_opt = 9;
+         $opt_rhino_ms = 1;
+         $retval = &get_rhino_engine_command;
++    } elsif ($opt_engine_type eq "js2scheme") {
++        &dd ("getting js2scheme engine command.");
++        $retval = "../../../../js2scm-comp";
+     } elsif ($opt_engine_type eq "xpcshell") {
+         &dd ("getting xpcshell engine command.");
+         $retval = &get_xpc_engine_command;
