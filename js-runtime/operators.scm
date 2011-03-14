@@ -171,12 +171,15 @@
 (define (jsop-% v1 v2)
    (let* ((n1 (any->number v1))
 	  (n2 (any->number v2)))
+      ;; maybe remainderfl would be good enough.
       (cond
 	 ((or (nanfl? n1)
 	      (nanfl? n2)
 	      (infinitefl? n1)
 	      (=fl n2 0.0))
 	  +nan.0)
+	 ((infinitefl? n2)
+	  n1)
 	 ((=fl n1 0.0)
 	  n1)
 	 (else

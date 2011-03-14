@@ -216,6 +216,11 @@
 	   (v)
 	   (logfl (any->number v))))
 
+(define (my-max-2fl x y)
+   (if (or (nanfl? x) (nanfl? y))
+       +nan.0
+       (max-2fl x y)))
+       
 (define (max)                           ;; 15.8.2.11
    (js-fun
     #f #f
@@ -226,7 +231,7 @@
 	;; ensure left-to-right order
 	(let* ((xfl (any->number x))
 	       (yfl (any->number y)))
-	   (max-2fl xfl yfl)))
+	   (my-max-2fl xfl yfl)))
        ((=fx nb-args 0)
 	-inf.0)
        ((=fx nb-args 1)
@@ -235,10 +240,15 @@
 	(let loop ((m (any->number x))
 		   (i 1))
 	   (if (<fx i nb-args)
-	       (loop (max-2fl m (any->number (get-arg i)))
+	       (loop (my-max-2fl m (any->number (get-arg i)))
 		     (+fx i 1))
 	       m))))))
 
+(define (my-min-2fl x y)
+   (if (or (nanfl? x) (nanfl? y))
+       +nan.0
+       (min-2fl x y)))
+       
 (define (min)                           ;; 15.8.2.12
    (js-fun
     #f #f
@@ -249,7 +259,7 @@
 	;; ensure left-to-right order
 	(let* ((xfl (any->number x))
 	       (yfl (any->number y)))
-	   (min-2fl xfl yfl)))
+	   (my-min-2fl xfl yfl)))
        ((=fx nb-args 0)
 	+inf.0)
        ((=fx nb-args 1)
@@ -258,7 +268,7 @@
 	(let loop ((m (any->number x))
 		   (i 1))
 	   (if (<fx i nb-args)
-	       (loop (min-2fl m (any->number (get-arg i)))
+	       (loop (my-min-2fl m (any->number (get-arg i)))
 		     (+fx i 1))
 	       m))))))
 
@@ -268,9 +278,15 @@
 	   (let* ((x (any->number x-any))
 		  (y (any->number y-any)))
 	      (cond
+		 ((nanfl? y)
+		  +nan.0)
+		 ((=fl y 0.0)  ;; covers both -0.0 and 0.0.
+		  1.0)
+		 ((nanfl? x)  ;; y must be != 0.0.
+		  +nan.0)
 		 ((and (or (=fl x 1.0)
 			   (=fl x -1.0))
-		       (or (infinitefl? y)))
+		       (infinitefl? y))
 		  +nan.0)
 		 (else
 		  (exptfl x y))))))
@@ -296,7 +312,8 @@
 		 ((or (>fl v 0.0)
 		      (<fl v -0.5))
 		  (floorfl (+fl v 0.5)))
-		 ((=fl v 0.0) ;; could be -0.0 too
+		 ((or (=fl v 0.0) ;; could be -0.0 too
+		      (nanfl? v))
 		  v)
 		 (else -0.0)))))
 
