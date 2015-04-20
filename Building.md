@@ -1,0 +1,1 @@
+js2cheme was developed for Bigloo 3.6a. Since then Bigloo changed its class structure (in version 3.8a). As a consequence js2scheme won't compile with newer versions of Bigloo anymore.
